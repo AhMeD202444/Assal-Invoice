@@ -317,13 +317,16 @@ body{
 .btn.blue{ background:linear-gradient(135deg,#60a5fa,#2563eb); color:#0b0d13; }
 
 /* Table */
-/* Table */
-.table-wrap{
+.table-wrap {
   padding: 0;
-  overflow-x: auto;            /* يطلع سكرول إذا الجدول أعرض من الشاشة */
+  overflow-x: auto;              /* يطلع سكرول إذا الجدول أعرض من الشاشة */
   -webkit-overflow-scrolling: touch; /* سلاسة على iOS */
   border-radius: 14px;
+
+  max-height: 300px;             /* يحدد أقصى ارتفاع (تقديراً 5 صفوف) */
+  overflow-y: auto;              /* يخلي سكرول عمودي إذا تعدى 5 صفوف */
 }
+
 
 table{
   width: 100%;
@@ -349,6 +352,59 @@ tbody tr:last-child td{ border-bottom:none; }
   transition: transform var(--speed), background var(--speed);
 }
 .btn-danger-custom:hover{ background: rgba(255,255,255,.14); transform: translateY(-2px); color:#fff; }
+
+
+
+/* ====== تنسيق الجدول داخل الواجهة ====== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--stroke);   /* حدود خارجية */
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* رأس الجدول */
+thead th {
+  background: linear-gradient(135deg, #1e293b, #0f172a); /* تدرج داكن أنيق (كحلي/أسود مزرق) */
+  color: #f1f5f9;                          /* نص فاتح جداً (رمادي مائل للأبيض) */
+  font-weight: 700;                        /* خط عريض */
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,.08); /* حدود ناعمة جداً */
+  text-align: center;
+  letter-spacing: .5px;                    /* مسافة بسيطة بين الحروف */
+  font-size: 15px;
+  text-transform: none;                    /* نخلي النص طبيعي بدون أحرف كبيرة */
+  box-shadow: inset 0 -1px 6px rgba(0,0,0,.4); /* ظل داخلي غامق يضيف عمق */
+}
+
+
+/* الخلايا */
+tbody td {
+  padding: 12px;
+  border: 1px solid #cbd5e1;  /* خطوط ناعمة بين الخلايا */
+  text-align: center;
+  font-size: 14px;
+  color: #0f172a;             /* نص داكن واضح */
+}
+
+/* تلوين الصفوف بالتناوب */
+/* صفوف الجدول */
+tbody tr:nth-child(even) {
+  background-color: #f8fafc;  /* لون فاتح للصفوف الزوجية */
+}
+tbody tr:nth-child(odd) {
+  background-color: #e2e8f0;  /* لون أغمق شوي للصفوف الفردية */
+}
+
+/* عند المرور بالماوس */
+tbody tr:hover {
+  background: rgba(33,212,253,.15);  /* هايلايت أنيق */
+  transition: background 0.3s ease;
+}
+
+
+
 
 /* Floating button */
 .fab{
