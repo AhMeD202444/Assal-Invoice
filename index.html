@@ -18,7 +18,7 @@
 
   <style>
   
-  
+
   
   /* نافذة منبثقة */
 #reloadModal {
@@ -139,17 +139,23 @@ body{
 /* موبايل */
 @media (max-width: 576px){
   .layout{
-    grid-template-columns: 1fr;
-    padding:0 10px;
-    margin:14px auto;
+    display: flex;             /* بدل Grid حتى نستخدم order */
+    flex-direction: column;
+    padding: 0 10px;
+    margin: 14px auto;
   }
-  .sidebar {
-    order: 2; /* السايدبار ينزل جوة */
-  }
-  .content {
-    order: 1; /* المحتوى يطلع فوق */
-  }
+  .content { order: 1; }
+  .sidebar { order: 2; }
 }
+
+
+@media (max-width: 768px){
+  .editor > div{
+    flex-direction: column;    /* أي سطر داخله display:flex (مثل العدد+الملاحظات/الأزرار) يصير عمودي */
+  }
+  .editor .ginput{ flex: 1 1 100%; }
+}
+
 
 
 /* ====== Sidebar ====== */
@@ -311,29 +317,31 @@ body{
 .btn.blue{ background:linear-gradient(135deg,#60a5fa,#2563eb); color:#0b0d13; }
 
 /* Table */
-.table-wrap{ padding:0; overflow-x:auto; border-radius:14px; }
-table{
-  width:100%;
-  min-width:100%;
-  border-collapse: collapse;
-  background: rgba(255,255,255,.04);
-  border:1px solid var(--stroke);
-  border-radius:14px;
-  overflow:hidden;
+/* Table */
+.table-wrap{
+  padding: 0;
+  overflow-x: auto;            /* يطلع سكرول إذا الجدول أعرض من الشاشة */
+  -webkit-overflow-scrolling: touch; /* سلاسة على iOS */
+  border-radius: 14px;
 }
 
-thead th{
-  background: linear-gradient(90deg, rgba(33,212,253,.18), rgba(109,94,252,.18));
-  color:#dfe6ff;
-  padding:14px;
-  font-weight:800;
-  border-bottom:1px solid var(--stroke);
-  text-align:center;
+table{
+  width: 100%;
+  min-width: 680px;            /* نخلي الجدول أكبر شوية حتى يطلع Scroll بالموبايل */
+  border-collapse: collapse;
+  table-layout: fixed;         /* حتى يلفّ النص داخل الخلايا */
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+  overflow: hidden;
 }
-tbody td{
-  padding:14px; text-align:center; border-bottom:1px dashed rgba(255,255,255,.08);
-  color:#eaf0ff;
+
+thead th, tbody td{
+  word-break: break-word;      /* يكسر الكلمات الطويلة داخل الخلية */
+  text-align: center;
+  padding: 14px;
 }
+
 tbody tr:last-child td{ border-bottom:none; }
 .btn-danger-custom{
   width:36px; height:36px; display:grid; place-items:center; border-radius:10px; color:#fff;
