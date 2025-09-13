@@ -139,10 +139,18 @@ body{
 /* موبايل */
 @media (max-width: 576px){
   .layout{
+    grid-template-columns: 1fr;
     padding:0 10px;
     margin:14px auto;
   }
+  .sidebar {
+    order: 2; /* السايدبار ينزل جوة */
+  }
+  .content {
+    order: 1; /* المحتوى يطلع فوق */
+  }
 }
+
 
 /* ====== Sidebar ====== */
 .sidebar{
@@ -227,7 +235,16 @@ body{
   .grid{ grid-template-columns: repeat(2,1fr); }
 }
 @media (max-width: 576px){
-  .grid{ grid-template-columns: 1fr; }
+  .editor .ginput {
+    flex: 1 1 100%;
+  }
+  .editor > div {
+    flex-direction: column;
+  }
+  .gfield, .btn {
+    font-size:14px;
+    padding:10px 12px;
+  }
 }
 
 .card{
@@ -297,13 +314,14 @@ body{
 .table-wrap{ padding:0; overflow-x:auto; border-radius:14px; }
 table{
   width:100%;
-  min-width:500px;   /* مهم لظهور scroll */
+  min-width:100%;
   border-collapse: collapse;
   background: rgba(255,255,255,.04);
   border:1px solid var(--stroke);
   border-radius:14px;
   overflow:hidden;
 }
+
 thead th{
   background: linear-gradient(90deg, rgba(33,212,253,.18), rgba(109,94,252,.18));
   color:#dfe6ff;
