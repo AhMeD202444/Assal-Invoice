@@ -597,7 +597,13 @@ tbody tr:hover {
   <!-- اسم القطعة -->
   <div class="ginput">
     <div style="position:relative;">
-      <input id="searchInput" class="gfield" type="text" placeholder="اكتب اسم القطعة..." oninput="showSuggestions()" />
+      
+      
+   <input id="searchInput" class="gfield" type="text" placeholder="اكتب اسم القطعة..." 
+       lang="en" style="ime-mode:disabled;" oninput="showSuggestions()" />
+     
+     
+     
       <ul id="autocompleteSuggestions"></ul>
     </div>
   </div>
@@ -614,7 +620,15 @@ tbody tr:hover {
 
   <!-- أزرار -->
   <div class="ginput" style="display:flex; gap:10px;">
-    <button class="btn" onclick="addItem()"><i class="fa-solid fa-plus"></i> إضافة</button>
+    
+    
+    
+   <button id="btnAddItem" class="btn" type="button" onclick="addItem()">
+  <i class="fa-solid fa-plus"></i> إضافة
+</button>
+    
+    
+    
     <button class="btn green" onclick="saveInvoice()"><i class="fa-regular fa-floppy-disk"></i> حفظ</button>
     <button class="btn blue" onclick="exportPDF()"><i class="fa-regular fa-file-pdf"></i> PDF</button>
   </div>
@@ -735,64 +749,72 @@ function reloadPage(){
     /* =========================
        اقتراحات البحث حسب الصنف
        ========================= */
-    function showSuggestions(){
-      const q = normalizeString(document.getElementById("searchInput").value.trim());
-      const suggestions = document.getElementById("autocompleteSuggestions");
-      suggestions.innerHTML = "";
-      suggestions.style.display = "none";
+  function showSuggestions(){
+  const q = normalizeString(document.getElementById("searchInput").value.trim());
+  const suggestions = document.getElementById("autocompleteSuggestions");
+  suggestions.innerHTML = ""; 
+  suggestions.style.display = "none";
 
-      const catVal = document.getElementById("categorySelect").value;
-      if(!q || !catVal) return;
+  if(!q || !document.getElementById("categorySelect").value) return;
+  currentCategory = document.getElementById("categorySelect").value;
+  if(currentCategory === "NO-CATEGORY") return;
 
-      // إذا بدون صنف -> ماكو اقتراحات
-      if(catVal === "NO-CATEGORY") return;
+  const list = database[currentCategory] || [];
+  const filtered = list.filter(it=>{
+    const name = normalizeString(it["Item Name"] || it["Item"] || "");
+    return name.includes(q);
+  });
 
-      const list = database[catVal] || [];
-      const filtered = list.filter(it=>{
-        const name = normalizeString(it["Item Name"] || it["Item"] || "");
-        return name.includes(q);
-      }).slice(0, 10);
+  if(filtered.length > 0){
+    suggestions.style.display = "block";
+    filtered.slice(0,8).forEach(it=>{
+      const li = document.createElement("li");
+      li.className = "list-group-item list-group-item-action";
+      li.textContent = it["Item Name"] || it["Item"];
 
-      if(filtered.length > 0){
-        suggestions.style.display = "block";
-        filtered.forEach(it=>{
-          const li = document.createElement("li");
-          li.textContent = it["Item Name"] || it["Item"];
-          li.onclick = ()=>{
-            document.getElementById("searchInput").value = li.textContent;
-            suggestions.style.display = "none";
-          };
-          suggestions.appendChild(li);
-        });
-      }
-    }
+      // التعديل هنا 👇
+      li.addEventListener("click", ()=>{
+        document.getElementById("searchInput").value = li.textContent;
+        suggestions.style.display = "none";
+        document.getElementById("itemQty").focus(); // ينزل مباشرة على العدد
+      });
+
+      suggestions.appendChild(li);
+    });
+  }
+}
+
 
     /* =========================
        إضافة مادة للفاتورة
        ========================= */
     function addItem(){
-      if(!currentInvoice){
-        showToast("أنشئ فاتورة جديدة أولاً ❗", true);
-        return;
-      }
-      const category = document.getElementById("categorySelect").value;
-      const name = document.getElementById("searchInput").value.trim();
-      const qty  = document.getElementById("itemQty").value.trim() || "1";
-      const note = document.getElementById("itemNote").value.trim() || "";
+  if(!currentInvoice){
+    showToast("⚠️ أنشئ فاتورة جديدة أولاً","danger");
+    return;
+  }
 
-      if(!category || !name){
-        showToast("أدخل الصنف واسم القطعة ⚠️", true);
-        return;
-      }
+  const category=document.getElementById("categorySelect").value;
+  const name=document.getElementById("searchInput").value.trim();
+  const qty=document.getElementById("itemQty").value.trim()||"1";
+  const note=document.getElementById("itemNote").value.trim()||"";
 
-      currentInvoice.items.push({ category, name, qty, note });
-      renderItems();
+  if(!category||!name){
+    showToast("⚠️ أدخل الصنف واسم القطعة","danger");
+    return;
+  }
 
-      // تنظيف الحقول بعد الإضافة
-      document.getElementById("searchInput").value = "";
-      document.getElementById("itemQty").value = "";
-      document.getElementById("itemNote").value = "";
-    }
+  currentInvoice.items.push({category,name,qty,note});
+  renderItems();
+
+  // هنا الإشعار السريع بعد الإضافة
+  showToast("✅ تمت إضافة المادة بنجاح","success");
+
+  // تصفير الحقول
+  document.getElementById("searchInput").value="";
+  document.getElementById("itemQty").value="";
+  document.getElementById("itemNote").value="";
+}
 
     /* =========================
        رسم جدول العناصر
@@ -857,6 +879,23 @@ function reloadPage(){
       renderInvoicesDropdown();
       showToast("تم حفظ الفاتورة 💾");
     }
+    
+    
+    
+    function autoSaveInvoice(){
+  if(!currentInvoice) return;
+  if(selectedInvoiceIndex!==null){
+    invoices[selectedInvoiceIndex] = currentInvoice;
+  } else {
+    invoices.push(currentInvoice);
+    selectedInvoiceIndex = invoices.length - 1;
+  }
+  localStorage.setItem("invoices", JSON.stringify(invoices));
+  renderInvoicesDropdown();
+}
+
+    
+    
 
     function renderInvoicesDropdown(){
       const wrap = document.getElementById("invoicesDropdown");
@@ -989,15 +1028,16 @@ function reloadPage(){
       catList.style.display = visible ? 'none' : 'block';
     });
 
-    document.querySelectorAll('.cat-item').forEach(it=>{
-      it.addEventListener('click', ()=>{
-        const val = it.getAttribute('data-val');
-        document.getElementById('categorySelect').value = val;              // نحدّث قيمة الصنف (القديم)
-        catText.innerHTML = it.innerHTML;                                   // نحدّث نص زر القائمة
-        catList.style.display='none';
-        showToast('تم اختيار الصنف ✅');
-      });
-    });
+   document.querySelectorAll('.cat-item').forEach(it=>{
+  it.addEventListener('click', ()=>{
+    const val = it.getAttribute('data-val');
+    document.getElementById('categorySelect').value = val;              // نحدّث قيمة الصنف (القديم)
+    catText.innerHTML = it.innerHTML;                                   // نحدّث نص زر القائمة
+    catList.style.display='none';
+    showToast('تم اختيار الصنف ✅');
+    document.getElementById("searchInput").focus(); // ينقلك مباشرة لاسم القطعة
+  });
+});
 
     // إغلاق القائمة بالنقر خارجها
     document.addEventListener('click', ()=> { catList.style.display='none'; });
@@ -1009,6 +1049,42 @@ function reloadPage(){
       loadExcelFiles();
       renderInvoicesDropdown();
     });
+    
+    
+    
+     // ربط Enter بالتنقل بين الحقول
+  document.getElementById("searchInput").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+      e.preventDefault(); // يمنع إدخال سطر جديد
+      document.getElementById("itemQty").focus(); // ينقلك لحقل العدد
+    }
+  });
+
+  document.getElementById("itemQty").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      document.getElementById("itemNote").focus(); // ينقلك لحقل الملاحظات
+    }
+  });
+    
+    
+  document.getElementById("itemNote").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") {
+    e.preventDefault(); 
+
+    if (!currentInvoice) {
+      showToast("⚠️ أنشئ فاتورة جديدة أولاً", "danger");
+      return;
+    }
+
+    addItem(); 
+    autoSaveInvoice(); // ⬅️ يخزن الفاتورة تلقائي بعد الإضافة
+    showToast("✅ تمت إضافة المادة وحفظ الفاتورة", "success");
+    document.getElementById("searchInput").focus();
+  }
+});
+
+    
   </script>
   
   
