@@ -1483,14 +1483,6 @@ function addItem(){
   const db = window.db || getFirestore();
   const auth = getAuth();
 
-  // يحوّل أي نص إلى معرّف آمن (يشيل / والمسافات…)
-  function slugId(str){
-    return String(str || "")
-      .replace(/[\/\\?#\[\]\.%]/g, "-")  // يشيل /
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .trim();
-  }
 
   // يصنع docId آمن ومميز
   function makeDocId(inv){
@@ -1499,13 +1491,25 @@ function addItem(){
     return `inv-${iso}${pretty ? '-' + pretty : ''}`;
   }
 
- // دالة حفظ الفاتورة محلي + على السحابة
+ 
+// يحوّل أي نص إلى ID آمن
+function slugId(str){
+  return String(str || "")
+    .replace(/[\/\\?#\[\]\.%]/g, "-")  // يشيل / \ % ...
+    .replace(/\s+/g, "-")              // يحول المسافات إلى -
+    .replace(/-+/g, "-")               // يشيل التكرار
+    .trim();
+}
+
+
+// دالة حفظ الفاتورة محلي + على السحابة
 window.saveInvoice = async function () {
   try {
     if (!window.currentInvoice) {
       window.newInvoice && window.newInvoice();
     }
 
+    // تحديث أو إدخال محلي
     if (window.selectedInvoiceIndex !== null) {
       window.invoices[window.selectedInvoiceIndex] = window.currentInvoice;
     } else {
@@ -1513,7 +1517,7 @@ window.saveInvoice = async function () {
       window.selectedInvoiceIndex = window.invoices.length - 1;
     }
 
-    // ✅ تحديد حد أقصى (3 فواتير فقط)
+    // حد أقصى 3 فواتير
     if (window.invoices.length > 3) {
       window.invoices.shift();
       window.selectedInvoiceIndex = window.invoices.length - 1;
@@ -1524,22 +1528,18 @@ window.saveInvoice = async function () {
 
     const user = auth.currentUser;
     if (!user) {
-      setTimeout(()=>{
-        window.showToast("⚠️ تم الحفظ محليًا فقط (سجّل الدخول للتخزين السحابي)", "info");
-      }, 500);
+      setTimeout(()=> window.showToast("⚠️ تم الحفظ محليًا فقط", "info"), 500);
       return;
     }
 
-    // ✅ استخدام معرّف آمن (بدون /)
-    const invoiceId = window.currentInvoice.id || `INV-${Date.now()}`;
-    await setDoc(doc(db, "users", user.uid, "invoices", invoiceId), window.currentInvoice);
+    // ✅ استعمال slugId
+    const safeId = slugId(window.currentInvoice.id || `INV-${Date.now()}`);
+    await setDoc(doc(db, "users", user.uid, "invoices", safeId), window.currentInvoice);
 
-    setTimeout(()=>{
-      window.showToast("☁️ تم الحفظ محليًا + على السحابة", "success");
-    }, 1200);
+    setTimeout(()=> window.showToast("☁️ تم الحفظ محليًا + على السحابة", "success"), 1200);
 
   } catch (err) {
-    console.error("❌ خطأ حفظ فايربيس:", err);
+    console.error("❌ خطأ حفظ:", err);
     window.showToast("❌ تعذر الحفظ على السحابة", "danger");
   }
 };
