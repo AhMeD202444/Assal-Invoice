@@ -1560,24 +1560,74 @@ window.saveInvoice = async function () {
     const user = auth.currentUser;
     if (!user) {
       setTimeout(()=> window.showToast("⚠️ تم الحفظ محليًا فقط", "info"), 500);
-      return;
-    }
+<script type="module">
+  import { getFirestore, doc, setDoc } 
+    from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+  import { getAuth } 
+    from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
-    // ✅ استعمال slugId
-    const safeId = slugId(window.currentInvoice.id || `INV-${Date.now()}`);
-    await setDoc(doc(db, "users", user.uid, "invoices", safeId), window.currentInvoice);
+  const db = window.db || getFirestore();
+  const auth = getAuth();
 
-    setTimeout(()=> window.showToast("☁️ تم الحفظ محليًا + على السحابة", "success"), 1200);
-
-  } catch (err) {
-    console.error("❌ خطأ حفظ:", err);
-    window.showToast("❌ تعذر الحفظ على السحابة", "danger");
+  function slugId(str){
+    return String(str || "")
+      .replace(/[\/\\?#\[\]\.%]/g, "-")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim();
   }
-};
 
+  // حفظ الفاتورة محلي + سحابي مع تثبيت docId
+  window.saveInvoice = async function () {
+    try {
+      if (!window.currentInvoice) {
+        window.newInvoice && window.newInvoice();
+      }
 
+      // تحديث محلي
+      if (window.selectedInvoiceIndex !== null) {
+        window.invoices[window.selectedInvoiceIndex] = window.currentInvoice;
+      } else {
+        window.invoices.push(window.currentInvoice);
+        window.selectedInvoiceIndex = window.invoices.length - 1;
+      }
+
+      // حد أقصى 3 فواتير محلياً (حسب ما كنت مسوي)
+      if (window.invoices.length > 3) {
+        window.invoices.shift();
+        window.selectedInvoiceIndex = window.invoices.length - 1;
+      }
+
+      localStorage.setItem("invoices", JSON.stringify(window.invoices));
+      window.renderInvoicesDropdown && window.renderInvoicesDropdown();
+
+      const user = auth.currentUser;
+      if (!user) {
+        setTimeout(()=> window.showToast && window.showToast("⚠️ تم الحفظ محليًا فقط", "info"), 500);
+        return;
+      }
+
+      // 👈 نثبت docId محليًا حتى نقدر نطابق الفاتورة عند وصول تغييرات Realtime
+      const safeId = slugId(window.currentInvoice.docId || window.currentInvoice.id || `INV-${Date.now()}`);
+      window.currentInvoice.docId = safeId;
+
+      // payload اللي يتخزن
+      const payload = {
+        id:    window.currentInvoice.id,
+        date:  window.currentInvoice.date,
+        items: Array.isArray(window.currentInvoice.items) ? window.currentInvoice.items : []
+      };
+
+      // نستخدم merge:true حتى ما نطيح بمشاكل حقول ثانية مستقبلاً
+      await setDoc(doc(db, "users", user.uid, "invoices", safeId), payload, { merge: true });
+
+      setTimeout(()=> window.showToast && window.showToast("☁️ تم الحفظ محليًا + على السحابة", "success"), 800);
+    } catch (err) {
+      console.error("❌ خطأ حفظ:", err);
+      window.showToast && window.showToast("❌ تعذر الحفظ على السحابة", "danger");
+    }
+  };
 </script>
-
 
 
 
@@ -1592,39 +1642,90 @@ window.saveInvoice = async function () {
   const db = window.db || getFirestore();
   const auth = getAuth();
 
-  // 👇 مراقبة التغييرات على الفواتير (Realtime)
+  // نحوّل الدوك إلى كائن فاتورة موحد
+  function toInvoice(docSnap){
+    const data = docSnap.data() || {};
+    return {
+      id:    data.id   || docSnap.id,        // الاسم المقروء
+      date:  data.date || "",                // تاريخك الحالي (نصي)
+      items: Array.isArray(data.items) ? data.items : [],
+      docId: docSnap.id                      // ID الحقيقي في فايرستور
+    };
+  }
+
+  // نطبّق التغيير على الذاكرة المحلية + UI
+  function applyChange(change){
+    const inv = toInvoice(change.doc);
+
+    if (change.type === "added") {
+      // ما نضيف مرتين لنفس docId
+      if (!window.invoices.some(x => x.docId === inv.docId)) {
+        window.invoices.push(inv);
+      }
+    }
+    else if (change.type === "modified") {
+      const idx = window.invoices.findIndex(x => x.docId === inv.docId);
+      if (idx !== -1) window.invoices[idx] = inv;
+    }
+    else if (change.type === "removed") {
+      window.invoices = window.invoices.filter(x => x.docId !== inv.docId);
+    }
+
+    // إذا الفاتورة المفتوحة هي نفسها
+    if (window.currentInvoice && window.currentInvoice.docId === inv.docId) {
+      if (change.type === "removed") {
+        window.currentInvoice = null;
+        window.selectedInvoiceIndex = null;
+        const idEl = document.getElementById("invoiceId");
+        if (idEl) idEl.textContent = "-";
+        window.renderItems && window.renderItems();
+        window.showToast && window.showToast("⚠️ تم حذف الفاتورة المفتوحة من جهاز آخر", true);
+      } else {
+        // تحديث فوري للمحرر والجدول
+        window.currentInvoice = inv;
+        window.selectedInvoiceIndex = window.invoices.findIndex(x => x.docId === inv.docId);
+        const idEl = document.getElementById("invoiceId");
+        if (idEl) idEl.textContent = inv.id;
+        window.renderItems && window.renderItems();
+        // ممكن تتجنب السبام وتلغي التوست هنانا إذا تحب
+        // window.showToast && window.showToast("🔄 تم تحديث الفاتورة المفتوحة من جهاز آخر");
+      }
+    }
+  }
+
+  // 🔴 Listener حي للفواتير
   window.listenInvoicesFromFirebase = function (user) {
     const colRef = collection(db, "users", user.uid, "invoices");
 
-    // onSnapshot يشتغل كل ما يتغير شي
     onSnapshot(colRef, (snap) => {
-      const cloudInvoices = snap.docs.map(d => {
-        const data = d.data() || {};
-        return {
-          id: data.id || d.id,
-          date: data.date || "",
-          items: Array.isArray(data.items) ? data.items : [],
-          docId: d.id
-        };
+      let changed = false;
+
+      snap.docChanges().forEach((change) => {
+        applyChange(change);
+        changed = true;
       });
 
-      // نخزن محلي ونحدث القائمة
-      window.invoices = cloudInvoices;
-      localStorage.setItem("invoices", JSON.stringify(window.invoices));
-      window.renderInvoicesDropdown && window.renderInvoicesDropdown();
+      if (changed) {
+        // نضبط selectedInvoiceIndex بعد التحديث
+        if (window.currentInvoice) {
+          window.selectedInvoiceIndex = window.invoices.findIndex(
+            inv => inv.docId === window.currentInvoice.docId
+          );
+        }
 
-      window.showToast(`🔄 تمت مزامنة (${cloudInvoices.length}) فاتورة`, "success");
+        // نخزن محلي + نعيد رسم اللستة
+        localStorage.setItem("invoices", JSON.stringify(window.invoices));
+        window.renderInvoicesDropdown && window.renderInvoicesDropdown();
+      }
     }, (err) => {
-      console.error("❌ خطأ بالمزامنة:", err);
-      window.showToast("❌ تعذر المزامنة مع السحابة", true);
+      console.error("❌ خطأ متابعة الفواتير:", err);
+      window.showToast && window.showToast("❌ تعذر متابعة الفواتير", "danger");
     });
   };
 
-  // 👇 عند تسجيل الدخول نبدأ المراقبة
+  // عند تسجيل الدخول، يبدأ الاستماع للفواتير مباشرة
   onAuthStateChanged(auth, (user) => {
-    if (user) {
-      window.listenInvoicesFromFirebase(user);
-    }
+    if (user) window.listenInvoicesFromFirebase(user);
   });
 </script>
 
@@ -1695,4 +1796,5 @@ window.addEventListener("unhandledrejection", function(e) {
   
 </body>
 </html>
+
 
