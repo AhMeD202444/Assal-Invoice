@@ -1308,14 +1308,13 @@ function addItem(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
 
-  // ✨ نرتب أولاً حسب الصنف وبعدها الاسم
+  // ✨ ترتيب حسب الصنف والاسم
   const sortedItems = [...(currentInvoice.items || [])].sort((a, b) => {
     const catCompare = (a.category || "").localeCompare(b.category || "", "ar", { sensitivity: "base" });
     if (catCompare !== 0) return catCompare;
     return (a.name || "").localeCompare(b.name || "", "ar", { sensitivity: "base" });
   });
 
-  // ✨ أبعاد الصفحة
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -1330,20 +1329,19 @@ function addItem(){
   doc.text("YOUR BEST CHOICE", pageWidth / 2, 85, { align: "center" });
 
   // ✨ معلومات الفاتورة
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(12);
-  doc.setTextColor(0);
-
   const today = new Date();
   const invoiceDate = today.toLocaleDateString("en-GB");
   const invoiceId = `INV-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, "0")}${today.getDate().toString().padStart(2, "0")}`;
 
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(0);
   doc.text(`Invoice ID: ${invoiceId}`, pageWidth - 60, 120, { align: "right" });
   doc.text(`Date: ${invoiceDate}`, 60, 120, { align: "left" });
 
-  // ✨ جدول مع ترتيب الصنف + الاسم
+  // ✨ جدول العناصر
   doc.autoTable({
-    head: [["#", "Category", "Item", "Quantity", "Notes"]],
+    head: [["#", "الصنف", "القطعة", "العدد", "ملاحظات"]],
     body: sortedItems.map((it, i) => [i + 1, it.category, it.name, it.qty, it.note]),
     startY: 160,
     theme: "grid",
@@ -1352,24 +1350,24 @@ function addItem(){
     alternateRowStyles: { fillColor: [245, 245, 245] },
     margin: { left: 50, right: 50 },
     didDrawPage: (data) => {
-      // ⬛ إعادة رسم الإطار في كل صفحة
+      // ⬛ الإطار في كل صفحة
       doc.setDrawColor(80, 80, 80);
       doc.setLineWidth(1.5);
       doc.rect(30, 30, pageWidth - 60, pageHeight - 60, "S");
 
-      // ✨ إضافة ترقيم الصفحة
+      // ✨ ترقيم الصفحات
       const pageCount = doc.internal.getNumberOfPages();
       const pageCurrent = doc.internal.getCurrentPageInfo().pageNumber;
       doc.setFontSize(10);
       doc.setTextColor(100);
-      doc.text(`Page ${pageCurrent} of ${pageCount}`, pageWidth / 2, pageHeight - 20, { align: "center" });
+      doc.text(`صفحة ${pageCurrent} من ${pageCount}`, pageWidth / 2, pageHeight - 20, { align: "center" });
     }
   });
 
-  // ✨ حفظ الملف
   doc.save(`Invoice_${invoiceId}.pdf`);
   showToast("✅ تم تصدير الفاتورة مرتبة + مع ترقيم الصفحات", "success");
 }
+
 
     /* =========================
        Toast بسيط
@@ -1501,7 +1499,8 @@ function addItem(){
     return `inv-${iso}${pretty ? '-' + pretty : ''}`;
   }
 
- window.saveInvoice = async function () {
+ // دالة حفظ الفاتورة محلي + على السحابة
+window.saveInvoice = async function () {
   try {
     if (!window.currentInvoice) {
       window.newInvoice && window.newInvoice();
@@ -1514,7 +1513,7 @@ function addItem(){
       window.selectedInvoiceIndex = window.invoices.length - 1;
     }
 
-    // ✅ تحديد حد أقصى (3 فواتير)
+    // ✅ تحديد حد أقصى (3 فواتير فقط)
     if (window.invoices.length > 3) {
       window.invoices.shift();
       window.selectedInvoiceIndex = window.invoices.length - 1;
@@ -1531,7 +1530,8 @@ function addItem(){
       return;
     }
 
-    const invoiceId = window.currentInvoice.id || String(Date.now());
+    // ✅ استخدام معرّف آمن (بدون /)
+    const invoiceId = window.currentInvoice.id || `INV-${Date.now()}`;
     await setDoc(doc(db, "users", user.uid, "invoices", invoiceId), window.currentInvoice);
 
     setTimeout(()=>{
@@ -1561,36 +1561,38 @@ function addItem(){
   const db = window.db || getFirestore();
   const auth = getAuth();
 
-  window.loadInvoicesFromFirebase = async function (user) {
-    try {
-      const colRef = collection(db, "users", user.uid, "invoices");
-      const snap = await getDocs(colRef);
+  // دالة تحميل الفواتير من السحابة
+window.loadInvoicesFromFirebase = async function (user) {
+  try {
+    const colRef = collection(db, "users", user.uid, "invoices");
+    const snap = await getDocs(colRef);
 
-      const cloudInvoices = snap.docs.map(d => {
-        const data = d.data() || {};
-        return {
-          id: data.id || d.id,                   // عنوان للعرض
-          date: data.date || "",                 // تاريخ للعرض
-          items: Array.isArray(data.items) ? data.items : [],
-          docId: d.id
-        };
-      });
+    const cloudInvoices = snap.docs.map(d => {
+      const data = d.data() || {};
+      return {
+        id: data.id || d.id,                   // عنوان العرض
+        date: data.date || "",                 // التاريخ
+        items: Array.isArray(data.items) ? data.items : [],
+        docId: d.id
+      };
+    });
 
-      window.invoices = cloudInvoices;
-      localStorage.setItem("invoices", JSON.stringify(window.invoices));
-      window.renderInvoicesDropdown && window.renderInvoicesDropdown();
+    window.invoices = cloudInvoices;
+    localStorage.setItem("invoices", JSON.stringify(window.invoices));
+    window.renderInvoicesDropdown && window.renderInvoicesDropdown();
 
-      window.showToast(`✅ تم جلب (${cloudInvoices.length}) فاتورة من السحابة`, "success");
-    } catch (err) {
-      console.error("❌ خطأ تحميل الفواتير:", err);
-      window.showToast("❌ تعذر تحميل الفواتير من السحابة", true);
-    }
-  };
+    window.showToast(`✅ تم جلب (${cloudInvoices.length}) فاتورة من السحابة`, "success");
+  } catch (err) {
+    console.error("❌ خطأ تحميل الفواتير:", err);
+    window.showToast("❌ تعذر تحميل الفواتير من السحابة", true);
+  }
+};
 
-  // لما يتسجل الدخول، نسحب الفواتير
-  onAuthStateChanged(auth, (user) => {
-    if (user) window.loadInvoicesFromFirebase(user);
-  });
+// عند تسجيل الدخول، تنسحب الفواتير
+onAuthStateChanged(auth, (user) => {
+  if (user) window.loadInvoicesFromFirebase(user);
+});
+
 </script>
 
 
