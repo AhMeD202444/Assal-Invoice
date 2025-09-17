@@ -1109,52 +1109,69 @@ function addItem(){
     return;
   }
 
+  // هل المادة موجودة أصلاً؟
   const existingIndex = currentInvoice.items.findIndex(
     (it) => it.category === category && it.name === name
   );
 
   if(existingIndex !== -1){
-    // 👇 نفتح النافذة بدل التعديل مباشرة
+    // 👇 نفتح نافذة التأكيد
     const modal = document.getElementById("confirmModal");
     modal.style.display = "flex";
 
     // زر نعم
-   document.getElementById("confirmYes").onclick = ()=>{
-  currentInvoice.items[existingIndex].qty  = qty;
-  currentInvoice.items[existingIndex].note = note;
-  renderItems();
-  autoSaveInvoice();
-  modal.style.display = "none";
-  showToast("✏️ تم تعديل المادة","info");
+    document.getElementById("confirmYes").onclick = async ()=>{
+      currentInvoice.items[existingIndex].qty  = qty;
+      currentInvoice.items[existingIndex].note = note;
 
-  // ✨ إضافات جديدة
-  document.getElementById("searchInput").value="";
-  document.getElementById("itemQty").value="";
-  document.getElementById("itemNote").value="";
-  document.getElementById("searchInput").focus();
-};
+      renderItems();
+
+      // ✅ حفظ محلي
+      autoSaveInvoice();
+
+      // ✅ حفظ سحابي
+      if (typeof window.saveInvoice === "function") {
+        await window.saveInvoice();
+      }
+
+      modal.style.display = "none";
+      showToast("✏️ تم تعديل المادة وحفظ الفاتورة","info");
+
+      // ✨ إضافات جديدة
+      document.getElementById("searchInput").value="";
+      document.getElementById("itemQty").value="";
+      document.getElementById("itemNote").value="";
+      document.getElementById("searchInput").focus();
+    };
 
     // زر لا
     document.getElementById("confirmNo").onclick = ()=>{
       modal.style.display = "none";
-      showToast("❌ لم يتم التعديل","danger");
     };
 
-    return; // نوقف هنا
+  } else {
+    // 👇 مادة جديدة
+    currentInvoice.items.push({category,name,qty,note});
+    renderItems();
+
+    // ✅ حفظ محلي
+    autoSaveInvoice();
+
+    // ✅ حفظ سحابي
+    if (typeof window.saveInvoice === "function") {
+      window.saveInvoice();
+    }
+
+    showToast("✅ تمت إضافة المادة وحفظ الفاتورة","success");
+
+    // ✨ تفريغ الحقول
+    document.getElementById("searchInput").value="";
+    document.getElementById("itemQty").value="";
+    document.getElementById("itemNote").value="";
+    document.getElementById("searchInput").focus();
   }
-
-  // مادة جديدة
-  currentInvoice.items.push({ category, name, qty, note });
-  renderItems();
-  autoSaveInvoice();
-  showToast("✅ تمت إضافة المادة","success");
-
-  // تصفير الحقول
-  document.getElementById("searchInput").value="";
-  document.getElementById("itemQty").value="";
-  document.getElementById("itemNote").value="";
-  document.getElementById("searchInput").focus();
 }
+
 
     /* =========================
        رسم جدول العناصر
@@ -1482,6 +1499,20 @@ function addItem(){
 
   const db = window.db || getFirestore();
   const auth = getAuth();
+  
+  
+  
+  async function safeFetch(url, options) {
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok) throw new Error("Server Error " + res.status);
+      return res;
+    } catch (err) {
+      console.error("❌ Fetch error:", err);
+      showToast("📴 مشكلة بالاتصال (لا تخاف، بياناتك بأمان)", true);
+      return null; // نرجع null إذا فشل
+    }
+  }
 
 
   // يصنع docId آمن ومميز
@@ -1629,7 +1660,30 @@ window.saveInvoice = async function () {
   logoutNo.addEventListener("click", ()=>{
     logoutModal.style.display = "none";
   });
+  
+  
+  // Global JS Error Handler
+window.addEventListener("error", function(e) {
+  console.error("⚠️ Error Caught:", e.message, e.filename, e.lineno);
+  showToast("📴 صار خلل بسيط، أعد المحاولة", true);
+});
+
+// Global Promise Rejection Handler (لأخطاء async/await)
+window.addEventListener("unhandledrejection", function(e) {
+  console.error("⚠️ Promise Error:", e.reason);
+  showToast("📴 مشكلة بالاتصال، حاول من جديد", true);
+});
+
+  
 </script>
+
+
+
+
+
+
+
+
 
 
   
