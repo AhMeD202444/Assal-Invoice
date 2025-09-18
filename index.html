@@ -567,6 +567,22 @@ tbody tr:hover {
   </div>
 </div>
 
+
+
+
+<!-- نافذة تأكيد حذف الفاتورة -->
+<div id="deleteInvoiceModal" class="auth-overlay" aria-hidden="true">
+  <div class="auth-card" role="dialog" aria-modal="true" style="text-align:center;">
+    <h3 style="margin:0 0 6px 0;">حذف الفاتورة؟</h3>
+    <p style="margin:0 0 14px 0; color:#aab0c0;">سيتم حذف الفاتورة نهائياً من الجهاز.</p>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button id="delInvYes" class="btn green"><i class="fa-solid fa-check"></i> نعم</button>
+      <button id="delInvNo"  class="btn amber"><i class="fa-solid fa-xmark"></i> لا</button>
+    </div>
+  </div>
+</div>
+
+
   
   
   
@@ -913,9 +929,10 @@ function reloadPage(){
           <td>${it.qty}</td>
           <td>${it.note}</td>
           <td>
-            <button class="btn-danger-custom" onclick="removeItem(${i})" title="حذف">
-              <i class="fa-regular fa-trash-can"></i>
-            </button>
+            <button class="btn-danger-custom" title="حذف" onclick="removeItem(${i})">
+  <i class="fa-regular fa-trash-can"></i>
+</button>
+
           </td>`;
         tbody.appendChild(tr);
       });
@@ -948,6 +965,77 @@ function reloadPage(){
       renderItems();
       renderInvoicesDropdown();
     }
+    
+    
+    
+    
+    
+    // ===== تأكيد حذف الفاتورة =====
+let __pendingDeleteInvoiceIndex = null;
+
+function openDeleteInvoiceModal(i, ev){
+  if(ev) ev.stopPropagation(); // ما يفتح الفاتورة بالغلط
+  __pendingDeleteInvoiceIndex = i;
+  const modal = document.getElementById('deleteInvoiceModal');
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden','false');
+
+  // ربط الأزرار
+  document.getElementById('delInvYes').onclick = confirmDeleteInvoice;
+  document.getElementById('delInvNo').onclick  = closeDeleteInvoiceModal;
+
+  // إغلاق عند الضغط خارج الكارد
+  modal.addEventListener('click', outsideClickClose);
+  // إغلاق بـ Esc
+  document.addEventListener('keydown', escClose);
+}
+
+function confirmDeleteInvoice(){
+  if(__pendingDeleteInvoiceIndex===null) return;
+  // الحذف الفعلي
+  invoices.splice(__pendingDeleteInvoiceIndex, 1);
+  localStorage.setItem("invoices", JSON.stringify(invoices));
+
+  // إعادة تهيئة الحالة
+  currentInvoice = null;
+  selectedInvoiceIndex = null;
+  document.getElementById("invoiceId").textContent = "-";
+  renderItems();
+  renderInvoicesDropdown();
+
+  closeDeleteInvoiceModal();
+  showToast("تم حذف الفاتورة 🗑️");
+}
+
+function closeDeleteInvoiceModal(){
+  const modal = document.getElementById('deleteInvoiceModal');
+  modal.style.display = 'none';
+  modal.setAttribute('aria-hidden','true');
+  __pendingDeleteInvoiceIndex = null;
+
+  modal.removeEventListener('click', outsideClickClose);
+  document.removeEventListener('keydown', escClose);
+}
+
+function outsideClickClose(e){
+  const card = e.currentTarget.querySelector('.auth-card');
+  if(!card.contains(e.target)) closeDeleteInvoiceModal();
+}
+
+function escClose(e){
+  if(e.key === 'Escape') closeDeleteInvoiceModal();
+}
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
     function saveInvoice(){
       if(!currentInvoice) return;
@@ -989,7 +1077,7 @@ function reloadPage(){
             <strong>${inv.id}</strong>
             <small>${inv.date} • ${inv.items.length} مادة</small>
           </div>
-          <button class="btn-danger-custom" title="حذف" onclick="deleteInvoice(${i}); event.stopPropagation();">
+          <button class="btn-danger-custom" title="حذف" onclick="openDeleteInvoiceModal(${i}, event)";>
             <i class="fa-regular fa-trash-can"></i>
           </button>
         `;
