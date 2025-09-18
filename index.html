@@ -513,6 +513,25 @@ tbody tr:hover {
 
 
 
+/* صفين متساويين دائماً: العدد+الملاحظات، حفظ+PDF */
+.line-qty-note,
+.line-actions{
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* تساوي العرض */
+  gap: 12px;
+  align-items: stretch;
+}
+
+.line-qty-note .ginput,
+.line-actions .btn{
+  min-width: 0; /* يمنع البروز/التمدد الزائد */
+}
+
+/* لو عندك قواعد قديمة تقلب أسطر .editor لعمودي بالموبايل،
+   هذا الكود ما يتأثر لأننا Grid، و flex-direction ما ينطبق على grid */
+
+
+
 
   </style>
 </head>
@@ -666,31 +685,35 @@ tbody tr:hover {
     </div>
   </div>
 
-  <!-- العدد + الملاحظات بنفس الصف -->
-  <div style="display:flex; gap:12px;">
-    <div class="ginput" style="flex:1;">
-      <input id="itemQty" class="gfield" type="text" placeholder="عدد القطع" />
-    </div>
-    <div class="ginput" style="flex:1;">
-      <input id="itemNote" class="gfield" type="text" placeholder="ملاحظات" />
-    </div>
+  <!-- العدد + الملاحظات بنفس الصف ومتساوي -->
+<div class="line-qty-note">
+  <div class="ginput">
+    <input id="itemQty" class="gfield" type="text" placeholder="عدد القطع" />
   </div>
-
-  <!-- أزرار -->
-  <div class="ginput" style="display:flex; gap:10px;">
-    
-    
-    
-   <button id="btnAddItem" class="btn" type="button" onclick="addItem()">
-  <i class="fa-solid fa-plus"></i> إضافة
-</button>
-    
-    
-    
-    <button class="btn green" onclick="saveInvoice()"><i class="fa-regular fa-floppy-disk"></i> حفظ</button>
-    <button class="btn blue" onclick="exportPDF()"><i class="fa-regular fa-file-pdf"></i> PDF</button>
+  <div class="ginput">
+    <input id="itemNote" class="gfield" type="text" placeholder="ملاحظات" />
   </div>
 </div>
+
+
+  <!-- زر الإضافة لوحده -->
+<div class="ginput">
+  <button id="btnAddItem" class="btn" type="button" onclick="addItem()">
+    <i class="fa-solid fa-plus"></i> إضافة
+  </button>
+</div>
+
+<!-- حفظ + PDF بنفس الصف ومتساوي -->
+<div class="line-actions">
+  <button class="btn green" onclick="saveInvoice()">
+    <i class="fa-regular fa-floppy-disk"></i> حفظ
+  </button>
+  <button class="btn blue" onclick="exportPDF()">
+    <i class="fa-regular fa-file-pdf"></i> PDF
+  </button>
+</div>
+
+
       <!-- الجدول -->
       <div class="card table-wrap">
         <table id="itemsTable">
