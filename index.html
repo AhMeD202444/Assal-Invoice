@@ -961,10 +961,13 @@ function reloadPage(){
       });
     }
 
-    function removeItem(i){
-      currentInvoice.items.splice(i,1);
-      renderItems();
-    }
+  function removeItem(i){
+  currentInvoice.items.splice(i,1);
+  renderItems();
+  autoSaveInvoice(); // ✅ إضافة
+  showToast("تم حذف المادة وحفظ الفاتورة 🗑️");
+}
+
 
     /* =========================
        إنشاء / حفظ / فتح / حذف فواتير
