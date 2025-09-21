@@ -1276,6 +1276,30 @@ async function saveBytesSmart(filename, mime, bytes) {
   }
 }
 
+
+
+function downloadBlobFallback(filename, blob){
+  try{
+    const a   = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{
+      URL.revokeObjectURL(url);
+      a.remove();
+    }, 0);
+    return true;
+  }catch(e){
+    console.error('fallback download error:', e);
+    return false;
+  }
+}
+
+
+
+
 // فولباك: نزّل ملف ZIP واحد يضمّ ملفات متعددة (لما المتصفح يمنع تنزيلين)
 async function saveAsZip(zipName, files /* [{name, mime, bytes|blob}] */) {
   if (!window.JSZip) return false;
@@ -1301,36 +1325,36 @@ async function exportPDF() {
     return;
   }
 
-  // ===== تحقق من توفر jsPDF + AutoTable =====
+  // تأكد من jsPDF
   const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
   if (!jsPDFCtor) {
     console.error("jsPDF not loaded");
     showToast("تعذّر تحميل jsPDF من الـ CDN ❌", true);
     return;
   }
-
   const doc = new jsPDFCtor({ orientation: "p", unit: "pt", format: "a4" });
 
+  // تأكد من AutoTable
   if (typeof doc.autoTable !== "function") {
     console.error("autoTable plugin not loaded");
     showToast("تعذّر تحميل jsPDF-AutoTable ❌", true);
     return;
   }
 
-  // ===== ترتيب العناصر =====
+  // ترتيب
   const sortedItems = [...(currentInvoice.items || [])].sort((a, b) => {
     const catA = String(a.category || "");
     const catB = String(b.category || "");
     const nameA = String(a.name || "");
     const nameB = String(b.name || "");
-    const catCompare = catA.localeCompare(catB, "en", { sensitivity: "base" });
-    return catCompare !== 0 ? catCompare : nameA.localeCompare(nameB, "en", { sensitivity: "base" });
+    const c = catA.localeCompare(catB, "en", { sensitivity: "base" });
+    return c !== 0 ? c : nameA.localeCompare(nameB, "en", { sensitivity: "base" });
   });
 
   const pageWidth  = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
-  // ===== الهيدر =====
+  // Header
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
   doc.setTextColor(25, 25, 112);
@@ -1339,7 +1363,7 @@ async function exportPDF() {
   doc.setTextColor(100);
   doc.text("YOUR BEST CHOICE", pageWidth / 2, 85, { align: "center" });
 
-  // ===== بيانات الفاتورة =====
+  // Meta
   const today = new Date();
   const invoiceDate = today.toLocaleDateString("en-GB");
   const invoiceId = `INV-${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
@@ -1349,7 +1373,7 @@ async function exportPDF() {
   doc.text(`Invoice ID: ${invoiceId}`, pageWidth - 60, 120, { align: "right" });
   doc.text(`Date: ${invoiceDate}`, 60, 120, { align: "left" });
 
-  // ===== الجدول =====
+  // Table
   doc.autoTable({
     head: [["#", "Category", "Item", "Quantity", "Notes"]],
     body: sortedItems.map((it, i) => [
@@ -1377,39 +1401,68 @@ async function exportPDF() {
     }
   });
 
-  // ===== حفظ PDF + JSON (مع فولباك ZIP) =====
+  // نحصل PDF Blob مباشرة (أضمن)
+  const pdfBlob = doc.output("blob");
+  const pdfName = `Invoice_${invoiceId}.pdf`;
+
+  // جهّز JSON
+  const jsonArray = sortedItems.map(it => ({
+    category: String(it.category || ""),
+    item:     String(it.name     || ""),
+    qty:      String(it.qty      || ""),
+    note:     String(it.note     || ""),
+  }));
+  const jsonBlob = new Blob([JSON.stringify(jsonArray, null, 2)], { type: "application/json;charset=utf-8" });
+  const jsonName = `Invoice_${invoiceId}.assal.json`;
+
+  // جرّب نحفظ كل ملف لوحده (File Picker أولاً، وإذا ما يفيد نفزع للـ <a download>)
+  let pdfSaved  = false;
+  let jsonSaved = false;
+
   try {
-    const pdfBytes = doc.output("arraybuffer");
-
-    const jsonArray = sortedItems.map(it => ({
-      category: String(it.category || ""),
-      item:     String(it.name     || ""),
-      qty:      String(it.qty      || ""),
-      note:     String(it.note     || ""),
-    }));
-    const jsonStr  = JSON.stringify(jsonArray, null, 2);
-    const jsonBlob = new Blob([jsonStr], { type: "application/json" });
-
-    let pdfSaved = false, jsonSaved = false;
-    try {
-      pdfSaved  = await saveBytesSmart(`Invoice_${invoiceId}.pdf`,        "application/pdf",  pdfBytes);
-      jsonSaved = await saveBytesSmart(`Invoice_${invoiceId}.assal.json`, "application/json", jsonBlob);
-    } catch (e) {
-      console.error("saveBytesSmart error:", e);
-    }
-
-    if (!pdfSaved || !jsonSaved) {
-      await saveAsZip(`Invoice_${invoiceId}.zip`, [
-        { name: `Invoice_${invoiceId}.pdf`,        mime: "application/pdf",  bytes: pdfBytes },
-        { name: `Invoice_${invoiceId}.assal.json`, mime: "application/json", bytes: jsonBlob }
-      ]);
-    }
-
-    showToast("Invoice PDF + JSON تم حفظهما ✅");
-  } catch (e) {
-    console.error(e);
-    showToast("تعذّر إنشاء/حفظ الملف ❌", true);
+    pdfSaved = await saveBytesSmart(pdfName, "application/pdf", pdfBlob);
+  } catch(e) {
+    console.warn("saveBytesSmart(pdf) failed, fallback link", e);
   }
+  if (!pdfSaved) {
+    pdfSaved = downloadBlobFallback(pdfName, pdfBlob);
+  }
+
+  // مهلة صغيرة حتى ما يتعامل المتصفح وياها كتنزيلات متعددة مزعجة
+  await new Promise(r=>setTimeout(r, 300));
+
+  try {
+    jsonSaved = await saveBytesSmart(jsonName, "application/json", jsonBlob);
+  } catch(e) {
+    console.warn("saveBytesSmart(json) failed, fallback link", e);
+  }
+  if (!jsonSaved) {
+    jsonSaved = downloadBlobFallback(jsonName, jsonBlob);
+  }
+
+  // إذا واحد من الاثنين فشل، نطلع ZIP يحتوي الاثنين
+  if (!pdfSaved || !jsonSaved) {
+    if (!window.JSZip) {
+      showToast("تعذّر الحفظ بشكل منفصل ❌ (و ZIP غير متاح)", true);
+      return;
+    }
+    try {
+      const zip = new JSZip();
+      zip.file(pdfName, pdfBlob);
+      zip.file(jsonName, jsonBlob);
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      await saveBytesSmart(`Invoice_${invoiceId}.zip`, "application/zip", zipBlob);
+      showToast("تم حفظ ZIP يحتوي PDF + JSON ✅");
+      return;
+    } catch(e) {
+      console.error("ZIP save failed:", e);
+      showToast("تعذّر إنشاء/حفظ ZIP ❌", true);
+      return;
+    }
+  }
+
+  // نجحوا الاثنين ✅
+  showToast("تم حفظ PDF + JSON بنجاح ✅");
 }
 
   
