@@ -1326,13 +1326,12 @@ function escClose(e){
 
 
 
-
-function s2ab(s){
-  const buf = new ArrayBuffer(s.length);
-  const view = new Uint8Array(buf);
-  for (let i=0; i<s.length; i++) view[i] = s.charCodeAt(i) & 0xFF;
-  return buf;
+function isMobile(){
+  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
 }
+
+
+
 
 async function exportExcelOnly(){
   if(!currentInvoice || !(currentInvoice.items||[]).length){
@@ -1344,11 +1343,11 @@ async function exportExcelOnly(){
   const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
   const xlsxName  = `Invoice_${invoiceId}.xlsx`;
 
-  // البيانات
   const sorted = [...(currentInvoice.items||[])].sort((a,b)=>{
     const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
     return c!==0 ? c : String(a.name||"").localeCompare(String(b.name||""), "en", {sensitivity:"base"});
   });
+
   const rows = [
     ["Category","Item","Quantity","Notes"],
     ...sorted.map(it=>[
@@ -1359,26 +1358,32 @@ async function exportExcelOnly(){
     ])
   ];
 
-  // Workbook
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
   XLSX.utils.book_append_sheet(wb, ws, "Invoice");
 
-  // الكتابة بصيغة binary (أنسب لأندرويد) + Shared Strings
-  const bin = XLSX.write(wb, {
-    bookType: "xlsx",
-    type: "binary",
-    compression: false,
-    bookSST: true
-  });
-
-  // نحول لـ ArrayBuffer ثم Blob بالـMIME الصحيح
-  const ab   = s2ab(bin);
-  const blob = new Blob([ab], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-
-  // تنزيل بالطريقة المتوافقة مع الموبايل (عندك الدالة)
-  downloadBlobFallback(xlsxName, blob);
-  showToast("تم تصدير Excel ✅");
+  try{
+    if(!isMobile()){
+      // ✅ الدسكتوب: نفس الآلية القديمة بالضبط
+      XLSX.writeFile(wb, xlsxName, { compression:true, bookSST:true });
+    }else{
+      // 📱 الموبايل: نكتب ArrayBuffer وننزّل Blob بصيغة أوفيس الرسمية
+      const ab = XLSX.write(wb, {
+        bookType: "xlsx",
+        type: "array",
+        compression: false,
+        bookSST: true
+      });
+      const blob = new Blob([ab], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      });
+      downloadBlobFallback(xlsxName, blob);
+    }
+    showToast("تم تصدير Excel ✅");
+  }catch(e){
+    console.error("exportExcelOnly:", e);
+    showToast("تعذر التصدير ❌", true);
+  }
 }
 
 
