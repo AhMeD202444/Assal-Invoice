@@ -1343,6 +1343,7 @@ async function exportExcelOnly(){
   const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
   const xlsxName  = `Invoice_${invoiceId}.xlsx`;
 
+  // ترتيب البيانات مثل ما هو
   const sorted = [...(currentInvoice.items||[])].sort((a,b)=>{
     const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
     return c!==0 ? c : String(a.name||"").localeCompare(String(b.name||""), "en", {sensitivity:"base"});
@@ -1362,30 +1363,24 @@ async function exportExcelOnly(){
   const ws = XLSX.utils.aoa_to_sheet(rows);
   XLSX.utils.book_append_sheet(wb, ws, "Invoice");
 
-  try{
-    if(!isMobile()){
-      // ✅ الدسكتوب: نفس الآلية القديمة بالضبط
-      XLSX.writeFile(wb, xlsxName, { compression:true, bookSST:true });
-    }else{
-      // 📱 الموبايل: نكتب ArrayBuffer وننزّل Blob بصيغة أوفيس الرسمية
-      const ab = XLSX.write(wb, {
-        bookType: "xlsx",
-        type: "array",
-        compression: false,
-        bookSST: true
-      });
-      const blob = new Blob([ab], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      });
-      downloadBlobFallback(xlsxName, blob);
-    }
-    showToast("تم تصدير Excel ✅");
-  }catch(e){
-    console.error("exportExcelOnly:", e);
-    showToast("تعذر التصدير ❌", true);
-  }
-}
+  // ⬅️ المفتاح: نكتب كـ ArrayBuffer وبلا ضغط (Android Excel يحبها هكذا)
+  const ab = XLSX.write(wb, { bookType:"xlsx", type:"array", compression:false });
 
+  // فحص سريع – إذا صار خلل نخبرك
+  try { XLSX.read(ab, { type:"array" }); }
+  catch(e){
+    showToast("XLSX غير صالح: " + e.message + " ❌", true);
+    return;
+  }
+
+  // نعمل Blob بالميم تايب الصحيح وننزّله عبر الدالة المتوافقة مع الموبايل
+  const blob = new Blob([ab], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+
+  downloadBlobFallback(xlsxName, blob);
+  showToast("تم تصدير Excel ✅");
+}
 
 // تحميل Blob يشتغل على موبايل/ويب فيو/ديسكتوب
 function downloadBlobFallback(filename, blob){
