@@ -1343,7 +1343,7 @@ async function exportExcelOnly(){
   const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
   const xlsxName  = `Invoice_${invoiceId}.xlsx`;
 
-  // ترتيب البيانات مثل ما هو
+  // ترتيب البيانات
   const sorted = [...(currentInvoice.items||[])].sort((a,b)=>{
     const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
     return c!==0 ? c : String(a.name||"").localeCompare(String(b.name||""), "en", {sensitivity:"base"});
@@ -1363,21 +1363,47 @@ async function exportExcelOnly(){
   const ws = XLSX.utils.aoa_to_sheet(rows);
   XLSX.utils.book_append_sheet(wb, ws, "Invoice");
 
-  // ⬅️ المفتاح: نكتب كـ ArrayBuffer وبلا ضغط (Android Excel يحبها هكذا)
-  const ab = XLSX.write(wb, { bookType:"xlsx", type:"array", compression:false });
+  // مهم: Shared Strings + ضغط (بعض تطبيقات الأندرويد تحتاجها)
+  const ab = XLSX.write(wb, {
+    bookType: "xlsx",
+    type: "array",
+    compression: true,
+    bookSST: true
+  });
 
-  // فحص سريع – إذا صار خلل نخبرك
+  // فحص سريع
   try { XLSX.read(ab, { type:"array" }); }
   catch(e){
     showToast("XLSX غير صالح: " + e.message + " ❌", true);
     return;
   }
 
-  // نعمل Blob بالميم تايب الصحيح وننزّله عبر الدالة المتوافقة مع الموبايل
   const blob = new Blob([ab], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   });
 
+  // نحاول الحفظ المباشر على أندرويد/كروم (أفضل للموبايل)
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: xlsxName,
+        types: [{
+          description: "Excel Workbook",
+          accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] }
+        }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      showToast("تم حفظ Excel ✅");
+      return;
+    } catch (err) {
+      // إذا المستخدم لغى، نرجع للفولباك
+      console.warn("saveFilePicker fallback:", err);
+    }
+  }
+
+  // فولباك متوافق مع أغلب الويب فيو/المتصفحات
   downloadBlobFallback(xlsxName, blob);
   showToast("تم تصدير Excel ✅");
 }
