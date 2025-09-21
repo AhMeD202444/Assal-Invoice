@@ -3,23 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <title>ASSAL OFFICE • Invoices</title>
-  
-  
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  
-  
-  
- <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
 
   <!-- أيقونات -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
 
   <!-- خطوط (Cairo للعربي + Poppins للإنكليزي) -->
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"/>
+
+  <!-- XLSX + jsPDF + AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  
+  
+ 
 
   
   
@@ -603,13 +601,15 @@ tbody tr:hover {
 </div>
 
       <div class="head-actions">
-        <button class="icon-btn" id="btnNew" title="فاتورة جديدة"><i class="fa-solid fa-plus"></i></button>
-      <!-- زر تحديث -->
-<button class="icon-btn" id="btnReload" title="تحديث الصفحة">
-  <i class="fa-solid fa-rotate-right"></i>
-</button>
+  <button class="icon-btn" id="btnNew" title="فاتورة جديدة"><i class="fa-solid fa-plus"></i></button>
+  <button class="icon-btn" id="btnReload" title="تحديث الصفحة"><i class="fa-solid fa-rotate-right"></i></button>
 
-      </div>
+  <!-- زر تصدير JSON فقط -->
+  <button class="icon-btn" id="btnExportJSON" title="تصدير JSON فقط">
+    <i class="fa-solid fa-file-code"></i>
+  </button>
+</div>
+
     </div>
   </header>
   
@@ -1240,78 +1240,6 @@ function escClose(e){
       renderImportedPdfList();
       showToast("تم حذف الملف المستورد 🗑️");
     }
-    
-    
-    
-    
-    
-    
-    // يحفظ بايتات كملف مع "حفظ باسم..." إذا المتصفح يدعم showSaveFilePicker
-async function saveBytesSmart(filename, mime, bytes) {
-  const blob = bytes instanceof Blob ? bytes : new Blob([bytes], { type: mime });
-
-  // 1) طريق File System Access API (Chrome/Edge/Desktop وبعض أندرويد)
-  if ('showSaveFilePicker' in window) {
-    const handle = await window.showSaveFilePicker({
-      suggestedName: filename,
-      types: [{ description: mime, accept: { [mime]: [`.${filename.split('.').pop()}`] } }]
-    });
-    const writable = await handle.createWritable();
-    await writable.write(blob);
-    await writable.close();
-    return true;
-  }
-
-  // 2) طريق <a download> (قد لا يفتح Dialog بكل البيئات)
-  try {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;               // بعض المتصفحات تفتح اسم الملف
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-
-
-function downloadBlobFallback(filename, blob){
-  try{
-    const a   = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{
-      URL.revokeObjectURL(url);
-      a.remove();
-    }, 0);
-    return true;
-  }catch(e){
-    console.error('fallback download error:', e);
-    return false;
-  }
-}
-
-
-
-
-// فولباك: نزّل ملف ZIP واحد يضمّ ملفات متعددة (لما المتصفح يمنع تنزيلين)
-async function saveAsZip(zipName, files /* [{name, mime, bytes|blob}] */) {
-  if (!window.JSZip) return false;
-  const zip = new JSZip();
-  for (const f of files) {
-    const content = f.bytes instanceof Blob ? f.bytes : new Blob([f.bytes], { type: f.mime });
-    zip.file(f.name, content);
-  }
-  const zipBlob = await zip.generateAsync({ type: 'blob' });
-  return saveBytesSmart(zipName, 'application/zip', zipBlob);
-}
-
 
 
   
@@ -1319,36 +1247,23 @@ async function saveAsZip(zipName, files /* [{name, mime, bytes|blob}] */) {
     /* =========================
        تصدير PDF بشكل أنيق بالإنكليزي
        ========================= */
-async function exportPDF() {
+  async function exportPDF() {
   if (!currentInvoice || (currentInvoice.items || []).length === 0) {
     showToast("No data to export ❌", true);
     return;
   }
 
-  // تأكد من jsPDF
-  const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-  if (!jsPDFCtor) {
-    console.error("jsPDF not loaded");
-    showToast("تعذّر تحميل jsPDF من الـ CDN ❌", true);
-    return;
-  }
-  const doc = new jsPDFCtor({ orientation: "p", unit: "pt", format: "a4" });
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
 
-  // تأكد من AutoTable
-  if (typeof doc.autoTable !== "function") {
-    console.error("autoTable plugin not loaded");
-    showToast("تعذّر تحميل jsPDF-AutoTable ❌", true);
-    return;
-  }
-
-  // ترتيب
+  // ترتيب العناصر (Category ثم Item)
   const sortedItems = [...(currentInvoice.items || [])].sort((a, b) => {
     const catA = String(a.category || "");
     const catB = String(b.category || "");
     const nameA = String(a.name || "");
     const nameB = String(b.name || "");
-    const c = catA.localeCompare(catB, "en", { sensitivity: "base" });
-    return c !== 0 ? c : nameA.localeCompare(nameB, "en", { sensitivity: "base" });
+    const catCompare = catA.localeCompare(catB, "en", { sensitivity: "base" });
+    return catCompare !== 0 ? catCompare : nameA.localeCompare(nameB, "en", { sensitivity: "base" });
   });
 
   const pageWidth  = doc.internal.pageSize.getWidth();
@@ -1367,6 +1282,7 @@ async function exportPDF() {
   const today = new Date();
   const invoiceDate = today.toLocaleDateString("en-GB");
   const invoiceId = `INV-${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(12);
   doc.setTextColor(0);
@@ -1401,70 +1317,65 @@ async function exportPDF() {
     }
   });
 
-  // نحصل PDF Blob مباشرة (أضمن)
-  const pdfBlob = doc.output("blob");
-  const pdfName = `Invoice_${invoiceId}.pdf`;
-
-  // جهّز JSON
-  const jsonArray = sortedItems.map(it => ({
-    category: String(it.category || ""),
-    item:     String(it.name     || ""),
-    qty:      String(it.qty      || ""),
-    note:     String(it.note     || ""),
-  }));
-  const jsonBlob = new Blob([JSON.stringify(jsonArray, null, 2)], { type: "application/json;charset=utf-8" });
-  const jsonName = `Invoice_${invoiceId}.assal.json`;
-
-  // جرّب نحفظ كل ملف لوحده (File Picker أولاً، وإذا ما يفيد نفزع للـ <a download>)
-  let pdfSaved  = false;
-  let jsonSaved = false;
-
-  try {
-    pdfSaved = await saveBytesSmart(pdfName, "application/pdf", pdfBlob);
-  } catch(e) {
-    console.warn("saveBytesSmart(pdf) failed, fallback link", e);
-  }
-  if (!pdfSaved) {
-    pdfSaved = downloadBlobFallback(pdfName, pdfBlob);
-  }
-
-  // مهلة صغيرة حتى ما يتعامل المتصفح وياها كتنزيلات متعددة مزعجة
-  await new Promise(r=>setTimeout(r, 300));
-
-  try {
-    jsonSaved = await saveBytesSmart(jsonName, "application/json", jsonBlob);
-  } catch(e) {
-    console.warn("saveBytesSmart(json) failed, fallback link", e);
-  }
-  if (!jsonSaved) {
-    jsonSaved = downloadBlobFallback(jsonName, jsonBlob);
-  }
-
-  // إذا واحد من الاثنين فشل، نطلع ZIP يحتوي الاثنين
-  if (!pdfSaved || !jsonSaved) {
-    if (!window.JSZip) {
-      showToast("تعذّر الحفظ بشكل منفصل ❌ (و ZIP غير متاح)", true);
-      return;
-    }
-    try {
-      const zip = new JSZip();
-      zip.file(pdfName, pdfBlob);
-      zip.file(jsonName, jsonBlob);
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      await saveBytesSmart(`Invoice_${invoiceId}.zip`, "application/zip", zipBlob);
-      showToast("تم حفظ ZIP يحتوي PDF + JSON ✅");
-      return;
-    } catch(e) {
-      console.error("ZIP save failed:", e);
-      showToast("تعذّر إنشاء/حفظ ZIP ❌", true);
-      return;
-    }
-  }
-
-  // نجحوا الاثنين ✅
-  showToast("تم حفظ PDF + JSON بنجاح ✅");
+  // ⬅️ حفظ PDF فقط (الطريقة القديمة)
+  doc.save(`Invoice_${invoiceId}.pdf`);
+  showToast("تم تصدير PDF فقط ✅");
 }
 
+
+
+
+
+async function exportJSONOnly(){
+  if(!currentInvoice || !(currentInvoice.items||[]).length){
+    showToast("لا توجد بيانات للتصدير ❌", true);
+    return;
+  }
+
+  // اسم بنفس نمط الفاتورة
+  const d = new Date();
+  const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+  const jsonName  = `Invoice_${invoiceId}.assal.json`;
+
+  // نفس ترتيب العناصر
+  const sortedItems = [...(currentInvoice.items || [])].sort((a,b)=>{
+    const catA = String(a.category||""); const catB = String(b.category||"");
+    const nameA = String(a.name||"");    const nameB = String(b.name||"");
+    const c = catA.localeCompare(catB, "en", { sensitivity:"base" });
+    return c!==0 ? c : nameA.localeCompare(nameB, "en", { sensitivity:"base" });
+  });
+
+  const jsonData = sortedItems.map(it=>({
+    category: String(it.category||""),
+    item:     String(it.name||""),
+    qty:      String(it.qty||""),
+    note:     String(it.note||""),
+  }));
+
+  const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: "application/json;charset=utf-8" });
+
+  // جرّب Web Share (للموبايل/الويب فيو) وإلا نزّل مباشرة مثل الديسكتوب
+  try{
+    const file = new File([blob], jsonName, { type: "application/json" });
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      await navigator.share({ files:[file], title:"ASSAL OFFICE Invoice JSON", text: jsonName });
+      showToast("تمت مشاركة JSON ✅");
+      return;
+    }
+  }catch(e){ /* تجاهل وننزّل مباشرة */ }
+
+  // تنزيل مباشر (ديسكتوب/متصفحات تدعم a[download])
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = jsonName;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  showToast("تم تنزيل JSON ✅");
+}
+
+  
+  
   
     /* =========================
        Toast بسيط
@@ -1482,6 +1393,10 @@ async function exportPDF() {
     /* =========================
        ربط أزرار الهيدر والزر العائم
        ========================= */
+       
+ 
+document.getElementById("btnExportJSON").addEventListener("click", exportJSONOnly);
+
     document.getElementById("btnNew").addEventListener("click", newInvoice);
    document.getElementById("btnReload").addEventListener("click", reloadPage);
     document.getElementById("fab").addEventListener("click", newInvoice);
@@ -1655,11 +1570,16 @@ async function exportPDF() {
     }
 
     // تنزيل Bytes كـ PDF
-   // بدل downloadBytes(bytes, filename) بهذا:
-async function downloadBytes(bytes, filename){
-  await saveBytesSmart(filename, "application/pdf", bytes);
-}
-
+    function downloadBytes(bytes, filename){
+      const blob = new Blob([bytes], {type:"application/pdf"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+    }
+    
     
   
 
