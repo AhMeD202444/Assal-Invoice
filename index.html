@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <title>ASSAL OFFICE • Invoices</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  
+  
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
 
   <!-- أيقونات -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
@@ -1238,6 +1243,54 @@ function escClose(e){
       renderImportedPdfList();
       showToast("تم حذف الملف المستورد 🗑️");
     }
+    
+    
+    
+    
+    
+    
+    // يحفظ بايتات كملف مع "حفظ باسم..." إذا المتصفح يدعم showSaveFilePicker
+async function saveBytesSmart(filename, mime, bytes) {
+  const blob = bytes instanceof Blob ? bytes : new Blob([bytes], { type: mime });
+
+  // 1) طريق File System Access API (Chrome/Edge/Desktop وبعض أندرويد)
+  if ('showSaveFilePicker' in window) {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: filename,
+      types: [{ description: mime, accept: { [mime]: [`.${filename.split('.').pop()}`] } }]
+    });
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return true;
+  }
+
+  // 2) طريق <a download> (قد لا يفتح Dialog بكل البيئات)
+  try {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;               // بعض المتصفحات تفتح اسم الملف
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// فولباك: نزّل ملف ZIP واحد يضمّ ملفات متعددة (لما المتصفح يمنع تنزيلين)
+async function saveAsZip(zipName, files /* [{name, mime, bytes|blob}] */) {
+  if (!window.JSZip) return false;
+  const zip = new JSZip();
+  for (const f of files) {
+    const content = f.bytes instanceof Blob ? f.bytes : new Blob([f.bytes], { type: f.mime });
+    zip.file(f.name, content);
+  }
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  return saveBytesSmart(zipName, 'application/zip', zipBlob);
+}
+
 
 
   
@@ -1245,7 +1298,7 @@ function escClose(e){
     /* =========================
        تصدير PDF بشكل أنيق بالإنكليزي
        ========================= */
-   async function exportPDF() {
+async function exportPDF() {
   if (!currentInvoice || (currentInvoice.items || []).length === 0) {
     showToast("No data to export ❌", true);
     return;
@@ -1254,7 +1307,7 @@ function escClose(e){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
 
-  // sort
+  // sort (نفس ترتيب تصدير الفاتورة)
   const sortedItems = [...(currentInvoice.items || [])].sort((a, b) => {
     const catA = String(a.category || "");
     const catB = String(b.category || "");
@@ -1272,16 +1325,14 @@ function escClose(e){
   doc.setFontSize(22);
   doc.setTextColor(25, 25, 112);
   doc.text("ASSAL OFFICE", pageWidth / 2, 65, { align: "center" });
-
   doc.setFontSize(12);
   doc.setTextColor(100);
   doc.text("YOUR BEST CHOICE", pageWidth / 2, 85, { align: "center" });
 
-  // Meta (احسب مرة وحدة)
+  // Meta
   const today = new Date();
   const invoiceDate = today.toLocaleDateString("en-GB");
   const invoiceId = `INV-${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
-
   doc.setFont("helvetica", "normal");
   doc.setFontSize(12);
   doc.setTextColor(0);
@@ -1316,35 +1367,34 @@ function escClose(e){
     }
   });
 
-  
-  
-  
-    // === تنزيل PDF أولاً، ثم JSON بعد تأخير بسيط ===
+  // حفظ PDF + JSON (حوار حفظ باسم، ومعه فولباك ZIP)
   const pdfBytes = doc.output("arraybuffer");
-  downloadBytes(pdfBytes, `Invoice_${invoiceId}.pdf`);
 
-  setTimeout(() => {
-    const jsonArray = sortedItems.map(it => ({
-      category: String(it.category || ""),
-      item:     String(it.name     || ""),
-      qty:      String(it.qty      || ""),
-      note:     String(it.note     || ""),
-    }));
+  const jsonArray = sortedItems.map(it => ({
+    category: String(it.category || ""),
+    item:     String(it.name     || ""),
+    qty:      String(it.qty      || ""),
+    note:     String(it.note     || ""),
+  }));
+  const jsonStr  = JSON.stringify(jsonArray, null, 2);
+  const jsonBlob = new Blob([jsonStr], { type: "application/json" });
 
-    const jsonBlob = new Blob([JSON.stringify(jsonArray, null, 2)], { type: "application/json" });
-    const aj = document.createElement("a");
-    aj.href = URL.createObjectURL(jsonBlob);
-    aj.download = `Invoice_${invoiceId}.assal.json`;
-    document.body.appendChild(aj);
-    aj.click();
-    setTimeout(() => { URL.revokeObjectURL(aj.href); aj.remove(); }, 0);
+  let pdfSaved = false, jsonSaved = false;
+  try {
+    pdfSaved  = await saveBytesSmart(`Invoice_${invoiceId}.pdf`,        "application/pdf",  pdfBytes);
+    jsonSaved = await saveBytesSmart(`Invoice_${invoiceId}.assal.json`, "application/json", jsonBlob);
+  } catch {}
 
-    showToast("Invoice PDF + JSON تم تنزيلهما ✅");
-  }, 400);
-} // 👈 هذا القوس مهم: يقفل exportPDF()
+  if (!pdfSaved || !jsonSaved) {
+    await saveAsZip(`Invoice_${invoiceId}.zip`, [
+      { name: `Invoice_${invoiceId}.pdf`,        mime: "application/pdf",  bytes: pdfBytes },
+      { name: `Invoice_${invoiceId}.assal.json`, mime: "application/json", bytes: jsonBlob }
+    ]);
+  }
 
-  
-  
+  showToast("Invoice PDF + JSON تم حفظهما ✅");
+}
+
   
   
     /* =========================
@@ -1536,16 +1586,11 @@ function escClose(e){
     }
 
     // تنزيل Bytes كـ PDF
-    function downloadBytes(bytes, filename){
-      const blob = new Blob([bytes], {type:"application/pdf"});
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
-    }
-    
+   // بدل downloadBytes(bytes, filename) بهذا:
+async function downloadBytes(bytes, filename){
+  await saveBytesSmart(filename, "application/pdf", bytes);
+}
+
     
   
 
