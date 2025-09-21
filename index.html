@@ -1339,13 +1339,13 @@ async function exportExcelOnly(){
   const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
   const xlsxName  = `Invoice_${invoiceId}.xlsx`;
 
-  // ترتيب البيانات
+  // ترتيب البيانات مثل PDF
   const sorted = [...(currentInvoice.items||[])].sort((a,b)=>{
     const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
     return c!==0 ? c : String(a.name||"").localeCompare(String(b.name||""), "en", {sensitivity:"base"});
   });
 
-  // نحضّر الورقة
+  // تجهيز الورقة
   const rows = [
     ["Category","Item","Quantity","Notes"],
     ...sorted.map(it=>[
@@ -1360,56 +1360,62 @@ async function exportExcelOnly(){
   XLSX.utils.book_append_sheet(wb, ws, "Invoice");
 
   try {
-    // 1) نحول إلى ArrayBuffer
-    const ab = XLSX.write(wb, {
-      bookType: "xlsx",
-      type: "array",
-      compression: true,
-      bookSST: true
-    });
-
-    // 2) نسوّي Blob + File (أفضل للموبايل)
-    const blob = new Blob([ab], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    });
+    // نكتب كـ ArrayBuffer (أنظف لصنع Blob/File)
+    const ab = XLSX.write(wb, { bookType:"xlsx", type:"array", compression:true, bookSST:true });
+    const blob = new Blob([ab], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const file = new File([blob], xlsxName, { type: blob.type });
 
-    // 3) أول محاولة: Web Share (تطلع لك نافذة "مشاركة" على الموبايل)
+    // 1) أفضل شي للموبايل: نافذة "مشاركة" (واتساب/ملفات/درايف...)
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: xlsxName });
+      await navigator.share({ files:[file], title: xlsxName });
       showToast("تم تصدير Excel ✅");
       return;
     }
 
-    // 4) ثاني محاولة: showSaveFilePicker (بعض المتصفحات تدعمه)
+    // 2) حفظ مباشر إذا المتصفح يدعمها
     if (window.showSaveFilePicker) {
-      try{
+      try {
         const handle = await window.showSaveFilePicker({
           suggestedName: xlsxName,
-          types: [{
-            description: "Excel Workbook",
-            accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] }
-          }]
+          types: [{ description:"Excel Workbook", accept:{ "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] } }]
         });
-        const writable = await handle.createWritable();
-        await writable.write(blob);
-        await writable.close();
+        const w = await handle.createWritable();
+        await w.write(blob); await w.close();
         showToast("تم حفظ Excel ✅");
         return;
-      }catch(e){
-        // إذا المستخدم لغى أو مو مدعوم، نكمّل للفولباك
-      }
+      } catch(_) { /* المستخدم لغى أو غير مدعوم */ }
     }
 
-    // 5) آخر حل بسيط: نستخدم writeFile (ممتاز للدسك توب)
-    XLSX.writeFile(wb, xlsxName, { compression: true, bookSST: true });
+    // 3) data:URL — حل يشتغل على أغلب WebView (يظهر فتح/حفظ)
+    const base64 = await (async function u8ToB64(u8){
+      let CHUNK=0x8000, s=[], i=0;
+      for(; i<u8.length; i+=CHUNK){ s.push(String.fromCharCode.apply(null, u8.subarray(i, i+CHUNK))); }
+      return btoa(s.join(""));
+    })(new Uint8Array(ab));
+    const href = "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + base64;
+
+    // نحاول فتحه تبويب/نفس الصفحة (بعض الويب فيو تفضّل هيچ)
+    const a = document.createElement("a");
+    a.href = href; a.download = xlsxName; a.style.display="none";
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ try{ window.open(href, "_blank"); }catch(e){} }, 200);
+    setTimeout(()=>{ document.body.removeChild(a); }, 1500);
     showToast("تم تصدير Excel ✅");
-  } catch (err){
-    console.error(err);
-    showToast("تعذّر تصدير Excel ❌", true);
+    return;
+
+  } catch (e1) {
+    console.warn("xlsx share/save/dataurl failed, trying legacy:", e1);
+    try {
+      // 4) آخر حل: الطريقة التقليدية (ممتازة على الديسكتوب)
+      XLSX.writeFile(wb, xlsxName, { compression:true, bookSST:true });
+      showToast("تم تصدير Excel ✅");
+      return;
+    } catch(e2){
+      console.error(e2);
+      showToast("تعذّر تصدير Excel ❌", true);
+    }
   }
 }
-
 
 // تحميل Blob يشتغل على موبايل/ويب فيو/ديسكتوب
 function downloadBlobFallback(filename, blob){
