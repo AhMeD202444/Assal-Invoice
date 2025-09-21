@@ -1332,12 +1332,12 @@ async function exportJSONOnly(){
     return;
   }
 
-  // اسم بنفس نمط الفاتورة
+  // اسم الملف بنفس نمط الفاتورة
   const d = new Date();
   const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
   const jsonName  = `Invoice_${invoiceId}.assal.json`;
 
-  // نفس ترتيب العناصر
+  // ترتيب مثل PDF
   const sortedItems = [...(currentInvoice.items || [])].sort((a,b)=>{
     const catA = String(a.category||""); const catB = String(b.category||"");
     const nameA = String(a.name||"");    const nameB = String(b.name||"");
@@ -1354,24 +1354,50 @@ async function exportJSONOnly(){
 
   const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: "application/json;charset=utf-8" });
 
-  // جرّب Web Share (للموبايل/الويب فيو) وإلا نزّل مباشرة مثل الديسكتوب
+  // ⬇️ هذا هو الفرق: نستعمل fallback المضمون
+  downloadBlobFallback(jsonName, blob);
+  showToast("تم تصدير JSON ✅");
+}
+
+
+
+// تحميل Blob يشتغل على موبايل/ويب فيو/ديسكتوب
+function downloadBlobFallback(filename, blob){
+  // 1) Web Share API (أفضل شي للموبايل إن كان مدعوم)
   try{
-    const file = new File([blob], jsonName, { type: "application/json" });
-    if(navigator.canShare && navigator.canShare({ files:[file] })){
-      await navigator.share({ files:[file], title:"ASSAL OFFICE Invoice JSON", text: jsonName });
-      showToast("تمت مشاركة JSON ✅");
+    const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: filename }).catch(()=>{});
       return;
     }
-  }catch(e){ /* تجاهل وننزّل مباشرة */ }
+  }catch(_e){ /* نتجاهل ونكمّل */ }
 
-  // تنزيل مباشر (ديسكتوب/متصفحات تدعم a[download])
+  // 2) Edge القديم
+  if (window.navigator && window.navigator.msSaveOrOpenBlob){
+    window.navigator.msSaveOrOpenBlob(blob, filename);
+    return;
+  }
+
+  // 3) رابط تنزيل + fallback فتح في تبويب (للوِب فيو اللي يتجاهل download)
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = jsonName;
+  a.href = url;
+  a.download = filename;
+  a.style.display = "none";
   document.body.appendChild(a);
   a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
-  showToast("تم تنزيل JSON ✅");
+
+  // بعض الويب فيو ما ينزل بالرابط؛ جرّب نفتح التبويب
+  setTimeout(()=>{
+    // محاولة فتح في تبويب جديد
+    const win = window.open(url, "_blank");
+    if(!win){
+      // آخر حل: تحويل نفس الصفحة
+      window.location.href = url;
+    }
+    // تنظيف
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 2000);
+  }, 250);
 }
 
   
