@@ -605,8 +605,8 @@ tbody tr:hover {
   <button class="icon-btn" id="btnReload" title="تحديث الصفحة"><i class="fa-solid fa-rotate-right"></i></button>
 
   <!-- زر تصدير JSON فقط -->
-  <button class="icon-btn" id="btnExportJSON" title="تصدير JSON فقط">
-    <i class="fa-solid fa-file-code"></i>
+ <button class="icon-btn" id="btnExportJSON" title="تصدير Excel">
+  <i class="fa-solid fa-file-excel"></i>
   </button>
 </div>
 
@@ -671,7 +671,7 @@ tbody tr:hover {
         <!-- ====== Sidebar مستقل (الفواتير المستوردة PDF) ====== -->
     <aside class="sidebar" id="importedSidebar">
       <div class="panel-title">
-      <h3><i class="fa-solid fa-file-import"></i> الفواتير المستوردة (JSON)</h3>
+    <h3><i class="fa-solid fa-file-import"></i> الفواتير المستوردة (Excel)</h3>
         <div style="display:flex; gap:8px;">
       <button class="icon-btn" id="btnImportPDF" title="استيراد JSON">
 
@@ -684,7 +684,9 @@ tbody tr:hover {
       </div>
 
       <div id="importedPdfList" class="invoices-list"></div>
-      <input id="pdfFilePicker" type="file" accept=".json,application/json" multiple style="display:none;">
+     <input id="pdfFilePicker" type="file"
+  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  multiple style="display:none;">
     </aside>
 
     
@@ -1215,7 +1217,7 @@ function escClose(e){
         empty.className = "chip-meta";
         empty.style.color = "var(--muted)";
         empty.style.textAlign = "center";
-        empty.textContent = "لا توجد ملفات JSON مستوردة بعد";
+      empty.textContent = "لا توجد ملفات Excel مستوردة بعد";
         wrap.appendChild(empty);
         return;
       }
@@ -1326,39 +1328,42 @@ function escClose(e){
 
 
 
-async function exportJSONOnly(){
+async function exportExcelOnly(){
   if(!currentInvoice || !(currentInvoice.items||[]).length){
     showToast("لا توجد بيانات للتصدير ❌", true);
     return;
   }
 
-  // اسم الملف بنفس نمط الفاتورة
+  // اسم الملف مثل الفاتورة
   const d = new Date();
   const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
-  const jsonName  = `Invoice_${invoiceId}.assal.json`;
+  const xlsxName  = `Invoice_${invoiceId}.xlsx`;
 
-  // ترتيب مثل PDF
-  const sortedItems = [...(currentInvoice.items || [])].sort((a,b)=>{
-    const catA = String(a.category||""); const catB = String(b.category||"");
-    const nameA = String(a.name||"");    const nameB = String(b.name||"");
-    const c = catA.localeCompare(catB, "en", { sensitivity:"base" });
-    return c!==0 ? c : nameA.localeCompare(nameB, "en", { sensitivity:"base" });
+  // ترتيب مثل PDF (Category ثم Item)
+  const sorted = [...(currentInvoice.items||[])].sort((a,b)=>{
+    const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
+    return c!==0 ? c : String(a.name||"").localeCompare(String(b.name||""), "en", {sensitivity:"base"});
   });
 
-  const jsonData = sortedItems.map(it=>({
-    category: String(it.category||""),
-    item:     String(it.name||""),
-    qty:      String(it.qty||""),
-    note:     String(it.note||""),
-  }));
+  // صفوف الإكسل (هيدر + بيانات)
+  const rows = [
+    ["Category","Item","Quantity","Notes"],
+    ...sorted.map(it=>[
+      String(it.category||""),
+      String(it.name||""),
+      String(it.qty||""),
+      String(it.note||""),
+    ])
+  ];
 
-  const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: "application/json;charset=utf-8" });
+  // إنشاء ملف Excel عبر SheetJS وحفظ مباشر (نفس فكرة doc.save للـ PDF)
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, "Invoice");
 
-  // ⬇️ هذا هو الفرق: نستعمل fallback المضمون
-  downloadBlobFallback(jsonName, blob);
-  showToast("تم تصدير JSON ✅");
+  XLSX.writeFile(wb, xlsxName, { compression: true }); // ⬅️ حفظ مباشر
+  showToast("تم تصدير Excel ✅");
 }
-
 
 
 // تحميل Blob يشتغل على موبايل/ويب فيو/ديسكتوب
@@ -1421,90 +1426,101 @@ function downloadBlobFallback(filename, blob){
        ========================= */
        
  
-document.getElementById("btnExportJSON").addEventListener("click", exportJSONOnly);
+document.getElementById("btnExportJSON").addEventListener("click", exportExcelOnly);
 
     document.getElementById("btnNew").addEventListener("click", newInvoice);
    document.getElementById("btnReload").addEventListener("click", reloadPage);
     document.getElementById("fab").addEventListener("click", newInvoice);
     
     
+    
+    
+    
+    // ✅ ربط زر الاستيراد لفتح مُلتقط الملفات
+document.getElementById("btnImportPDF").addEventListener("click", ()=>{
+  const picker = document.getElementById("pdfFilePicker");
+  picker.value = "";           // ننظّف القيمة حتى يسمح باختيار نفس الملف مرة ثانية
+  picker.click();              // نفتح نافذة اختيار الملفات
+});
+    
+    
+    
+    
         // ===== PDF Imported Sidebar: Import & Merge =====
     // فتح مُلتقط PDF
-    document.getElementById("btnImportPDF").addEventListener("click", ()=>{
-      document.getElementById("pdfFilePicker").click();
-    });
-
-    // التقاط ملفات PDF
-   document.getElementById("pdfFilePicker").addEventListener("change", (e)=>{
+   document.getElementById("pdfFilePicker").addEventListener("change", async (e)=>{
   const files = Array.from(e.target.files || []);
   if(!files.length) return;
 
-  // قبول JSON فقط (لو واحد بالغلط مو JSON نتجاهله)
-  const jsons = files.filter(f => f.type === "application/json" || f.name.toLowerCase().endsWith(".json"));
-  if(!jsons.length){
-    showToast("الملفات ليست JSON ❌", true);
+  // نقبل xlsx فقط
+  const excels = files.filter(f =>
+    f.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    f.name.toLowerCase().endsWith(".xlsx")
+  );
+  if(!excels.length){
+    showToast("الملفات ليست Excel ❌", true);
     e.target.value = "";
     return;
   }
 
-  importedPdfFiles.push(...jsons);
+  importedPdfFiles.push(...excels);
   renderImportedPdfList();
   e.target.value = "";
-  showToast("تم استيراد JSON ✅");
+  showToast("تم استيراد Excel ✅");
 });
 
 
     // الدمج + محاولة ترتيب الأيتمات أبجدياً
-   document.getElementById("btnMergePDF").addEventListener("click", async ()=>{
+ document.getElementById("btnMergePDF").addEventListener("click", async ()=>{
   if(importedPdfFiles.length < 2){
-    showToast("يرجى استيراد ملفين JSON على الأقل ❌", true);
+    showToast("يرجى استيراد ملفين Excel على الأقل ❌", true);
     return;
   }
 
   try{
-    // نقرأ كل ملفات JSON
     let items = [];
+
     for (const file of importedPdfFiles){
-      const text = await file.text();
-      let arr;
-      try{
-        arr = JSON.parse(text);
-      }catch(_e){
-        continue; // نتجاهل الملف لو JSON غير صالح
-      }
-      if(Array.isArray(arr)){
-        // توحيد الحقول (category, item, qty, note)
-        arr.forEach(r=>{
-          items.push({
-            category: String(r.category || r.Category || ""),
-            item:     String(r.item     || r.Item     || ""),
-            qty:      String(r.qty      || r.Quantity || ""),
-            note:     String(r.note     || r.Notes    || "")
+      const buf = await file.arrayBuffer();
+      const wb  = XLSX.read(buf, { type: "array" });
+
+      const sheetNames = wb.SheetNames && wb.SheetNames.length ? wb.SheetNames : [];
+      for(const sName of sheetNames){
+        const ws = wb.Sheets[sName];
+        if(!ws) continue;
+
+        const arr = XLSX.utils.sheet_to_json(ws, { defval: "", raw: false });
+
+        if(Array.isArray(arr) && arr.length){
+          arr.forEach(r=>{
+            items.push({
+              category: String(r.category || r.Category || r["CATEGORY"] || r["Category"] || r["الصنف"] || ""),
+              item:     String(r.item     || r.Item     || r["ITEM"]     || r["Item"]     || r["القطعة"] || ""),
+              qty:      String(r.qty      || r.Qty      || r["QTY"]      || r["Quantity"] || r["العدد"]  || ""),
+              note:     String(r.note     || r.Note     || r["NOTES"]    || r["Notes"]    || r["ملاحظات"]|| "")
+            });
           });
-        });
+        }
       }
     }
 
-    // تنظيف عناصر فارغة
-    items = items.filter(it => (it.item || "").trim().length);
+    items = items.filter(it => (it.item||"").trim().length);
 
     if(!items.length){
-      showToast("لا توجد عناصر صالحة داخل JSON ❌", true);
+      showToast("لا توجد عناصر صالحة داخل Excel ❌", true);
       return;
     }
 
-    // ترتيب + وسم مكرر + توليد PDF
-    const nicelySorted   = sortAndFlagDuplicates(items);
-    const sortedPdfBytes = await buildItemsPdf(nicelySorted);
-    downloadBytes(sortedPdfBytes, autoMergedName("ASSAL_SORTED"));
-    showToast("تم توليد فاتورة موحّدة مرتبة ✅");
-  }catch(err){
+    const nicelySorted = sortAndFlagDuplicates(items);
+    const doc = await buildItemsPdf(nicelySorted);   // يرجّع jsPDF
+    doc.save(autoMergedName("ASSAL_SORTED"));        // حفظ مباشر مثل exportPDF
+    showToast("تم توليد PDF مدمج ومرتّب ✅");
+  } catch(err){
     console.error(err);
     showToast("فشل الدمج ❌", true);
   }
 });
 
-    
 
     /* =========================
        منطق قائمة الأصناف المخصصة
@@ -1697,8 +1713,8 @@ document.getElementById("btnExportJSON").addEventListener("click", exportJSONOnl
         }
       });
 
-      const raw = doc.output("arraybuffer");
-  return raw; // نرجّع بايتات PDF فقط (بدون أي مرفقات)
+     return doc; // نرجّع كائن jsPDF نفسه
+
 
     }
 
