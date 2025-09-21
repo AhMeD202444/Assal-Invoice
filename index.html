@@ -1327,25 +1327,23 @@ function escClose(e){
 
 
 
-
 async function exportExcelOnly(){
   if(!currentInvoice || !(currentInvoice.items||[]).length){
     showToast("لا توجد بيانات للتصدير ❌", true);
     return;
   }
 
-  // اسم الملف مثل الفاتورة
   const d = new Date();
   const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
   const xlsxName  = `Invoice_${invoiceId}.xlsx`;
 
-  // ترتيب مثل PDF (Category ثم Item)
+  // ترتيب البيانات
   const sorted = [...(currentInvoice.items||[])].sort((a,b)=>{
     const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
     return c!==0 ? c : String(a.name||"").localeCompare(String(b.name||""), "en", {sensitivity:"base"});
   });
 
-  // صفوف الإكسل (هيدر + بيانات)
+  // بناء الـWorkbook
   const rows = [
     ["Category","Item","Quantity","Notes"],
     ...sorted.map(it=>[
@@ -1355,15 +1353,26 @@ async function exportExcelOnly(){
       String(it.note||""),
     ])
   ];
-
-  // إنشاء ملف Excel عبر SheetJS وحفظ مباشر (نفس فكرة doc.save للـ PDF)
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
   XLSX.utils.book_append_sheet(wb, ws, "Invoice");
 
-  XLSX.writeFile(wb, xlsxName, { compression: true }); // ⬅️ حفظ مباشر
+  // ⚠️ أهم جزء: نكتب كـ ArrayBuffer ونطفّي الضغط (Android Excel يحبها هيچ)
+  const ab = XLSX.write(wb, { bookType:"xlsx", type:"array", compression:false });
+
+  // فحص سريع إن الملف صالح (اختياري بس مفيد)
+  try { XLSX.read(ab, { type:"array" }); }
+  catch(e){
+    showToast("XLSX غير صالح: " + e.message + " ❌", true);
+    return;
+  }
+
+  // إنشاء Blob بالـMIME الصحيح ثم تنزيله بالطريقة المتوافقة مع الموبايل
+  const blob = new Blob([ab], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  downloadBlobFallback(xlsxName, blob);  // عندك هالدالة جاهزة بالكود
   showToast("تم تصدير Excel ✅");
 }
+
 
 
 // تحميل Blob يشتغل على موبايل/ويب فيو/ديسكتوب
