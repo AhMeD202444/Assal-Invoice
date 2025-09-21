@@ -1326,11 +1326,6 @@ function escClose(e){
 
 
 
-function isMobile(){
-  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
-}
-
-
 
 
 async function exportExcelOnly(){
@@ -1339,6 +1334,7 @@ async function exportExcelOnly(){
     return;
   }
 
+  // اسم الملف
   const d = new Date();
   const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
   const xlsxName  = `Invoice_${invoiceId}.xlsx`;
@@ -1349,6 +1345,7 @@ async function exportExcelOnly(){
     return c!==0 ? c : String(a.name||"").localeCompare(String(b.name||""), "en", {sensitivity:"base"});
   });
 
+  // نحضّر الورقة
   const rows = [
     ["Category","Item","Quantity","Notes"],
     ...sorted.map(it=>[
@@ -1358,55 +1355,61 @@ async function exportExcelOnly(){
       String(it.note||""),
     ])
   ];
-
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
   XLSX.utils.book_append_sheet(wb, ws, "Invoice");
 
-  // مهم: Shared Strings + ضغط (بعض تطبيقات الأندرويد تحتاجها)
-  const ab = XLSX.write(wb, {
-    bookType: "xlsx",
-    type: "array",
-    compression: true,
-    bookSST: true
-  });
+  try {
+    // 1) نحول إلى ArrayBuffer
+    const ab = XLSX.write(wb, {
+      bookType: "xlsx",
+      type: "array",
+      compression: true,
+      bookSST: true
+    });
 
-  // فحص سريع
-  try { XLSX.read(ab, { type:"array" }); }
-  catch(e){
-    showToast("XLSX غير صالح: " + e.message + " ❌", true);
-    return;
-  }
+    // 2) نسوّي Blob + File (أفضل للموبايل)
+    const blob = new Blob([ab], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+    const file = new File([blob], xlsxName, { type: blob.type });
 
-  const blob = new Blob([ab], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  });
-
-  // نحاول الحفظ المباشر على أندرويد/كروم (أفضل للموبايل)
-  if (window.showSaveFilePicker) {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: xlsxName,
-        types: [{
-          description: "Excel Workbook",
-          accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] }
-        }]
-      });
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      showToast("تم حفظ Excel ✅");
+    // 3) أول محاولة: Web Share (تطلع لك نافذة "مشاركة" على الموبايل)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: xlsxName });
+      showToast("تم تصدير Excel ✅");
       return;
-    } catch (err) {
-      // إذا المستخدم لغى، نرجع للفولباك
-      console.warn("saveFilePicker fallback:", err);
     }
-  }
 
-  // فولباك متوافق مع أغلب الويب فيو/المتصفحات
-  downloadBlobFallback(xlsxName, blob);
-  showToast("تم تصدير Excel ✅");
+    // 4) ثاني محاولة: showSaveFilePicker (بعض المتصفحات تدعمه)
+    if (window.showSaveFilePicker) {
+      try{
+        const handle = await window.showSaveFilePicker({
+          suggestedName: xlsxName,
+          types: [{
+            description: "Excel Workbook",
+            accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] }
+          }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        showToast("تم حفظ Excel ✅");
+        return;
+      }catch(e){
+        // إذا المستخدم لغى أو مو مدعوم، نكمّل للفولباك
+      }
+    }
+
+    // 5) آخر حل بسيط: نستخدم writeFile (ممتاز للدسك توب)
+    XLSX.writeFile(wb, xlsxName, { compression: true, bookSST: true });
+    showToast("تم تصدير Excel ✅");
+  } catch (err){
+    console.error(err);
+    showToast("تعذّر تصدير Excel ❌", true);
+  }
 }
+
 
 // تحميل Blob يشتغل على موبايل/ويب فيو/ديسكتوب
 function downloadBlobFallback(filename, blob){
