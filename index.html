@@ -3,11 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <title>ASSAL OFFICE • Invoices</title>
+  
+  
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   
   
   
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+ <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 
   <!-- أيقونات -->
@@ -1304,10 +1309,23 @@ async function exportPDF() {
     return;
   }
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+  // ===== تحقق من توفر jsPDF + AutoTable =====
+  const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+  if (!jsPDFCtor) {
+    console.error("jsPDF not loaded");
+    showToast("تعذّر تحميل jsPDF من الـ CDN ❌", true);
+    return;
+  }
 
-  // sort (نفس ترتيب تصدير الفاتورة)
+  const doc = new jsPDFCtor({ orientation: "p", unit: "pt", format: "a4" });
+
+  if (typeof doc.autoTable !== "function") {
+    console.error("autoTable plugin not loaded");
+    showToast("تعذّر تحميل jsPDF-AutoTable ❌", true);
+    return;
+  }
+
+  // ===== ترتيب العناصر =====
   const sortedItems = [...(currentInvoice.items || [])].sort((a, b) => {
     const catA = String(a.category || "");
     const catB = String(b.category || "");
@@ -1320,7 +1338,7 @@ async function exportPDF() {
   const pageWidth  = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
-  // Header
+  // ===== الهيدر =====
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
   doc.setTextColor(25, 25, 112);
@@ -1329,7 +1347,7 @@ async function exportPDF() {
   doc.setTextColor(100);
   doc.text("YOUR BEST CHOICE", pageWidth / 2, 85, { align: "center" });
 
-  // Meta
+  // ===== بيانات الفاتورة =====
   const today = new Date();
   const invoiceDate = today.toLocaleDateString("en-GB");
   const invoiceId = `INV-${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
@@ -1339,7 +1357,7 @@ async function exportPDF() {
   doc.text(`Invoice ID: ${invoiceId}`, pageWidth - 60, 120, { align: "right" });
   doc.text(`Date: ${invoiceDate}`, 60, 120, { align: "left" });
 
-  // Table
+  // ===== الجدول =====
   doc.autoTable({
     head: [["#", "Category", "Item", "Quantity", "Notes"]],
     body: sortedItems.map((it, i) => [
@@ -1367,35 +1385,41 @@ async function exportPDF() {
     }
   });
 
-  // حفظ PDF + JSON (حوار حفظ باسم، ومعه فولباك ZIP)
-  const pdfBytes = doc.output("arraybuffer");
-
-  const jsonArray = sortedItems.map(it => ({
-    category: String(it.category || ""),
-    item:     String(it.name     || ""),
-    qty:      String(it.qty      || ""),
-    note:     String(it.note     || ""),
-  }));
-  const jsonStr  = JSON.stringify(jsonArray, null, 2);
-  const jsonBlob = new Blob([jsonStr], { type: "application/json" });
-
-  let pdfSaved = false, jsonSaved = false;
+  // ===== حفظ PDF + JSON (مع فولباك ZIP) =====
   try {
-    pdfSaved  = await saveBytesSmart(`Invoice_${invoiceId}.pdf`,        "application/pdf",  pdfBytes);
-    jsonSaved = await saveBytesSmart(`Invoice_${invoiceId}.assal.json`, "application/json", jsonBlob);
-  } catch {}
+    const pdfBytes = doc.output("arraybuffer");
 
-  if (!pdfSaved || !jsonSaved) {
-    await saveAsZip(`Invoice_${invoiceId}.zip`, [
-      { name: `Invoice_${invoiceId}.pdf`,        mime: "application/pdf",  bytes: pdfBytes },
-      { name: `Invoice_${invoiceId}.assal.json`, mime: "application/json", bytes: jsonBlob }
-    ]);
+    const jsonArray = sortedItems.map(it => ({
+      category: String(it.category || ""),
+      item:     String(it.name     || ""),
+      qty:      String(it.qty      || ""),
+      note:     String(it.note     || ""),
+    }));
+    const jsonStr  = JSON.stringify(jsonArray, null, 2);
+    const jsonBlob = new Blob([jsonStr], { type: "application/json" });
+
+    let pdfSaved = false, jsonSaved = false;
+    try {
+      pdfSaved  = await saveBytesSmart(`Invoice_${invoiceId}.pdf`,        "application/pdf",  pdfBytes);
+      jsonSaved = await saveBytesSmart(`Invoice_${invoiceId}.assal.json`, "application/json", jsonBlob);
+    } catch (e) {
+      console.error("saveBytesSmart error:", e);
+    }
+
+    if (!pdfSaved || !jsonSaved) {
+      await saveAsZip(`Invoice_${invoiceId}.zip`, [
+        { name: `Invoice_${invoiceId}.pdf`,        mime: "application/pdf",  bytes: pdfBytes },
+        { name: `Invoice_${invoiceId}.assal.json`, mime: "application/json", bytes: jsonBlob }
+      ]);
+    }
+
+    showToast("Invoice PDF + JSON تم حفظهما ✅");
+  } catch (e) {
+    console.error(e);
+    showToast("تعذّر إنشاء/حفظ الملف ❌", true);
   }
-
-  showToast("Invoice PDF + JSON تم حفظهما ✅");
 }
 
-  
   
     /* =========================
        Toast بسيط
