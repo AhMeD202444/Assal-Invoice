@@ -1256,110 +1256,47 @@ function escClose(e){
     
     
     
-    async function exportCSVOnly(){
+   async function exportCSVOnly(){
   if(!currentInvoice || !(currentInvoice.items||[]).length){
     showToast("لا توجد بيانات للتصدير ❌", true);
     return;
   }
 
-  // اسم الملف مثل باقي الدوال
+  // اسم الملف مثل الباقي
   const d = new Date();
   const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
   const csvName   = `Invoice_${invoiceId}.csv`;
 
-  // نفس ترتيب الـ PDF/Excel: أولاً Category ثم Item
+  // ترتيب مثل PDF/Excel: Category ثم Item
   const sorted = [...(currentInvoice.items||[])].sort((a,b)=>{
     const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
     return c!==0 ? c : String(a.name||"").localeCompare(String(b.name||""), "en", {sensitivity:"base"});
   });
 
-  // هيدر + بيانات، مع اقتباس القيم وCRLF
+  // محوّل آمن لقيم CSV (يدعّم الفواصل، علامات اقتباس، والأسطر الجديدة)
+  const esc = (val)=>{
+    const s = String(val ?? "");
+    const needsQuotes = /[",\r\n]/.test(s);
+    const doubled = s.replace(/"/g, '""');
+    return needsQuotes ? `"${doubled}"` : doubled;
+  };
+
+  // الهيدر + الصفوف
   const header = ["Category","Item","Quantity","Notes"];
-  const rows = [header, ...sorted.map(it=>[
-    String(it.category||""), String(it.name||""), String(it.qty||""), String(it.note||"")
-  ])];
+  const rows = [
+    header,
+    ...sorted.map(it=>[it.category, it.name, it.qty, it.note])
+  ];
 
-  const csvText = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  // نص CSV مع BOM علشان العربية تفتح صح بالإكسل
+  const csv = "\uFEFF" + rows.map(r => r.map(esc).join(",")).join("\r\n");
 
-  // نضيف BOM حتى الإكسل بالموبايل يقرأ عربي مضبوط
-  const bom = new Uint8Array([0xEF,0xBB,0xBF]);
-  const blob = new Blob([bom, csvText], { type: "text/csv;charset=utf-8" });
+  // ننشئ Blob وننزّل بالـ fallback مالتك (بدون data:url)
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  downloadBlobFallback(csvName, blob);
 
-  try{
-    // نجهّز File لاستخدام Web Share وFile Picker
-    const file = new File([blob], csvName, { type: "text/csv" });
-
-    // 1) الأفضل للموبايل: Web Share (مشاركة إلى الملفات/الواتساب/درايف...)
-    if (navigator.canShare && navigator.canShare({ files:[file] })) {
-      await navigator.share({ files:[file], title: csvName });
-      showToast("تم تصدير CSV ✅");
-      return;
-    }
-
-    // 2) حفظ عبر File Picker (مدعوم في كروم حديث)
-    if (window.showSaveFilePicker) {
-      try{
-        const handle = await window.showSaveFilePicker({
-          suggestedName: csvName,
-          types: [{ description:"CSV file", accept: { "text/csv": [".csv"] } }]
-        });
-        const w = await handle.createWritable();
-        await w.write(blob); await w.close();
-        showToast("تم حفظ CSV ✅");
-        return;
-      }catch(_){ /* المستخدم لغى أو غير مدعوم */ }
-    }
-
-    // 3) data:URL — يشتغل حتى في WebView العنيد
-    const reader = new FileReader();
-    const href = await new Promise((res, rej)=>{
-      reader.onload = () => res(reader.result);
-      reader.onerror = rej;
-      reader.readAsDataURL(blob); // "data:text/csv;base64,...."
-    });
-
-    // جرّب تنزيل مباشر + فتح تبويب
-    const a = document.createElement("a");
-    a.href = href; a.download = csvName; a.style.display="none";
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ try{ window.open(href, "_blank"); }catch(e){} }, 200);
-    setTimeout(()=>{ a.remove(); }, 1500);
-    showToast("تم تصدير CSV ✅");
-    return;
-
-  }catch(e1){
-    console.warn("share/save/dataurl failed, fallback:", e1);
-
-    try{
-      // 4) فولباك ويندوز/إيدج قديم
-      if (window.navigator && window.navigator.msSaveOrOpenBlob){
-        window.navigator.msSaveOrOpenBlob(blob, csvName);
-        showToast("تم تصدير CSV ✅");
-        return;
-      }
-
-      // 5) فولباك رابط تنزيل تقليدي + تحويل الصفحة لو لزم
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = csvName; a.style.display="none";
-      document.body.appendChild(a); a.click();
-
-      setTimeout(()=>{
-        const win = window.open(url, "_blank");
-        if(!win){ window.location.href = url; }
-        setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500);
-      }, 200);
-
-      showToast("تم تصدير CSV ✅");
-      return;
-
-    }catch(e2){
-      console.error(e2);
-      showToast("تعذّر تصدير CSV ❌", true);
-    }
-  }
+  showToast("✅ تم تصدير CSV");
 }
-
 
   
 
