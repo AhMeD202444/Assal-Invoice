@@ -15,6 +15,12 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  
+  
+ 
+
+  
+  
 
   <style>
   
@@ -154,6 +160,40 @@ body{
   max-width:1200px; margin:22px auto; padding:0 16px;
   display:grid; grid-template-columns: 280px 1fr; gap:16px;
 }
+
+/* ===== تخطيط الشبكة: جانبين فوق بعض ومحتوى على اليمين ===== */
+.layout{
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  grid-auto-rows: min-content;         /* ارتفاع الصفوف حسب المحتوى */
+}
+
+/* تموضع العناصر على الشاشات الكبيرة */
+#sidebar{
+  grid-column: 1;  /* العمود الأيسر */
+  grid-row: 1;     /* الصف الأول */
+}
+#importedSidebar{
+  grid-column: 1;  /* نفس العمود الأيسر */
+  grid-row: 2;     /* ينزل تحت الفواتير السابقة */
+}
+.content{
+  grid-column: 2;        /* العمود الأيمن */
+  grid-row: 1 / span 2;  /* يمتد على صفّين */
+}
+
+/* على 992px وأصغر: نرجّع كلشي عمود واحد (مثل ما عندك) */
+@media (max-width: 992px){
+  .layout{
+    grid-template-columns: 1fr;
+    grid-auto-rows: initial;
+  }
+  #sidebar, #importedSidebar, .content{
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
 
 /* تابلت */
 @media (max-width: 992px){
@@ -561,13 +601,23 @@ tbody tr:hover {
 </div>
 
       <div class="head-actions">
-        <button class="icon-btn" id="btnNew" title="فاتورة جديدة"><i class="fa-solid fa-plus"></i></button>
-      <!-- زر تحديث -->
-<button class="icon-btn" id="btnReload" title="تحديث الصفحة">
-  <i class="fa-solid fa-rotate-right"></i>
+  <button class="icon-btn" id="btnNew" title="فاتورة جديدة"><i class="fa-solid fa-plus"></i></button>
+  <button class="icon-btn" id="btnReload" title="تحديث الصفحة"><i class="fa-solid fa-rotate-right"></i></button>
+
+  <!-- زر تصدير JSON فقط -->
+ <button class="icon-btn" id="btnExportJSON" title="تصدير Excel">
+  <i class="fa-solid fa-file-excel"></i>
+  </button>
+  
+  
+  <button class="icon-btn" id="btnExportCSV" title="تصدير CSV">
+  <i class="fa-solid fa-file-csv"></i>
 </button>
 
-      </div>
+
+</div>
+
+
     </div>
   </header>
   
@@ -623,6 +673,34 @@ tbody tr:hover {
       <!-- لائحة الفواتير السابقة (نفس الـ id القديم لكن داخل الشريط) -->
       <div class="invoices-list" id="invoicesDropdown"></div>
     </aside>
+    
+    
+    
+        <!-- ====== Sidebar مستقل (الفواتير المستوردة PDF) ====== -->
+    <aside class="sidebar" id="importedSidebar">
+      <div class="panel-title">
+    <h3><i class="fa-solid fa-file-import"></i> الفواتير المستوردة (Excel)</h3>
+        <div style="display:flex; gap:8px;">
+      <button class="icon-btn" id="btnImportPDF" title="استيراد JSON">
+
+            <i class="fa-solid fa-download"></i>
+          </button>
+          <button class="icon-btn" id="btnMergePDF" title="دمج (وترتيب الأيتمات)">
+            <i class="fa-solid fa-layer-group"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="importedPdfList" class="invoices-list"></div>
+     <input id="pdfFilePicker" type="file"
+  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  multiple style="display:none;">
+    </aside>
+
+    
+    
+    
+    
 
     <!-- ====== Content ====== -->
     <section class="content">
@@ -755,6 +833,7 @@ tbody tr:hover {
     let selectedInvoiceIndex = null;                                       // مؤشر الفاتورة المختارة
     let database = {};                                                     // قاعدة بيانات الأصناف من الإكسل
     let currentCategory = "";                                              // الصنف الحالي المختار
+    let importedPdfFiles = [];                                             // ملفات PDF المستوردة مؤقتًا
 
     // رابط ملف الإكسل (نفسك)
     const dropboxMainFile = "https://assap-app-project.ahmed-al-bayatii-90.workers.dev/file1?t=" + new Date().getTime();
@@ -961,7 +1040,7 @@ function reloadPage(){
       });
     }
 
-  function removeItem(i){
+    function removeItem(i){
   currentInvoice.items.splice(i,1);
   renderItems();
   autoSaveInvoice(); // ✅ إضافة
@@ -1092,25 +1171,26 @@ function escClose(e){
     
     
 
-    function renderInvoicesDropdown(){
-      const wrap = document.getElementById("invoicesDropdown");
-      wrap.innerHTML = "";
-      invoices.forEach((inv, i)=>{
-        const row = document.createElement("div");
-        row.className = "invoice-chip";
-        row.innerHTML = `
-          <div class="chip-meta">
-            <strong>${inv.id}</strong>
-            <small>${inv.date} • ${inv.items.length} مادة</small>
-          </div>
-          <button class="btn-danger-custom" title="حذف" onclick="openDeleteInvoiceModal(${i}, event)";>
-            <i class="fa-regular fa-trash-can"></i>
-          </button>
-        `;
-        row.onclick = ()=> loadInvoice(i);
-        wrap.appendChild(row);
-      });
-    }
+   function renderInvoicesDropdown(){
+  const wrap = document.getElementById("invoicesDropdown");
+  wrap.innerHTML = "";
+  invoices.forEach((inv, i)=>{
+    const row = document.createElement("div");
+    row.className = "invoice-chip";
+    row.innerHTML = `
+      <div class="chip-meta">
+        <strong>${inv.id}</strong>
+        <small>${inv.date} • ${inv.items.length} مادة</small>
+      </div>
+      <button class="btn-danger-custom" title="حذف" onclick="openDeleteInvoiceModal(${i}, event)">
+        <i class="fa-regular fa-trash-can"></i>
+      </button>
+    `;
+    row.onclick = ()=> loadInvoice(i);
+    wrap.appendChild(row);
+  });
+}
+
 
     function loadInvoice(i){
       selectedInvoiceIndex = i;
@@ -1130,13 +1210,163 @@ function escClose(e){
       renderInvoicesDropdown();
       showToast("تم حذف الفاتورة 🗑️");
     }
+    
+    
+    
+    
+    
+    
+        // ===== قائمة ملفات PDF المستوردة في الـ Aside المستقل =====
+    function renderImportedPdfList(){
+      const wrap = document.getElementById("importedPdfList");
+      wrap.innerHTML = "";
+      if(!importedPdfFiles.length){
+        const empty = document.createElement("div");
+        empty.className = "chip-meta";
+        empty.style.color = "var(--muted)";
+        empty.style.textAlign = "center";
+      empty.textContent = "لا توجد ملفات Excel مستوردة بعد";
+        wrap.appendChild(empty);
+        return;
+      }
+      importedPdfFiles.forEach((f, i)=>{
+        const row = document.createElement("div");
+        row.className = "invoice-chip";
+        row.innerHTML = `
+          <div class="chip-meta">
+            <strong>${f.name}</strong>
+            <small>${Math.round(f.size/1024)}KB</small>
+          </div>
+          <button class="btn-danger-custom" title="إزالة" onclick="removeImportedPdf(${i})">
+            <i class="fa-regular fa-trash-can"></i>
+          </button>
+        `;
+        wrap.appendChild(row);
+      });
+    }
+
+    function removeImportedPdf(i){
+      importedPdfFiles.splice(i,1);
+      renderImportedPdfList();
+      showToast("تم حذف الملف المستورد 🗑️");
+    }
+    
+    
+    
+    
+    
+    
+    async function exportCSVOnly(){
+  if(!currentInvoice || !(currentInvoice.items||[]).length){
+    showToast("لا توجد بيانات للتصدير ❌", true);
+    return;
+  }
+
+  // اسم الملف مثل باقي الدوال
+  const d = new Date();
+  const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+  const csvName   = `Invoice_${invoiceId}.csv`;
+
+  // نفس ترتيب الـ PDF/Excel: أولاً Category ثم Item
+  const sorted = [...(currentInvoice.items||[])].sort((a,b)=>{
+    const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
+    return c!==0 ? c : String(a.name||"").localeCompare(String(b.name||""), "en", {sensitivity:"base"});
+  });
+
+  // هيدر + بيانات، مع اقتباس القيم وCRLF
+  const header = ["Category","Item","Quantity","Notes"];
+  const rows = [header, ...sorted.map(it=>[
+    String(it.category||""), String(it.name||""), String(it.qty||""), String(it.note||"")
+  ])];
+
+  const csvText = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+
+  // نضيف BOM حتى الإكسل بالموبايل يقرأ عربي مضبوط
+  const bom = new Uint8Array([0xEF,0xBB,0xBF]);
+  const blob = new Blob([bom, csvText], { type: "text/csv;charset=utf-8" });
+
+  try{
+    // نجهّز File لاستخدام Web Share وFile Picker
+    const file = new File([blob], csvName, { type: "text/csv" });
+
+    // 1) الأفضل للموبايل: Web Share (مشاركة إلى الملفات/الواتساب/درايف...)
+    if (navigator.canShare && navigator.canShare({ files:[file] })) {
+      await navigator.share({ files:[file], title: csvName });
+      showToast("تم تصدير CSV ✅");
+      return;
+    }
+
+    // 2) حفظ عبر File Picker (مدعوم في كروم حديث)
+    if (window.showSaveFilePicker) {
+      try{
+        const handle = await window.showSaveFilePicker({
+          suggestedName: csvName,
+          types: [{ description:"CSV file", accept: { "text/csv": [".csv"] } }]
+        });
+        const w = await handle.createWritable();
+        await w.write(blob); await w.close();
+        showToast("تم حفظ CSV ✅");
+        return;
+      }catch(_){ /* المستخدم لغى أو غير مدعوم */ }
+    }
+
+    // 3) data:URL — يشتغل حتى في WebView العنيد
+    const reader = new FileReader();
+    const href = await new Promise((res, rej)=>{
+      reader.onload = () => res(reader.result);
+      reader.onerror = rej;
+      reader.readAsDataURL(blob); // "data:text/csv;base64,...."
+    });
+
+    // جرّب تنزيل مباشر + فتح تبويب
+    const a = document.createElement("a");
+    a.href = href; a.download = csvName; a.style.display="none";
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ try{ window.open(href, "_blank"); }catch(e){} }, 200);
+    setTimeout(()=>{ a.remove(); }, 1500);
+    showToast("تم تصدير CSV ✅");
+    return;
+
+  }catch(e1){
+    console.warn("share/save/dataurl failed, fallback:", e1);
+
+    try{
+      // 4) فولباك ويندوز/إيدج قديم
+      if (window.navigator && window.navigator.msSaveOrOpenBlob){
+        window.navigator.msSaveOrOpenBlob(blob, csvName);
+        showToast("تم تصدير CSV ✅");
+        return;
+      }
+
+      // 5) فولباك رابط تنزيل تقليدي + تحويل الصفحة لو لزم
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = csvName; a.style.display="none";
+      document.body.appendChild(a); a.click();
+
+      setTimeout(()=>{
+        const win = window.open(url, "_blank");
+        if(!win){ window.location.href = url; }
+        setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500);
+      }, 200);
+
+      showToast("تم تصدير CSV ✅");
+      return;
+
+    }catch(e2){
+      console.error(e2);
+      showToast("تعذّر تصدير CSV ❌", true);
+    }
+  }
+}
+
 
   
 
     /* =========================
        تصدير PDF بشكل أنيق بالإنكليزي
        ========================= */
-    function exportPDF() {
+  async function exportPDF() {
   if (!currentInvoice || (currentInvoice.items || []).length === 0) {
     showToast("No data to export ❌", true);
     return;
@@ -1145,7 +1375,7 @@ function escClose(e){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
 
-  // ✅ sort by Category then Item (both as strings)
+  // ترتيب العناصر (Category ثم Item)
   const sortedItems = [...(currentInvoice.items || [])].sort((a, b) => {
     const catA = String(a.category || "");
     const catB = String(b.category || "");
@@ -1158,17 +1388,16 @@ function escClose(e){
   const pageWidth  = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
-  // ===== Header (English) =====
+  // Header
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
   doc.setTextColor(25, 25, 112);
   doc.text("ASSAL OFFICE", pageWidth / 2, 65, { align: "center" });
-
   doc.setFontSize(12);
   doc.setTextColor(100);
   doc.text("YOUR BEST CHOICE", pageWidth / 2, 85, { align: "center" });
 
-  // ===== Invoice meta =====
+  // Meta
   const today = new Date();
   const invoiceDate = today.toLocaleDateString("en-GB");
   const invoiceId = `INV-${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
@@ -1179,7 +1408,7 @@ function escClose(e){
   doc.text(`Invoice ID: ${invoiceId}`, pageWidth - 60, 120, { align: "right" });
   doc.text(`Date: ${invoiceDate}`, 60, 120, { align: "left" });
 
-  // ===== Table (English columns + running index #) =====
+  // Table
   doc.autoTable({
     head: [["#", "Category", "Item", "Quantity", "Notes"]],
     body: sortedItems.map((it, i) => [
@@ -1195,13 +1424,10 @@ function escClose(e){
     headStyles: { fillColor: [40, 90, 160], textColor: [255, 255, 255], fontStyle: "bold" },
     alternateRowStyles: { fillColor: [245, 245, 245] },
     margin: { left: 50, right: 50 },
-    didDrawPage: (data) => {
-      // Page frame on every page
+    didDrawPage: () => {
       doc.setDrawColor(80, 80, 80);
       doc.setLineWidth(1.5);
       doc.rect(30, 30, pageWidth - 60, pageHeight - 60, "S");
-
-      // Page numbers
       const pageCount   = doc.internal.getNumberOfPages();
       const pageCurrent = doc.internal.getCurrentPageInfo().pageNumber;
       doc.setFontSize(10);
@@ -1210,10 +1436,95 @@ function escClose(e){
     }
   });
 
+  // ⬅️ حفظ PDF فقط (الطريقة القديمة)
   doc.save(`Invoice_${invoiceId}.pdf`);
-  showToast("Invoice exported successfully 📄");
+  showToast("تم تصدير PDF فقط ✅");
 }
 
+
+
+
+
+async function exportExcelOnly(){
+  if(!currentInvoice || !(currentInvoice.items||[]).length){
+    showToast("لا توجد بيانات للتصدير ❌", true);
+    return;
+  }
+
+  // اسم الملف مثل الفاتورة
+  const d = new Date();
+  const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+  const xlsxName  = `Invoice_${invoiceId}.xlsx`;
+
+  // ترتيب مثل PDF (Category ثم Item)
+  const sorted = [...(currentInvoice.items||[])].sort((a,b)=>{
+    const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
+    return c!==0 ? c : String(a.name||"").localeCompare(String(b.name||""), "en", {sensitivity:"base"});
+  });
+
+  // صفوف الإكسل (هيدر + بيانات)
+  const rows = [
+    ["Category","Item","Quantity","Notes"],
+    ...sorted.map(it=>[
+      String(it.category||""),
+      String(it.name||""),
+      String(it.qty||""),
+      String(it.note||""),
+    ])
+  ];
+
+  // إنشاء ملف Excel عبر SheetJS وحفظ مباشر (نفس فكرة doc.save للـ PDF)
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, "Invoice");
+
+  XLSX.writeFile(wb, xlsxName, { compression: true }); // ⬅️ حفظ مباشر
+  showToast("تم تصدير Excel ✅");
+}
+
+
+// تحميل Blob يشتغل على موبايل/ويب فيو/ديسكتوب
+function downloadBlobFallback(filename, blob){
+  // 1) Web Share API (أفضل شي للموبايل إن كان مدعوم)
+  try{
+    const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: filename }).catch(()=>{});
+      return;
+    }
+  }catch(_e){ /* نتجاهل ونكمّل */ }
+
+  // 2) Edge القديم
+  if (window.navigator && window.navigator.msSaveOrOpenBlob){
+    window.navigator.msSaveOrOpenBlob(blob, filename);
+    return;
+  }
+
+  // 3) رابط تنزيل + fallback فتح في تبويب (للوِب فيو اللي يتجاهل download)
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+
+  // بعض الويب فيو ما ينزل بالرابط؛ جرّب نفتح التبويب
+  setTimeout(()=>{
+    // محاولة فتح في تبويب جديد
+    const win = window.open(url, "_blank");
+    if(!win){
+      // آخر حل: تحويل نفس الصفحة
+      window.location.href = url;
+    }
+    // تنظيف
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 2000);
+  }, 250);
+}
+
+  
+  
+  
     /* =========================
        Toast بسيط
        ========================= */
@@ -1230,9 +1541,104 @@ function escClose(e){
     /* =========================
        ربط أزرار الهيدر والزر العائم
        ========================= */
+       
+ 
+document.getElementById("btnExportJSON").addEventListener("click", exportExcelOnly);
     document.getElementById("btnNew").addEventListener("click", newInvoice);
    document.getElementById("btnReload").addEventListener("click", reloadPage);
     document.getElementById("fab").addEventListener("click", newInvoice);
+    document.getElementById("btnExportCSV")?.addEventListener("click", exportCSVOnly);
+
+    
+    
+    
+    
+    
+    // ✅ ربط زر الاستيراد لفتح مُلتقط الملفات
+document.getElementById("btnImportPDF").addEventListener("click", ()=>{
+  const picker = document.getElementById("pdfFilePicker");
+  picker.value = "";           // ننظّف القيمة حتى يسمح باختيار نفس الملف مرة ثانية
+  picker.click();              // نفتح نافذة اختيار الملفات
+});
+    
+    
+    
+    
+        // ===== PDF Imported Sidebar: Import & Merge =====
+    // فتح مُلتقط PDF
+   document.getElementById("pdfFilePicker").addEventListener("change", async (e)=>{
+  const files = Array.from(e.target.files || []);
+  if(!files.length) return;
+
+  // نقبل xlsx فقط
+  const excels = files.filter(f =>
+    f.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    f.name.toLowerCase().endsWith(".xlsx")
+  );
+  if(!excels.length){
+    showToast("الملفات ليست Excel ❌", true);
+    e.target.value = "";
+    return;
+  }
+
+  importedPdfFiles.push(...excels);
+  renderImportedPdfList();
+  e.target.value = "";
+  showToast("تم استيراد Excel ✅");
+});
+
+
+    // الدمج + محاولة ترتيب الأيتمات أبجدياً
+ document.getElementById("btnMergePDF").addEventListener("click", async ()=>{
+  if(importedPdfFiles.length < 2){
+    showToast("يرجى استيراد ملفين Excel على الأقل ❌", true);
+    return;
+  }
+
+  try{
+    let items = [];
+
+    for (const file of importedPdfFiles){
+      const buf = await file.arrayBuffer();
+      const wb  = XLSX.read(buf, { type: "array" });
+
+      const sheetNames = wb.SheetNames && wb.SheetNames.length ? wb.SheetNames : [];
+      for(const sName of sheetNames){
+        const ws = wb.Sheets[sName];
+        if(!ws) continue;
+
+        const arr = XLSX.utils.sheet_to_json(ws, { defval: "", raw: false });
+
+        if(Array.isArray(arr) && arr.length){
+          arr.forEach(r=>{
+            items.push({
+              category: String(r.category || r.Category || r["CATEGORY"] || r["Category"] || r["الصنف"] || ""),
+              item:     String(r.item     || r.Item     || r["ITEM"]     || r["Item"]     || r["القطعة"] || ""),
+              qty:      String(r.qty      || r.Qty      || r["QTY"]      || r["Quantity"] || r["العدد"]  || ""),
+              note:     String(r.note     || r.Note     || r["NOTES"]    || r["Notes"]    || r["ملاحظات"]|| "")
+            });
+          });
+        }
+      }
+    }
+
+    items = items.filter(it => (it.item||"").trim().length);
+
+    if(!items.length){
+      showToast("لا توجد عناصر صالحة داخل Excel ❌", true);
+      return;
+    }
+
+    const nicelySorted = sortAndFlagDuplicates(items);
+    const doc = await buildItemsPdf(nicelySorted);   // يرجّع jsPDF
+    doc.save(autoMergedName("ASSAL_SORTED"));        // حفظ مباشر مثل exportPDF
+    showToast("تم توليد PDF مدمج ومرتّب ✅");
+  } catch(err){
+    console.error(err);
+    showToast("فشل الدمج ❌", true);
+  }
+});
+
 
     /* =========================
        منطق قائمة الأصناف المخصصة
@@ -1265,11 +1671,12 @@ function escClose(e){
     /* =========================
        تشغيل أولي عند تحميل الصفحة
        ========================= */
-    window.addEventListener("load", ()=>{
+       window.addEventListener("load", ()=>{
       loadExcelFiles();
       renderInvoicesDropdown();
+      renderImportedPdfList(); // ← يعرض قائمة PDF المستوردة
     });
-    
+
     
     
      // ربط Enter بالتنقل بين الحقول
@@ -1303,6 +1710,132 @@ function escClose(e){
     document.getElementById("searchInput").focus();
   }
 });
+
+
+
+
+
+
+    // ===== أدوات الدمج والفرز وبناء PDF مرتب =====
+
+    // اسم تلقائي للملف الناتج
+    function autoMergedName(prefix="ASSAL_MERGED"){
+      const d = new Date();
+      const y = d.getFullYear();
+      const mo = String(d.getMonth()+1).padStart(2,"0");
+      const da = String(d.getDate()).padStart(2,"0");
+      const hh = String(d.getHours()).padStart(2,"0");
+      const mm = String(d.getMinutes()).padStart(2,"0");
+      return `${prefix}_${y}${mo}${da}_${hh}${mm}.pdf`;
+    }
+
+    // تنزيل Bytes كـ PDF
+    function downloadBytes(bytes, filename){
+      const blob = new Blob([bytes], {type:"application/pdf"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+    }
+    
+    
+  
+
+
+
+
+
+    // ترتيب أبجدي (item ثم category) + وسم المكرر
+    function sortAndFlagDuplicates(items){
+  // 1) ترتيب مثل exportPDF: أولاً category ثم item (حساسّية بسيطة/بدون حالة أحرف)
+  items.sort((a,b)=>{
+    const catA = String(a.category || "");
+    const catB = String(b.category || "");
+    const itemA = String(a.item || "");
+    const itemB = String(b.item || "");
+    const catCompare = catA.localeCompare(catB, "en", { sensitivity: "base" });
+    return catCompare !== 0 ? catCompare : itemA.localeCompare(itemB, "en", { sensitivity: "base" });
+  });
+
+  // 2) وسم العناصر المكرّرة (نفس الصنف + نفس القطعة) لتظليلها بالأحمر الخفيف في PDF
+  const map = new Map();
+  const out = items.map(it => ({...it, __dup:false}));
+  out.forEach((it, idx)=>{
+    const key = `${(it.category||"").toLowerCase()}||${(it.item||"").toLowerCase()}`;
+    if(!map.has(key)) map.set(key, []);
+    map.get(key).push(idx);
+  });
+  for(const arr of map.values()){
+    if(arr.length > 1) arr.forEach(i => out[i].__dup = true);
+  }
+
+  return out;
+}
+
+    // توليد PDF جديد بجدول مرتب + تظليل مكرر (jsPDF + autoTable)
+    async function buildItemsPdf(sortedItems){
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation:"p", unit:"pt", format:"a4" });
+      const pageWidth  = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      // Header
+      doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(25,25,112);
+      doc.text("ASSAL OFFICE", pageWidth/2, 65, { align:"center" });
+      doc.setFontSize(12); doc.setTextColor(100);
+      doc.text("YOUR BEST CHOICE", pageWidth/2, 85, { align:"center" });
+
+      // Meta
+      const today = new Date();
+      const invoiceDate = today.toLocaleDateString("en-GB");
+      const invoiceId = `MERGE-${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+      doc.setFont("helvetica","normal"); doc.setFontSize(12); doc.setTextColor(0);
+      doc.text(`Merge ID: ${invoiceId}`, pageWidth - 60, 120, { align:"right" });
+      doc.text(`Date: ${invoiceDate}`, 60, 120, { align:"left" });
+
+      // جدول
+      doc.autoTable({
+        head: [["#", "Category", "Item", "Quantity", "Notes"]],
+        body: sortedItems.map((it, i)=>[
+          i+1,
+          String(it.category||""),
+          String(it.item||""),
+          String(it.qty||""),
+          String(it.note||"")
+        ]),
+        startY: 160,
+        theme: "grid",
+        styles: { halign:"center", font:"helvetica", fontSize:11 },
+        headStyles: { fillColor:[40,90,160], textColor:[255,255,255], fontStyle:"bold" },
+        alternateRowStyles: { fillColor:[245,245,245] },
+        margin: { left:50, right:50 },
+
+        didParseCell: function(data){
+          if(data.section==='body'){
+            const r = data.row.index;
+            if(sortedItems[r].__dup){
+              data.cell.styles.fillColor = [255,230,230]; // أحمر خفيف للمكرر
+            }
+          }
+        },
+
+        didDrawPage: ()=>{
+          doc.setDrawColor(80,80,80); doc.setLineWidth(1.5);
+          doc.rect(30, 30, pageWidth-60, pageHeight-60, "S");
+          const pageCount   = doc.internal.getNumberOfPages();
+          const pageCurrent = doc.internal.getCurrentPageInfo().pageNumber;
+          doc.setFontSize(10); doc.setTextColor(100);
+          doc.text(`Page ${pageCurrent} of ${pageCount}`, pageWidth/2, pageHeight-20, {align:"center"});
+        }
+      });
+
+     return doc; // نرجّع كائن jsPDF نفسه
+
+
+    }
+
 
     
   </script>
