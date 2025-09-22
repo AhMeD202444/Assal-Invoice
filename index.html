@@ -47,48 +47,66 @@
   color: #eaf0ff;
 }
 
+
+
+
+
+/* ===== Unified System Modal (maintenance / reload) ===== */
+.sys-overlay{
+  position: fixed; inset: 0; z-index: 9999;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(10,11,14,.55);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  animation: sysFade .25s ease forwards;
+}
+@keyframes sysFade { from{opacity:0} to{opacity:1} }
+
+.sys-card{
+  width: min(460px, 92%); text-align: center; color: #eaf0ff;
+  background: rgba(20,24,33,.92);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 18px; box-shadow: 0 18px 50px rgba(0,0,0,.45);
+  padding: 22px 18px; transform: translateY(8px);
+  animation: sysPop .25s ease forwards;
+}
+@keyframes sysPop { to{ transform: translateY(0) } }
+
+.sys-icon-wrap{
+  width: 64px; height: 64px; margin: 4px auto 12px;
+  display:grid; place-items:center; border-radius: 50%;
+  background: radial-gradient(120% 120% at 20% 20%, var(--brand-2), var(--brand-1));
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+.sys-spinner{
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,.25);
+  border-top-color: #0b0d13;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to{ transform: rotate(360deg) } }
+
+.sys-title{ margin:8px 0 4px; font-size:18px; font-weight:800; letter-spacing:.2px; }
+.sys-sub{ margin:0 0 12px; color: var(--muted); font-size:13px; }
+
+.sys-progress{
+  height: 8px; border-radius: 999px; overflow: hidden;
+  background: rgba(255,255,255,.08);
+  border: 1px solid var(--stroke);
+}
+.sys-bar{
+  height: 100%;
+  background: linear-gradient(135deg, var(--brand-2), var(--brand-1));
+  width: 0%; transition: width .2s ease;
+}
+.sys-count{
+  margin-top: 10px; color:#cbd5e1; font-weight:700; font-size:12px;
+}
+
+
   
 
   
-  /* نافذة منبثقة */
-#reloadModal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.6);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
-}
-
-/* محتوى النافذة */
-.reload-box {
-  background: #141821;
-  padding: 24px;
-  border-radius: 16px;
-  text-align: center;
-  color: #fff;
-  min-width: 220px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.4);
-}
-
-/* دائرة تحميل */
-.loader {
-  border: 4px solid rgba(255,255,255,.2);
-  border-top: 4px solid #21d4fd;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  margin: 0 auto 12px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-  
-  
+ 
   
   
     :root{
@@ -569,6 +587,45 @@ tbody tr:hover {
 
 /* لو عندك قواعد قديمة تقلب أسطر .editor لعمودي بالموبايل،
    هذا الكود ما يتأثر لأننا Grid، و flex-direction ما ينطبق على grid */
+   
+   
+   
+   
+   /* ===== Maintenance Overlay ===== */
+.maint-overlay{
+  position: fixed; inset: 0; z-index: 10000;
+  display: none;                    /* نظهرها بالـ JS */
+  align-items: center; justify-content: center;
+  background: rgba(10,11,14,.55);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+}
+.maint-card{
+  width: min(520px, 92%);
+  background: linear-gradient(180deg, rgba(20,24,33,.96), rgba(13,16,22,.96));
+  border: 1px solid var(--stroke);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
+  padding: 28px 22px;
+  text-align: center;
+  color: var(--text);
+}
+.maint-card h2{
+  margin: 6px 0 6px; font-size: 22px; font-weight: 800; letter-spacing: .2px;
+}
+.maint-card p{
+  margin: 0; color: var(--muted); font-size: 14px;
+}
+.maint-spin{
+  width: 58px; height: 58px; margin: 0 auto 12px;
+  border-radius: 50%;
+  border: 4px solid rgba(255,255,255,.18);
+  border-top: 4px solid var(--brand-2);
+  animation: maint-rot 1s linear infinite;
+  box-shadow: 0 0 0 4px rgba(33,212,253,.06), 0 10px 24px rgba(0,0,0,.25);
+}
+@keyframes maint-rot { to { transform: rotate(360deg); } }
+
 
 
 
@@ -580,16 +637,34 @@ tbody tr:hover {
   
   
   
-  <!-- نافذة منبثقة للتحديث -->
-<div id="reloadModal">
-  <div class="reload-box">
-    <div class="loader"></div>
-    <p id="reloadText">جاري التحديث...</p>
+  
+  <div id="maintenanceOverlay" class="maint-overlay" style="display:none;">
+  <div class="maint-card">
+    <div class="maint-spin"></div>
+    <h2>التطبيق تحت الصيانة</h2>
+    <p>نرجعلك حالاً.. شكراً لصبرك 💙</p>
+  </div>
+</div>
+  
+  
+  
+ <!-- نافذة النظام الموحّدة (صيانة/تحديث/معلومات) -->
+<div id="systemModal" class="sys-overlay" aria-hidden="true">
+  <div class="sys-card" role="dialog" aria-modal="true" aria-live="polite">
+    <div class="sys-icon-wrap">
+      <div class="sys-spinner"></div>
+    </div>
+    <h3 class="sys-title" id="sysTitle">جاري تحديث التطبيق</h3>
+    <p class="sys-sub"   id="sysSub">نحضّر لك كل شيء…</p>
+
+    <!-- عدّاد + شريط تقدّم اختياريان -->
+    <div class="sys-progress" id="sysProgress" hidden>
+      <div class="sys-bar" id="sysBar" style="width:0%"></div>
+    </div>
+    <div class="sys-count" id="sysCount" hidden>3</div>
   </div>
 </div>
 
-  
-  
   
 
   <!-- ====== Header ====== -->
@@ -844,24 +919,109 @@ tbody tr:hover {
 
 
 
-function reloadPage(){
-  const modal = document.getElementById("reloadModal");
-  const text  = document.getElementById("reloadText");
+// ===== واجهة موحّدة لرسائل النظام (صيانة/تحديث/معلومات) =====
+function openSystemModal({title, sub, showProgress=false, seconds=null} = {}){
+  const modal = document.getElementById("systemModal");
+  const t = document.getElementById("sysTitle");
+  const s = document.getElementById("sysSub");
+  const p = document.getElementById("sysProgress");
+  const b = document.getElementById("sysBar");
+  const c = document.getElementById("sysCount");
 
-  // إظهار النافذة
+  t.textContent = title || "رسالة النظام";
+  s.textContent = sub   || "";
+  p.hidden = !showProgress; b.style.width = "0%";
+  c.hidden = (seconds==null);
+
+  if(seconds!=null) c.textContent = seconds;
+
   modal.style.display = "flex";
-  text.textContent = "جاري التحديث...";
 
-  // بعد ثانيتين نغير النص
-  setTimeout(()=>{
-    text.textContent = "تم التحديث ✅";
-  }, 2000);
-
-  // بعد 3 ثواني نعيد تحميل الصفحة فعلياً
-  setTimeout(()=>{
-    window.location.reload();
-  }, 3000);
+  // إرجاع أدوات تحكم
+  let tickTimer = null;
+  return {
+    setProgress: (val)=>{ if(!p.hidden){ b.style.width = `${Math.max(0,Math.min(100,val))}%`; } },
+    startCountdown: (sec, onDone)=>{
+      if(sec==null) return;
+      let left = sec;
+      c.hidden = false; c.textContent = left;
+      tickTimer = setInterval(()=>{
+        left -= 1;
+        if(left <= 0){
+          clearInterval(tickTimer);
+          c.textContent = "0";
+          onDone && onDone();
+        }else{
+          c.textContent = left;
+        }
+      }, 1000);
+    },
+    close: ()=>{
+      if(tickTimer) clearInterval(tickTimer);
+      modal.style.display = "none";
+    }
+  };
 }
+
+// ===== آلية التحديث الجديدة (أجمل + أوضح) =====
+function reloadPage(options = {}){
+  const {
+    seconds = 3,                          // مدة العدّاد
+    preTitle = "جاري تحديث التطبيق",      // العنوان الأول
+    preSub   = "نحضّر لك كل شيء…",        // الوصف الأول
+    postTitle= "تم التحديث ✅",            // العنوان بعد الاكتمال
+    postSub  = "سيُعاد فتح الصفحة الآن",  // الوصف بعد الاكتمال
+    showBar  = true                       // إظهار شريط تقدّم
+  } = options;
+
+  // نعرض النافذة
+  const ctl = openSystemModal({
+    title: preTitle,
+    sub: preSub,
+    showProgress: showBar,
+    seconds
+  });
+
+  // لو مفعّل شريط التقدّم نحركه تدريجياً مع العدّاد
+  if(showBar){
+    let elapsed = 0;
+    const total = seconds * 1000;
+    const step = 100; // كل 100ms
+    const timer = setInterval(()=>{
+      elapsed += step;
+      const pct = Math.min(100, Math.floor((elapsed/total)*100));
+      ctl.setProgress(pct);
+      if(pct >= 100) clearInterval(timer);
+    }, step);
+  }
+
+  // نبدأ العدّاد؛ وبعده نبدّل النصّ ونحمّل
+  ctl.startCountdown(seconds, ()=>{
+    // تبديل النص للحظات قبل إعادة التحميل
+    document.getElementById("sysTitle").textContent = postTitle;
+    document.getElementById("sysSub").textContent   = postSub;
+
+    // فاصلة قصيرة تعطي إحساس انتقال أنيق
+    setTimeout(()=>{
+      // إعادة التحميل الفعلية
+      window.location.reload();
+    }, 600);
+  });
+}
+
+// ===== اربط الزر الموجود عندك بنفس الاسم =====
+document.getElementById("btnReload").addEventListener("click", ()=>{
+  // تقدر تغيّر الإعدادات هنا بسهولة
+  reloadPage({
+    seconds: 4,                     // عدّاد 4 ثواني
+    preTitle: "جاري تحديث الصفحة",  // نص قبل التحديث
+    preSub:   "نحدّث البيانات والواجهات…",
+    postTitle:"تم التحديث بنجاح ✅",
+    postSub:  "نأخذك لآخر نسخة الآن…",
+    showBar:  true
+  });
+});
+
 
 
 
@@ -1659,7 +1819,8 @@ document.getElementById("btnImportPDF").addEventListener("click", ()=>{
        window.addEventListener("load", ()=>{
       loadExcelFiles();
       renderInvoicesDropdown();
-      renderImportedPdfList(); // ← يعرض قائمة PDF المستوردة
+      renderImportedPdfList(); // ← يعرض قائمة PDF المستوردة 
+       setTimeout(()=> showToast("👋 أهلاً وسهلاً بك في تطبيقنا"), 300);
     });
 
     
@@ -1820,6 +1981,44 @@ document.getElementById("btnImportPDF").addEventListener("click", ()=>{
 
 
     }
+    
+    
+    
+    
+    /* ===== Maintenance Mode ===== */
+// غيّرها إلى true لما تريد تظهر نافذة الصيانة
+const MAINTENANCE_MODE = false;
+
+/**
+ * إظهار/إخفاء نافذة الصيانة
+ * يوقف تمرير الصفحة ويتجاهل كل التفاعلات بالخلفية
+ */
+function toggleMaintenance(show){
+  const ov = document.getElementById('maintenanceOverlay');
+  if(!ov) return;
+  ov.style.display = show ? 'flex' : 'none';
+  // قفل/فتح سكرول الصفحة
+  document.documentElement.style.overflow = show ? 'hidden' : '';
+  document.body.style.overflow = show ? 'hidden' : '';
+}
+
+/* تفعيل عبر باراميتر الرابط (اختياري): ?maintenance=1 */
+function getQueryFlag(name){
+  return new URLSearchParams(location.search).get(name);
+}
+
+/* فعّل الوضع عند تحميل الصفحة إذا الفلاغ يطلب ذلك */
+window.addEventListener('load', ()=>{
+  const viaQuery = getQueryFlag('maintenance') === '1';
+  toggleMaintenance( MAINTENANCE_MODE || viaQuery );
+});
+
+    
+    
+    
+    
+    
+    
 
 
     
