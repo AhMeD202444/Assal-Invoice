@@ -90,26 +90,31 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  flex-wrap: wrap;              /* يخلي الأزرار تنزل سطر ثاني بدل ما تطلع خارج الإطار */
+  flex-wrap: nowrap;        /* مهم: لا يلف */
   max-width: 100%;
 }
 .palette-actions .btn{
+  width: auto;              /* يلغي width:100% العامة */
+  min-width: 0;
+  flex: 0 0 auto;           /* حجم المحتوى فقط */
   padding:10px 12px; border-radius:10px; font-weight:800;
 }
 
 /* على الشاشات الصغيرة: الأزرار تحت البحث */
 @media (max-width: 520px){
   .palette-top{
-    grid-template-columns: 1fr; /* سطر للبحث، سطر للأزرار */
-    row-gap: 8px;
+    grid-template-columns: minmax(0,1fr) auto; /* يبقون سطر واحد */
+    gap: 8px;
   }
   .palette-actions{
-    justify-content: stretch;
+    justify-content: flex-end;  /* أو center حسب ذوقك */
+    flex-wrap: nowrap;          /* يمنع النزول لسطر جديد */
   }
   .palette-actions .btn{
-    flex: 1 1 48%;              /* زرّين جنب بعض */
+    flex: 0 0 auto;             /* ترجع لحجمها الطبيعي */
   }
 }
+
 
 .palette-body{
   overflow:auto; padding: 10px 12px;
