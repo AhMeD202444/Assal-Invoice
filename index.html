@@ -25,6 +25,132 @@
   <style>
   
   
+ 
+  
+  
+  
+  
+  /* ===== Command Palette (Ctrl+K) ===== */
+.palette-overlay{
+  position: fixed; inset: 0; z-index: 10060;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(10,11,14,.55);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+
+
+/* مسافة أنيقة أعلى كرت نافذة الأوامر */
+.palette{
+  padding-block-start: 10px;   /* ينزل الهيدر شويّة داخل الكرت */
+}
+@media (max-width: 768px){
+  .palette{ padding-block-start: 6px; }
+}
+
+
+
+
+
+.palette{
+  width: min(1100px, 96vw);
+  max-height: 86vh;
+  background: linear-gradient(180deg, rgba(20,24,33,.97), rgba(12,15,21,.97));
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.45);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.palette-top{
+  display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:center;
+  padding: 12px; border-bottom: 1px solid var(--stroke);
+}
+.palette-top .k{ color:#94a3b8; font-size:12px; }
+.palette-search{
+  display:flex; align-items:center; gap:8px; background: rgba(255,255,255,.08);
+  border: 1px solid var(--stroke); border-radius: 12px; padding: 8px 10px;
+}
+.palette-search input{
+  flex:1; background: transparent; border:none; outline:none; color:#eaf0ff; font-size:14px;
+}
+.palette-actions{ display:flex; align-items:center; gap:8px; }
+.palette-actions .btn{ padding:10px 12px; border-radius:10px; font-weight:800; }
+
+.palette-body{
+  overflow:auto; padding: 10px 12px;
+  background: rgba(255,255,255,.03);
+}
+.group-title{
+  position: sticky; top:0; z-index:1;
+  background: linear-gradient(180deg, rgba(15,17,24,.95), rgba(15,17,24,.85));
+  color:#cbd5e1; font-weight:800; font-size:12px;
+  padding: 6px 10px; margin: 6px -6px 6px; border-left: 3px solid var(--brand-2);
+}
+.item-row{
+  display:grid; grid-template-columns: 28px 1.2fr 90px 1fr 60px; gap:8px;
+  align-items:center; background:#fff; color:#0f172a; border:1px solid #e2e8f0;
+  border-radius: 10px; padding:10px; margin-bottom:8px;
+}
+.item-row .name{ font-weight:700; }
+.item-row .note{ font-size:13px; color:#475569; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.item-row input.qty{
+  width: 100%; text-align:center; padding:8px; border:1px solid #cbd5e1; border-radius:8px; outline:none;
+}
+.item-row input.qty:focus{ border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.15); }
+.item-row .del{
+  width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+  border-radius:8px; color:#fff; border:none; cursor:pointer;
+  background: linear-gradient(45deg,#ef4444,#dc2626);
+}
+.item-row .del:hover{ transform: translateY(-2px); background: linear-gradient(45deg,#dc2626,#b91c1c); }
+
+.item-row .chk{ width:18px; height:18px; }
+
+ems:center; justify-content:space-between; gap:8px;
+  padding:10px 12px; border-top:1px solid var(--stroke); color:#94a3b8; font-size:12px;
+}
+
+
+.palette-foot{
+  display:flex;
+  align-items:center;
+  justify-content:center;   /* ← يوسّط المحتوى أفقياً */
+  gap:8px;
+  padding:10px 12px;
+  border-top:1px solid var(--stroke);
+  color:#94a3b8;
+  font-size:12px;
+}
+
+.palette-foot .foot-note{
+  text-align:center;        /* ← يوسّط النص داخل الديف */
+  line-height:1.8;
+}
+
+
+
+/* حجم أصغر + توسيط للرسالة في أسفل لوحة الأوامر */
+.palette-foot{
+  justify-content: center;   /* يبقى بالنص */
+  padding: 8px 10px;         /* حواف أهدأ */
+}
+
+/* تحكّم مباشر بحجم الخط */
+.palette-foot .foot-note{
+  font-size: clamp(10px, 1.4vw, 12px); /* يصغر على الشاشات الصغيرة وما يتضخّم على الكبيرة */
+  line-height: 1.6;
+  letter-spacing: 0.1px;
+}
+
+
+
+
+/* فتح/غلق سريع */
+.palette-overlay.show{ display:flex; }
+
+/* تلميح صغير في الهيدر */
+.kbd-hint{ color:#94a3b8; font-size:12px; border:1px dashed var(--stroke); padding:4px 8px; border-radius:8px; }
+
+  
+  
   
   
   
@@ -524,16 +650,55 @@ tbody tr:hover {
 
 
 
-/* Floating button */
+
+
+
+
+
+/* زر إنشاء الفاتورة العائم — يمين تحت، أصغر وبشكل مربّع ناعم */
+/* زر إنشاء الفاتورة العائم — يمين/تحت، دائري، لون متناسق */
 .fab{
-  position:fixed; inset-inline-start:20px; inset-block-end:20px; z-index:60;
-  width:58px; height:58px; display:grid; place-items:center; border-radius:50%;
-  background: conic-gradient(from 180deg at 50% 50%, var(--brand-2), var(--brand-1), var(--brand-2));
-  color:#0b0d13; font-size:20px; font-weight:900;
-  box-shadow: 0 14px 35px rgba(100,95,255,.45);
-  cursor:pointer; transition: transform var(--speed);
+  position: fixed;
+  right: 20px;             /* ← يمين */
+  bottom: 20px;            /* ← تحت */
+  z-index: 60;
+
+  width: 56px;             /* حجم مناسب */
+  height: 56px;
+  border-radius: 50%;      /* ← دائري */
+
+  display: grid;
+  place-items: center;
+
+  /* تدرّج أنعم (سماوي → أزرق) يلائم الثيم */
+  background: linear-gradient(135deg, #22d3ee, #3b82f6);
+  color: #ffffff;          /* أيقونة بيضاء */
+  font-size: 20px;         /* حجم الأيقونة */
+  box-shadow: 0 12px 28px rgba(59,130,246,.35);
+  cursor: pointer;
+
+  transition: transform .25s, filter .25s, box-shadow .25s;
 }
-.fab:hover{ transform: translateY(-3px) rotate(-2deg); }
+
+.fab:hover{
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+  box-shadow: 0 14px 34px rgba(59,130,246,.45);
+}
+
+.fab:active{
+  transform: translateY(0);
+}
+
+.fab i{ pointer-events: none; }  /* حتى ما تعيق الأيقونة الكليك */
+
+
+
+/* خلّي التنبيه فوق كل الطبقات */
+.toast-container{
+  z-index: 12000 !important;  /* أعلى من 10060 تبع لوحة الأوامر */
+}
+
 
 /* Toast */
 .toast-container{ position: fixed; inset-block-start:18px; inset-inline:0; display:grid; place-items:center; z-index:70; }
@@ -546,6 +711,9 @@ tbody tr:hover {
 }
 .toast.show{ display:flex; animation: pop .3s ease; }
 @keyframes pop{ from{ transform: translateY(-8px); opacity:.0; } to{ transform: translateY(0); opacity:1; } }
+
+
+
 
 /* Search suggestions */
 #autocompleteSuggestions{
@@ -561,6 +729,11 @@ tbody tr:hover {
 }
 #autocompleteSuggestions li:last-child{ border-bottom:none; }
 #autocompleteSuggestions li:hover{ background: rgba(255,255,255,.06); }
+
+#autocompleteSuggestions li.active{
+  background: rgba(33,212,253,.15);
+}
+
 
 /* Responsive header + footer for small screens */
 @media (max-width:576px){
@@ -629,11 +802,168 @@ tbody tr:hover {
 
 
 
+/* أزرار أيقونية دائرية أنيقة */
+.palette-actions .btn.icon{
+  width: 42px; height: 42px;
+  padding: 0; border-radius: 12px;
+  display: grid; place-items: center;
+  font-size: 16px;
+}
+
+/* تحسين توزيع عناصر صفّ المادة */
+.item-row{ grid-template-columns: 28px 1.2fr 90px 1fr 60px; }
+.item-row .name{ min-width: 0; }
+.item-row .note{
+  min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* استجابة: جوّال/شاشات ضيّقة — نخفي الملاحظات حتى ما تنعصر */
+@media (max-width: 768px){
+  .palette{ width: 96vw; max-height: 90vh; }
+  .palette-top{ grid-template-columns: 1fr auto; gap: 8px; }
+  .palette-search input{ font-size: 16px; } /* كيبد عربي/إنكليزي واضح */
+  .item-row{
+    grid-template-columns: 24px 1fr 80px 44px;  /* نشيل عمود الملاحظات */
+    gap: 8px;
+  }
+  .item-row .note{ display: none; }
+  .item-row input.qty{ padding: 6px; }
+  .palette-actions .btn.icon{ width: 40px; height: 40px; }
+}
+
+/* جوّال أصغر */
+@media (max-width: 480px){
+  .item-row{
+    grid-template-columns: 22px 1fr 72px 40px;
+    padding: 8px;
+  }
+  .palette-actions .btn.icon{ width: 38px; height: 38px; }
+}
+
+
+
+
+:root{
+  --pal-row-h: 64px;          /* ارتفاع الكارت/السطر */
+  --pal-head-h: 52px;         /* تقريبًا ارتفاع شريط البحث والأزرار */
+}
+
+.palette{
+  max-height: 86vh;           /* ثابت مثل ما عندك */
+}
+
+.palette-body{
+  /* أقل شي يشيل 5 عناصر + مساحة بسيطة */
+  max-height: calc(var(--pal-row-h) * 5 + var(--pal-head-h));
+  overflow-y: auto;
+}
+
+.item-row{
+  min-height: var(--pal-row-h);
+}
+
+
+
+
+/* ===== Scrollbars • Right side • Hidden until hover/active ===== */
+
+/* 0) نحافظ على استقرار التخطيط لما تظهر السكرول */
+html, body,
+.palette-body, .table-wrap, .invoices-list, #importedPdfList,
+.cat-list, #autocompleteSuggestions {
+  scrollbar-gutter: stable;                /* حديث ومدعوم بالمتصفحات الجديدة */
+}
+
+/* 1) اخفاء افتراضي لكل السكروولات */
+* {
+  scrollbar-width: none;                   /* Firefox */
+}
+*::-webkit-scrollbar {
+  width: 0; height: 0;                     /* Chrome/Edge/Safari */
+}
+
+/* 2) إظهار رشيق عند الهوفر على الحاوية القابلة للتمرير */
+body:hover,
+.palette-body:hover,
+.table-wrap:hover,
+.invoices-list:hover,
+#importedPdfList:hover,
+.cat-list:hover,
+#autocompleteSuggestions:hover {
+  scrollbar-width: thin;                   /* Firefox */
+  scrollbar-color: #94a3b8 transparent;    /* لون المقبض فقط */
+}
+
+/* 3) WebKit: شكل السكرول عند الظهور */
+body:hover::-webkit-scrollbar,
+.palette-body:hover::-webkit-scrollbar,
+.table-wrap:hover::-webkit-scrollbar,
+.invoices-list:hover::-webkit-scrollbar,
+#importedPdfList:hover::-webkit-scrollbar,
+.cat-list:hover::-webkit-scrollbar,
+#autocompleteSuggestions:hover::-webkit-scrollbar {
+  width: 10px;                             /* سماكة أنيقة */
+  height: 10px;
+}
+
+body:hover::-webkit-scrollbar-thumb,
+.palette-body:hover::-webkit-scrollbar-thumb,
+.table-wrap:hover::-webkit-scrollbar-thumb,
+.invoices-list:hover::-webkit-scrollbar-thumb,
+#importedPdfList:hover::-webkit-scrollbar-thumb,
+.cat-list:hover::-webkit-scrollbar-thumb,
+#autocompleteSuggestions:hover::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #21d4fd, #6d5efc);
+  border-radius: 999px;
+  border: 2px solid transparent;           /* حتى يصير أنعم */
+  background-clip: content-box;
+  box-shadow: 0 4px 10px rgba(0,0,0,.15);
+}
+
+body:hover::-webkit-scrollbar-track,
+.palette-body:hover::-webkit-scrollbar-track,
+.table-wrap:hover::-webkit-scrollbar-track,
+.invoices-list:hover::-webkit-scrollbar-track,
+#importedPdfList:hover::-webkit-scrollbar-track,
+.cat-list:hover::-webkit-scrollbar-track,
+#autocompleteSuggestions:hover::-webkit-scrollbar-track {
+  background: transparent;                  /* مسار شفاف */
+}
+
+/* 4) ضمان اليمين على بيئات RTL (هو الافتراضي حالياً)
+   إذا شفت أي حاوية تتصرف وتطلع الشاشة يسار، أعطها هالكلاس: .rtl-scroll */
+.rtl-scroll { direction: rtl; }             /* يبقي السّكرول يمين بدون ما يغيّر اتجاه الصفحة */
+
+
+
+
+/* إخفاء أسهم number في كروم/إدج/سفاري */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button{
+  -webkit-appearance: none;
+  margin: 0;
+}
+/* إخفاءها في فايرفوكس */
+input[type="number"]{
+  -moz-appearance: textfield;
+}
+
+
+
+
+
+
+
+
+
 
   </style>
 </head>
 <body>
   
+  
+
   
   
   
@@ -676,7 +1006,6 @@ tbody tr:hover {
 </div>
 
       <div class="head-actions">
-  <button class="icon-btn" id="btnNew" title="فاتورة جديدة"><i class="fa-solid fa-plus"></i></button>
   <button class="icon-btn" id="btnReload" title="تحديث الصفحة"><i class="fa-solid fa-rotate-right"></i></button>
 
   <!-- زر تصدير JSON فقط -->
@@ -689,12 +1018,54 @@ tbody tr:hover {
   <i class="fa-solid fa-file-csv"></i>
 </button>
 
+<button class="icon-btn" id="btnCommand" title="لوحة الأوامر">
+  <i class="fa-solid fa-magnifying-glass"></i>
+</button>
+
 
 </div>
 
 
+
     </div>
   </header>
+  
+  
+  
+  
+  
+  <div id="paletteOverlay" class="palette-overlay" aria-hidden="true">
+  <div class="palette" role="dialog" aria-modal="true">
+    <div class="palette-top">
+      <div class="palette-search">
+        <i class="fa-solid fa-magnifying-glass" style="color:#21d4fd;"></i>
+        <input id="palSearch" type="text" placeholder="ابحث هنا عن اي مادة للتعديل عليها مباشر" />
+      </div>
+    <div class="palette-actions">
+  <button class="btn amber icon" id="palBulkDel" title="حذف المحدد" aria-label="حذف المحدد">
+    <i class="fa-regular fa-trash-can"></i>
+  </button>
+  <button class="btn blue icon" id="palClose" title="إغلاق" aria-label="إغلاق">
+    <i class="fa-solid fa-xmark"></i>
+  </button>
+</div>
+
+    </div>
+
+    <div class="palette-body" id="palList">
+      <!-- يُولد ديناميكياً -->
+    </div>
+
+   <div class="palette-foot">
+  <div class="foot-note">تحديث حيّ — أي تعديل هنا يُحفظ فورًا ويظهر في الجدول مباشرةً</div>
+</div>
+
+    
+    
+    
+  </div>
+</div>
+
   
   
   
@@ -739,10 +1110,18 @@ tbody tr:hover {
     <!-- ====== Sidebar ====== -->
     <aside class="sidebar" id="sidebar">
       <div class="panel-title">
-        <h3><i class="fa-regular fa-folder-open"></i> الفواتير السابقة</h3>
-        <span class="pill">اليوم</span>
-      </div>
+  <h3><i class="fa-regular fa-folder-open"></i> الفواتير السابقة</h3>
 
+  <!-- زر استيراد + مُلتقط ملف مخفي -->
+  <div style="display:flex; gap:8px;">
+    <button class="icon-btn" id="btnImportPrev" title="استيراد فاتورة (Excel/CSV)">
+      <i class="fa-solid fa-file-arrow-up"></i>
+    </button>
+    <input id="prevImportPicker" type="file"
+           accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.csv,text/csv"
+           style="display:none;">
+  </div>
+</div>
     
 
       <!-- لائحة الفواتير السابقة (نفس الـ id القديم لكن داخل الشريط) -->
@@ -842,7 +1221,9 @@ tbody tr:hover {
   <!-- العدد + الملاحظات بنفس الصف ومتساوي -->
 <div class="line-qty-note">
   <div class="ginput">
-    <input id="itemQty" class="gfield" type="text" placeholder="عدد القطع" />
+   <input id="itemQty" class="gfield" type="number" inputmode="numeric" pattern="\d*"
+       min="1" step="1" placeholder="عدد القطع" />
+
   </div>
   <div class="ginput">
     <input id="itemNote" class="gfield" type="text" placeholder="ملاحظات" />
@@ -1056,7 +1437,72 @@ document.getElementById("btnReload").addEventListener("click", ()=>{
     /* =========================
        أدوات مساعدة
        ========================= */
+       
+       
+       // ===== التحقق من الحقول =====
+function isPositiveInt(v){
+  // نقبل "001" بس نحوله رقم صحيح > 0
+  const s = String(v ?? "").trim();
+  if(!/^\d+$/.test(s)) return false;
+  return parseInt(s, 10) > 0;
+}
+
+// فوكس + تحديد محتوى
+function focusAndSelect(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.focus();
+  setTimeout(()=> el.select && el.select(), 0);
+}
+
+/**
+ * يتحقق من اسم القطعة + العدد
+ * @param {string} ctx سياق التحقق (add/save/enter) للتركيز المناسب
+ * @returns {boolean} صالح/غير صالح
+ */
+function validateItemFields(ctx="add"){
+  const name = document.getElementById("searchInput").value.trim();
+  const qty  = document.getElementById("itemQty").value.trim();
+
+  // اسم القطعة
+  if(!name){
+    showToast("يرجى إدخال اسم القطعة ❌", true);
+    focusAndSelect("searchInput");
+    return false;
+  }
+
+  // العدد
+  if(!qty){
+    showToast("يرجى إدخال العدد ❌", true);
+    focusAndSelect("itemQty");
+    return false;
+  }
+  if(!isPositiveInt(qty)){
+    showToast("إدخال خاطئ، يرجى اختيار رقم صحيح (1 فأعلى) ❌", true);
+    focusAndSelect("itemQty");
+    return false;
+  }
+
+  return true;
+}
+
+       
+       
+       
+       
+       
     function normalizeString(str){ return (str||"").replace(/\s+/g,'').toLowerCase(); }
+    
+    
+    function escapeHtml(s){
+  return String(s ?? "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;");
+}
+
 
     function getDayNameAr(d){
       return ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"][d.getDay()];
@@ -1110,10 +1556,13 @@ document.getElementById("btnReload").addEventListener("click", ()=>{
        إضافة مادة للفاتورة
        ========================= */
   function addItem(){
-  if(!currentInvoice){
+ if(!currentInvoice){
     showToast("أنشئ فاتورة جديدة أولاً ❌","danger");
     return;
   }
+
+  // ✅ تحقق صارم قبل أي شيء
+  if(!validateItemFields("add")) return;
 
   const category = document.getElementById("categorySelect").value;
   const name     = document.getElementById("searchInput").value.trim();
@@ -1690,6 +2139,82 @@ function downloadBlobFallback(filename, blob){
       clearTimeout(window.__t);
       window.__t = setTimeout(()=> toast.classList.remove("show"), 2200);
     }
+    
+    
+    
+    
+    
+    // زر استيراد فاتورة إلى "الفواتير السابقة"
+document.getElementById("btnImportPrev").addEventListener("click", ()=>{
+  const p = document.getElementById("prevImportPicker");
+  p.value = "";
+  p.click();
+});
+
+document.getElementById("prevImportPicker").addEventListener("change", async (e)=>{
+  const file = (e.target.files || [])[0];
+  if(!file) return;
+
+  try{
+    // نستخدم نفس الدوال الموجودة عندك: extractItemsFromFile -> sheetToItems
+    const raw = await extractItemsFromFile(file); // يُرجِع [{category,item,qty,note}, ...]
+    if(!raw.length){
+      showToast("الملف فارغ أو الأعمدة غير معروفة ❌", true);
+      e.target.value = "";
+      return;
+    }
+
+    // تحويل الأعمدة لشكل الفاتورة الداخلي: name بدل item
+    const mapped = raw
+      .map(r=>({
+        category: String(r.category||"NO-CATEGORY").trim(),
+        name    : String(r.item||"").trim(),
+        qty     : String(r.qty||"1").trim() || "1",
+        note    : String(r.note||"").trim()
+      }))
+      .filter(it=> it.name.length);
+
+    if(!mapped.length){
+      showToast("لم يتم العثور على مواد صالحة ❌", true);
+      e.target.value = "";
+      return;
+    }
+
+    // نصنع فاتورة جديدة من الملف المستورد
+    const baseName = file.name.replace(/\.[^.]+$/,'');
+    const today    = new Date().toLocaleDateString("ar-EG");
+    const inv      = {
+      id: `${baseName} • ${today}`,
+      date: today,
+      items: mapped
+    };
+
+    // نحفظها ضمن الفواتير ونعرضها فورًا قابلة للتعديل
+    invoices.push(inv);
+    selectedInvoiceIndex = invoices.length - 1;
+    currentInvoice = inv;
+
+    localStorage.setItem("invoices", JSON.stringify(invoices));
+    document.getElementById("invoiceId").textContent = inv.id;
+
+    renderInvoicesDropdown();
+    renderItems();
+
+    showToast("تم استيراد الفاتورة وجاهزة للتعديل ✅");
+  }catch(err){
+    console.error(err);
+    showToast("تعذر استيراد الملف ❌", true);
+  }finally{
+    e.target.value = "";
+  }
+});
+
+    
+    
+    
+    
+    
+    
 
     /* =========================
        ربط أزرار الهيدر والزر العائم
@@ -1697,10 +2222,14 @@ function downloadBlobFallback(filename, blob){
        
  
 document.getElementById("btnExportJSON").addEventListener("click", exportExcelOnly);
-    document.getElementById("btnNew").addEventListener("click", newInvoice);
    document.getElementById("btnReload").addEventListener("click", reloadPage);
     document.getElementById("fab").addEventListener("click", newInvoice);
     document.getElementById("btnExportCSV")?.addEventListener("click", exportCSVOnly);
+    
+    // فتح لوحة الأوامر من الهيدر والموبايل
+document.getElementById("btnCommand")?.addEventListener("click", palOpen);
+
+
 
     
     
@@ -1826,32 +2355,97 @@ document.getElementById("btnImportPDF").addEventListener("click", ()=>{
     
     
      // ربط Enter بالتنقل بين الحقول
-  document.getElementById("searchInput").addEventListener("keydown", function(e) {
-    if (e.key === "Enter") {
-      e.preventDefault(); // يمنع إدخال سطر جديد
-      document.getElementById("itemQty").focus(); // ينقلك لحقل العدد
-    }
-  });
+ let __autoSugIndex = -1;
 
-  document.getElementById("itemQty").addEventListener("keydown", function(e) {
-    if (e.key === "Enter") {
+document.getElementById('searchInput').addEventListener('keydown', (e)=>{
+  const sug = document.getElementById('autocompleteSuggestions');
+  const visible = sug && sug.style.display === 'block';
+
+  // لو ماكو قائمة اقتراحات
+  if(!visible){
+    __autoSugIndex = -1;
+
+    if(e.key === 'Enter'){
       e.preventDefault();
-      document.getElementById("itemNote").focus(); // ينقلك لحقل الملاحظات
+      const name = document.getElementById('searchInput').value.trim();
+      if(!name){
+        showToast("يرجى إدخال اسم القطعة ❌", true);
+        focusAndSelect('searchInput');
+        return;
+      }
+      // اسم مضبوط → ننتقل للعدد
+      document.getElementById('itemQty').focus();
     }
-  });
+    return;
+  }
+  
+  
+  
+  const items = Array.from(sug.querySelectorAll('li'));
+  if(!items.length) return;
+
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    e.preventDefault();
+    const step = e.key === 'ArrowDown' ? 1 : -1;
+    if(__autoSugIndex < 0){
+      __autoSugIndex = (e.key === 'ArrowDown') ? 0 : items.length - 1;
+    }else{
+      __autoSugIndex = Math.max(0, Math.min(items.length - 1, __autoSugIndex + step));
+    }
+    items.forEach((li, i)=> li.classList.toggle('active', i === __autoSugIndex));
+    items[__autoSugIndex].scrollIntoView({ block: 'nearest' });
+  }
+
+  if(e.key === 'Enter' && __autoSugIndex >= 0){
+    e.preventDefault();
+    const li = items[__autoSugIndex];
+    document.getElementById('searchInput').value = li.textContent;
+    sug.style.display = 'none';
+    __autoSugIndex = -1;
+    document.getElementById('itemQty').focus();
+  }
+
+  if(e.key === 'Escape'){
+    sug.style.display = 'none';
+    __autoSugIndex = -1;
+  }
+});
+document.getElementById("itemQty").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+
+    const qty = document.getElementById("itemQty").value.trim();
+    if(!qty){
+      showToast("يرجى إدخال العدد ❌", true);
+      focusAndSelect("itemQty");
+      return;
+    }
+    if(!isPositiveInt(qty)){
+      showToast("إدخال خاطئ، يرجى اختيار رقم صحيح (1 فأعلى) ❌", true);
+      focusAndSelect("itemQty");
+      return;
+    }
+
+    document.getElementById("itemNote").focus();
+  }
+});
+
     
     
   document.getElementById("itemNote").addEventListener("keydown", function(e) {
   if (e.key === "Enter") {
-    e.preventDefault(); 
+    e.preventDefault();
 
     if (!currentInvoice) {
       showToast("⚠️ أنشئ فاتورة جديدة أولاً", "danger");
       return;
     }
 
+    // ✅ تحقّق سريع قبل الإضافة:
+    if(!validateItemFields("enter")) return;
+
     addItem(); 
-    autoSaveInvoice(); // ⬅️ يخزن الفاتورة تلقائي بعد الإضافة
+    autoSaveInvoice();
     showToast("✅ تمت إضافة المادة وحفظ الفاتورة", "success");
     document.getElementById("searchInput").focus();
   }
@@ -1982,6 +2576,352 @@ document.getElementById("btnImportPDF").addEventListener("click", ()=>{
 
     }
     
+    
+    
+    
+    
+    /* ===== Command Palette (Ctrl+K): open, render, inline edit, multi-select, delete ===== */
+let __palFilter = "";
+let __palMap = [];          // {orig, category, name, qty, note}
+let __palSel = new Set();   // selected original indexes
+let __palFocus = -1;        // focused row for arrows
+let __palDirty = false;     // ← صار تعديل داخل لوحة الأوامر؟
+
+function palOpen(){
+  const ov = document.getElementById('paletteOverlay');
+  const list = document.getElementById('palList');
+  __palFilter = "";
+  __palSel.clear();
+  __palFocus = -1;
+  document.getElementById('palSearch').value = "";
+  
+   __palDirty = false; // ← صفّر العلم عند كل فتح
+
+  if(!currentInvoice){
+    // حالة: ماكو فاتورة
+    list.innerHTML = `
+      <div class="group-title">ماكو فاتورة حالياً</div>
+      <div class="item-row" style="grid-template-columns:1fr; text-align:center;">
+        <div>إضغط <b>فاتورة جديدة</b> من الزر العائم أو من الهيدر حتى تبدي.</div>
+      </div>`;
+    ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
+    setTimeout(()=> document.getElementById('palSearch').focus(), 10);
+    document.addEventListener('keydown', palKeyHandler);
+    return;
+  }
+
+  if(!(currentInvoice.items||[]).length){
+    // حالة: فاتورة موجودة بس بدون مواد
+    list.innerHTML = `
+      <div class="group-title">${escapeHtml(currentInvoice.id)}</div>
+      <div class="item-row" style="grid-template-columns:1fr; text-align:center;">
+        <div>الفاتورة فارغة. أضف مادة من فورم الإضافة وبعدين ارجع للوحة.</div>
+      </div>`;
+    ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
+    setTimeout(()=> document.getElementById('palSearch').focus(), 10);
+    document.addEventListener('keydown', palKeyHandler);
+    return;
+  }
+
+  // الحالة الطبيعية: مواد موجودة
+  palBuildMap();
+  palRender();
+  
+  ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
+  setTimeout(()=> document.getElementById('palSearch').focus(), 10);
+  document.addEventListener('keydown', palKeyHandler);
+}
+
+
+function palClose(){
+  const ov = document.getElementById('paletteOverlay');
+  ov.classList.remove('show'); ov.setAttribute('aria-hidden','true');
+  document.removeEventListener('keydown', palKeyHandler);
+  // تحديث الجدول الأساسي فور الإغلاق (مع أننا نحدّثه حيًا أيضاً)
+  renderItems();
+
+  if (__palDirty) {                    // ← إذا كان اكو تعديل
+    showToast("✅ تم الحفظ وتعديل الفاتورة");
+    __palDirty = false;                // ← صفّر العلم
+  }
+}
+
+
+function palBuildMap(){
+  __palMap = (currentInvoice.items||[]).map((it, idx)=> ({
+    orig: idx,
+    category: String(it.category||""),
+    name: String(it.name||""),
+    qty: String(it.qty||""),
+    note: String(it.note||"")
+  }));
+}
+
+function __norm2(s){ return String(s||"").toLowerCase().trim(); }
+
+function palFiltered(){
+  const q = __norm2(__palFilter);
+  if(!q) return __palMap;
+  return __palMap.filter(it=>
+    __norm2(it.category).includes(q) ||
+    __norm2(it.name).includes(q)     ||
+    __norm2(it.qty).includes(q)      ||
+    __norm2(it.note).includes(q));
+}
+
+function palRender(){
+  const host = document.getElementById('palList');
+  host.innerHTML = "";
+  const data = palFiltered();
+
+  // نجمع حسب الصنف
+  const groups = new Map();
+  data.forEach(it=>{
+    const k = it.category || "بدون صنف";
+    if(!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(it);
+  });
+
+  groups.forEach((items, cat)=>{
+    const gt = document.createElement('div');
+    gt.className = 'group-title';
+    gt.textContent = cat;
+    host.appendChild(gt);
+
+    items.forEach((it, i)=>{
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.setAttribute('data-orig', it.orig);
+
+      const checked = __palSel.has(it.orig) ? 'checked' : '';
+      row.innerHTML = `
+        <input type="checkbox" class="chk" ${checked} />
+        <div class="name">${escapeHtml(it.name)}</div>
+        <input class="qty" type="number" value="${escapeHtml(it.qty)}" />
+        <div class="note" title="${escapeHtml(it.note)}">${escapeHtml(it.note)}</div>
+        <button class="del" title="حذف"><i class="fa-regular fa-trash-can"></i></button>
+      `;
+
+      // تحديد
+      row.querySelector('.chk').addEventListener('change', (e)=>{
+        if(e.currentTarget.checked) __palSel.add(it.orig);
+        else __palSel.delete(it.orig);
+      });
+
+      // تعديل العدد — حفظ مباشر
+     row.querySelector('.qty').addEventListener('input', (e)=>{
+  const val = e.currentTarget.value;
+  currentInvoice.items[it.orig].qty = val;
+  autoSaveInvoice();
+  renderItems(); // يحدث الجدول الرئيسي حيًا
+  __palDirty = true; // ← صار تعديل
+});
+
+
+      // حذف فوري
+      row.querySelector('.del').addEventListener('click', ()=>{
+        palDeleteOne(it.orig);
+      });
+
+      // فوكس للتنقّل بالأسهم
+      row.addEventListener('click', ()=>{
+        __palFocus = it.orig;
+        // فوكس على qty
+        row.querySelector('.qty').focus();
+      });
+
+      host.appendChild(row);
+    });
+  });
+}
+
+function palDeleteOne(orig){
+  if(!currentInvoice || !currentInvoice.items) return;
+  if(!currentInvoice.items[orig]) return;
+  currentInvoice.items.splice(orig, 1);
+  autoSaveInvoice();
+  showToast("تم حذف المادة ✅");
+  __palDirty = true; // ← صار تعديل
+
+  // أعد بناء الخريطة لأن الفهارس تغيّرت
+  palBuildMap();
+  palRender();
+  renderItems();
+}
+
+function palBulkDelete(){
+  if(!__palSel.size){ showToast("ما محددت شي للحذف ❌", true); return; }
+  const arr = Array.from(__palSel).sort((a,b)=> b-a);
+  arr.forEach(i=>{
+    if(currentInvoice.items[i]) currentInvoice.items.splice(i,1);
+  });
+  __palSel.clear();
+  autoSaveInvoice();
+  showToast("تم حذف العناصر المحددة ✅");
+  __palDirty = true; // ← صار تعديل
+
+  palBuildMap(); palRender(); renderItems();
+}
+
+/* اختصارات لوحة المفاتيح داخل اللوحة */
+function palKeyHandler(e){
+  const isOpen = document.getElementById('paletteOverlay').classList.contains('show');
+  if(!isOpen) return;
+
+  // Esc = إغلاق
+  if(e.key === 'Escape'){ e.preventDefault(); palClose(); return; }
+
+  // ↑↓ للتنقل بين الصفوف (يركّز على الكمية)
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    e.preventDefault();
+    const data = palFiltered().map(it=> it.orig);
+    if(!data.length) return;
+    if(__palFocus === -1) { __palFocus = data[0]; }
+    else{
+      const pos = data.indexOf(__palFocus);
+      if(pos === -1) __palFocus = data[0];
+      else{
+        if(e.key === 'ArrowDown') __palFocus = data[Math.min(pos+1, data.length-1)];
+        else                      __palFocus = data[Math.max(pos-1, 0)];
+      }
+    }
+    // سكول + فوكس
+    const row = document.querySelector(`.item-row[data-orig="${__palFocus}"]`);
+    if(row){
+      row.scrollIntoView({block:'nearest'});
+      row.querySelector('.qty')?.focus();
+    }
+    return;
+  }
+
+  // Delete = حذف المحدد جماعي
+  if(e.key === 'Delete'){
+    e.preventDefault();
+    palBulkDelete(); return;
+  }
+
+ 
+  // + / - لتعديل الكمية سريعاً (على الصف المتركز)
+  if(e.key === '+' || e.key === '-' ){
+    if(__palFocus === -1) return;
+    const el = document.querySelector(`.item-row[data-orig="${__palFocus}"] .qty`);
+    if(!el) return;
+    const cur = Number(el.value || "0");
+    const next = e.key==='+' ? cur+1 : Math.max(0, cur-1);
+    el.value = next;
+    currentInvoice.items[__palFocus].qty = String(next);
+    autoSaveInvoice();
+    renderItems();
+    e.preventDefault();
+  }
+ 
+ 
+}
+
+/* فتح اللوحة: Ctrl+K / ⌘K */
+document.addEventListener('keydown', (e)=>{
+  const isMac = navigator.platform.toLowerCase().includes('mac');
+  if((isMac && e.metaKey && e.key.toLowerCase()==='k') ||
+     (!isMac && e.ctrlKey && e.key.toLowerCase()==='k')){
+    e.preventDefault(); palOpen();
+  }
+});
+
+/* واجهة اللوحة (أزرار وأحداث) */
+document.getElementById('palClose').addEventListener('click', palClose);
+document.getElementById('palBulkDel').addEventListener('click', palBulkDelete);
+document.getElementById('palSearch').addEventListener('input', (e)=>{
+  __palFilter = e.target.value;
+  palRender();
+});
+
+
+
+
+
+// ===== Keyboard Scrolling (Desktop) =====
+// ===== Keyboard Scrolling (Desktop) — safer =====
+function isTypingContext(e){
+  const tag = (e.target.tagName||'').toLowerCase();
+  return ['input','textarea','select'].includes(tag) || e.target.isContentEditable;
+}
+
+// يختار أقرب حاوية قابلة للتمرير تحت الماوس
+// احفظ آخر موقع للماوس (حتى نقدر نستخدم elementFromPoint)
+let __lastPointer = { x: 0, y: 0 };
+document.addEventListener('mousemove', e => { __lastPointer = { x: e.clientX, y: e.clientY }; });
+
+function isScrollable(el){
+  if(!el) return false;
+  const st = getComputedStyle(el);
+  const canY = /(auto|scroll)/.test(st.overflowY);
+  return canY && el.scrollHeight > el.clientHeight + 1; // +1 لحدّ السقف
+}
+
+function climbToScrollable(start){
+  let el = start;
+  while(el && el !== document && el !== document.documentElement){
+    if(isScrollable(el)) return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
+function findScrollableTarget(){
+  // 1) جرّب من العنصر المُركّز حالياً
+  const ae = document.activeElement;
+  const byFocus = climbToScrollable(ae);
+  if(byFocus) return byFocus;
+
+  // 2) جرّب العنصر الموجود تحت مؤشر الماوس
+  const underPointer = document.elementFromPoint(__lastPointer.x, __lastPointer.y);
+  const byPointer = climbToScrollable(underPointer);
+  if(byPointer) return byPointer;
+
+  // 3) جرّب الحاويات المعروفة في الواجهة (ids/classes حقيقية)
+  const known = document.querySelector(
+    '.palette-body, .table-wrap, .invoices-list, #importedPdfList, #invoicesDropdown, #autocompleteSuggestions'
+  );
+  if(isScrollable(known)) return known;
+
+  // 4) أخيراً: صفحة الوثيقة نفسها
+  const docEl = document.scrollingElement || document.documentElement;
+  return (docEl.scrollHeight > docEl.clientHeight) ? docEl : null;
+}
+
+document.addEventListener('keydown', (e)=>{
+  // ديسكتوب فقط
+  if(window.innerWidth < 992) return;
+  // لا نتدخل إذا المستخدم يكتب في حقل
+  if(isTypingContext(e)) return;
+
+  const key = e.key;
+  if(!['ArrowDown','ArrowUp','PageDown','PageUp','Home','End'].includes(key)) return;
+
+  const el = findScrollableUnderPointer();
+  if(!el) return; // ماكو شيء ينتمرّج، خلّي المتصفح يتصرف
+
+  // احسب مقدار التمرير
+  let amount = 0;
+  if(key === 'ArrowDown') amount = 60;
+  if(key === 'ArrowUp')   amount = -60;
+  if(key === 'PageDown')  amount =  Math.floor(el.clientHeight * 0.9);
+  if(key === 'PageUp')    amount = -Math.floor(el.clientHeight * 0.9);
+  if(key === 'Home')      amount = -el.scrollTop;
+  if(key === 'End')       amount =  (el.scrollHeight - el.clientHeight - el.scrollTop);
+
+  // لو ماكو حركة لازمة، لا تمنع الافتراضي
+  if(amount === 0) return;
+
+  const before = el.scrollTop;
+  el.scrollBy({ top: amount, behavior: 'smooth' });
+
+  // امنع الافتراضي بس إذا فعلاً هناك مساحة للتمرير
+  const canScrollY = el.scrollHeight > el.clientHeight;
+  if(canScrollY) e.preventDefault();
+});
+
+
     
     
     
