@@ -1623,10 +1623,15 @@ function validateItemFields(ctx="add"){
     return;
   }
 
-  // نعتبرها مكررة إذا نفس الصنف ونفس الاسم
-  const existingIndex = (currentInvoice.items || []).findIndex(
-    (it) => it.category === category && it.name === name
-  );
+  
+// نعدّله ليصير: نفس الصنف + نفس الاسم + نفس الملاحظات
+const existingIndex = (currentInvoice.items || []).findIndex(
+  (it) =>
+    it.category === category &&
+    it.name === name &&
+    (String(it.note || "").trim() === String(note || "").trim())
+);
+
 
   if(existingIndex !== -1){
     // افتح نافذة التأكيد
@@ -2537,8 +2542,7 @@ document.getElementById("itemQty").addEventListener("keydown", function(e) {
 
 
     // ترتيب أبجدي (item ثم category) + وسم المكرر
-    function sortAndFlagDuplicates(items){
-  // 1) ترتيب مثل exportPDF: أولاً category ثم item (حساسّية بسيطة/بدون حالة أحرف)
+   function sortAndFlagDuplicates(items){
   items.sort((a,b)=>{
     const catA = String(a.category || "");
     const catB = String(b.category || "");
@@ -2548,20 +2552,19 @@ document.getElementById("itemQty").addEventListener("keydown", function(e) {
     return catCompare !== 0 ? catCompare : itemA.localeCompare(itemB, "en", { sensitivity: "base" });
   });
 
-  // 2) وسم العناصر المكرّرة (نفس الصنف + نفس القطعة) لتظليلها بالأحمر الخفيف في PDF
   const map = new Map();
   const out = items.map(it => ({...it, __dup:false}));
   out.forEach((it, idx)=>{
-    const key = `${(it.category||"").toLowerCase()}||${(it.item||"").toLowerCase()}`;
+    const key = `${(it.category||"").toLowerCase()}||${(it.item||"").toLowerCase()}||${(it.note||"").toLowerCase()}`;
     if(!map.has(key)) map.set(key, []);
     map.get(key).push(idx);
   });
   for(const arr of map.values()){
     if(arr.length > 1) arr.forEach(i => out[i].__dup = true);
   }
-
   return out;
 }
+
 
     // توليد PDF جديد بجدول مرتب + تظليل مكرر (jsPDF + autoTable)
     async function buildItemsPdf(sortedItems){
