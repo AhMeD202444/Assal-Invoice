@@ -52,27 +52,64 @@
 
 
 .palette{
-  width: min(1100px, 96vw);
+  width: min(980px, 96vw);         /* أصغر شوي حتى ما تضيق على الشاشات */
   max-height: 86vh;
   background: linear-gradient(180deg, rgba(20,24,33,.97), rgba(12,15,21,.97));
   border: 1px solid rgba(255,255,255,.12);
   border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.45);
-  display: flex; flex-direction: column; overflow: hidden;
+  display: flex; flex-direction: column;
+  overflow: hidden;                 /* مهم: يمنع الخروج خارج الإطار */
 }
+
 .palette-top{
-  display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:center;
-  padding: 12px; border-bottom: 1px solid var(--stroke);
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;  /* يسمح للبحث يتقلّص */
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid var(--stroke);
 }
+
 .palette-top .k{ color:#94a3b8; font-size:12px; }
 .palette-search{
-  display:flex; align-items:center; gap:8px; background: rgba(255,255,255,.08);
-  border: 1px solid var(--stroke); border-radius: 12px; padding: 8px 10px;
+  display:flex; align-items:center; gap:8px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  padding: 8px 10px;
+  min-width: 0;                   /* مهم جداً مع Grid */
 }
 .palette-search input{
-  flex:1; background: transparent; border:none; outline:none; color:#eaf0ff; font-size:14px;
+  flex: 1 1 auto;
+  min-width: 0;                   /* يمنع التمدد الزائد */
+  background: transparent; border:none; outline:none; color:#eaf0ff; font-size:14px;
 }
-.palette-actions{ display:flex; align-items:center; gap:8px; }
-.palette-actions .btn{ padding:10px 12px; border-radius:10px; font-weight:800; }
+
+.palette-actions{
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;              /* يخلي الأزرار تنزل سطر ثاني بدل ما تطلع خارج الإطار */
+  max-width: 100%;
+}
+.palette-actions .btn{
+  padding:10px 12px; border-radius:10px; font-weight:800;
+}
+
+/* على الشاشات الصغيرة: الأزرار تحت البحث */
+@media (max-width: 520px){
+  .palette-top{
+    grid-template-columns: 1fr; /* سطر للبحث، سطر للأزرار */
+    row-gap: 8px;
+  }
+  .palette-actions{
+    justify-content: stretch;
+  }
+  .palette-actions .btn{
+    flex: 1 1 48%;              /* زرّين جنب بعض */
+  }
+}
 
 .palette-body{
   overflow:auto; padding: 10px 12px;
@@ -84,13 +121,22 @@
   color:#cbd5e1; font-weight:800; font-size:12px;
   padding: 6px 10px; margin: 6px -6px 6px; border-left: 3px solid var(--brand-2);
 }
+
+
+
 .item-row{
-  display:grid; grid-template-columns: 28px 1.2fr 90px 1fr 60px; gap:8px;
+  display:grid;
+  grid-template-columns: 28px minmax(0,1.2fr) 90px minmax(0,1fr) 60px; /* الحقول قابلة للتقلّص */
+  gap:8px;
   align-items:center; background:#fff; color:#0f172a; border:1px solid #e2e8f0;
   border-radius: 10px; padding:10px; margin-bottom:8px;
 }
-.item-row .name{ font-weight:700; }
-.item-row .note{ font-size:13px; color:#475569; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.item-row .name{ font-weight:700; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.item-row .note{ font-size:13px; color:#475569; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+
+
+
 .item-row input.qty{
   width: 100%; text-align:center; padding:8px; border:1px solid #cbd5e1; border-radius:8px; outline:none;
 }
@@ -104,9 +150,7 @@
 
 .item-row .chk{ width:18px; height:18px; }
 
-ems:center; justify-content:space-between; gap:8px;
-  padding:10px 12px; border-top:1px solid var(--stroke); color:#94a3b8; font-size:12px;
-}
+
 
 
 .palette-foot{
@@ -2898,7 +2942,8 @@ document.addEventListener('keydown', (e)=>{
   const key = e.key;
   if(!['ArrowDown','ArrowUp','PageDown','PageUp','Home','End'].includes(key)) return;
 
-  const el = findScrollableUnderPointer();
+ const el = findScrollableTarget();
+
   if(!el) return; // ماكو شيء ينتمرّج، خلّي المتصفح يتصرف
 
   // احسب مقدار التمرير
