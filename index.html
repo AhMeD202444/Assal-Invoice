@@ -2887,7 +2887,13 @@ function palBuildMap(){
   }));
 }
 
-function __norm2(s){ return String(s||"").toLowerCase().trim(); }
+function __norm2(s){ 
+  return String(s||"")
+    .toLowerCase()
+    .replace(/\s+/g,'')
+    .replace(/[-_.]/g,'');
+}
+
 
 function palFiltered(){
   const q = __norm2(__palFilter);
