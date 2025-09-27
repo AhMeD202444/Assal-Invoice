@@ -168,30 +168,20 @@
 
 
 
-
-/* خليه بس مرّة وحدة */
+/* ===== Command Palette • Foot (متوسط) ===== */
 .palette-foot{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  padding:10px 12px;
-  border-top:1px solid var(--stroke);
-  color:#94a3b8;
-  /* تقدر تغيّرها متى ما تريد */
-  font-size: 14px;           /* ← تكبير الأساس */
+  justify-content: center;
+  padding: 9px 12px;      /* مسافة متوسطة */
+  font-size: 12px;        /* حجم نص عام متوسط */
+  border-top: 1px solid var(--stroke);
 }
 
-/* خلّي الملاحظة تورّث أو عطها سقف أعلى */
 .palette-foot .foot-note{
-  /* inherit تاخذ 14px من الأب */
-  font-size: inherit;         
-  line-height: 1.7;
+  text-align: center;
+  font-size: clamp(11px, 1.25vw, 13px);  /* متوسط ويتأقلم مع العرض */
+  line-height: 1.6;                      /* راحة بالقراءة */
   letter-spacing: 0.1px;
 }
-
-/* إذا تحب الـ clamp بس أكبر: بدّل السطر أعلاه بهذا بدل inherit */
-/* .palette-foot .foot-note{ font-size: clamp(12px, 1.8vw, 18px); line-height:1.7; letter-spacing:.1px; } */
 
 
 
