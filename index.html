@@ -140,6 +140,50 @@
 
 
 
+
+
+/* زر مسح داخل شريط البحث */
+.palette-search{
+  position: relative;            /* حتى يتموضع الزر داخل الحقل */
+}
+
+.palette-search .search-clear{
+  display: none;                 /* نُظهره فقط عند وجود نص */
+  place-items: center;
+  position: absolute;
+  inset-inline-end: 8px;         /* يمين في RTL */
+  top: 50%; transform: translateY(-50%);
+  width: 28px; height: 28px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.10);
+  color: #eaf0ff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform var(--speed), background var(--speed), border-color var(--speed), opacity .2s;
+}
+.palette-search .search-clear:hover{
+  transform: translateY(-50%) translateY(-1px);
+  background: rgba(255,255,255,.16);
+  border-color: rgba(255,255,255,.25);
+}
+
+/* نُظهر الزر عندما يكون في الحقل نص */
+.palette-search.has-text .search-clear{
+  display: grid;
+}
+
+/* موبايل: تكبير نقطة اللمس قليلاً */
+@media (max-width: 520px){
+  .palette-search .search-clear{ width: 32px; height: 32px; }
+}
+
+
+
+
+
+
+
+
 .item-row{
   display:grid;
   grid-template-columns: 28px minmax(0,1.2fr) 90px minmax(0,1fr) 60px; /* الحقول قابلة للتقلّص */
@@ -1138,10 +1182,22 @@ input[type="number"]{
   <div id="paletteOverlay" class="palette-overlay" aria-hidden="true">
   <div class="palette" role="dialog" aria-modal="true">
     <div class="palette-top">
-      <div class="palette-search">
-        <i class="fa-solid fa-magnifying-glass" style="color:#21d4fd;"></i>
-        <input id="palSearch" type="text" placeholder="ابحث هنا عن اي مادة للتعديل عليها مباشر" />
-      </div>
+      
+      
+      
+      
+     <div class="palette-search">
+  <i class="fa-solid fa-magnifying-glass" style="color:#21d4fd;"></i>
+  <input id="palSearch" type="text" placeholder="ابحث هنا عن اي مادة للتعديل عليها مباشر" />
+  <button id="palClear" class="search-clear" title="مسح" aria-label="مسح">
+    <i class="fa-solid fa-xmark"></i>
+  </button>
+</div>
+
+      
+      
+      
+      
     <div class="palette-actions">
   <button class="btn amber icon" id="palBulkDel" title="حذف المحدد" aria-label="حذف المحدد">
     <i class="fa-regular fa-trash-can"></i>
@@ -2699,6 +2755,9 @@ function palOpen(){
   __palSel.clear();
   __palFocus = -1;
   document.getElementById('palSearch').value = "";
+  
+  document.getElementById('palSearch').closest('.palette-search')?.classList.remove('has-text');
+
   __palDirty = false; // ← صفّر العلم عند كل فتح
 
   if(!currentInvoice){
@@ -3042,10 +3101,30 @@ document.addEventListener('keydown', (e)=>{
 /* واجهة اللوحة (أزرار وأحداث) */
 document.getElementById('palClose').addEventListener('click', palClose);
 document.getElementById('palBulkDel').addEventListener('click', palBulkDelete);
-document.getElementById('palSearch').addEventListener('input', (e)=>{
+const palSearchEl = document.getElementById('palSearch');
+const palSearchWrap = palSearchEl.closest('.palette-search');
+
+palSearchEl.addEventListener('input', (e)=>{
   __palFilter = e.target.value;
+  // أظهر/أخفِ زر المسح حسب وجود نص
+  if(palSearchEl.value.trim()){
+    palSearchWrap.classList.add('has-text');
+  }else{
+    palSearchWrap.classList.remove('has-text');
+  }
   palRender();
 });
+
+// زر المسح
+document.getElementById('palClear').addEventListener('click', ()=>{
+  palSearchEl.value = "";
+  palSearchWrap.classList.remove('has-text');
+  __palFilter = "";
+  palRender();
+  palSearchEl.focus();
+});
+
+
 
 
 
