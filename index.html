@@ -2962,7 +2962,7 @@ function palDeleteOne(orig){
 }
 
 function palBulkDelete(){
-  if(!__palSel.size){ showToast("ما محددت شي للحذف ❌", true); return; }
+  if(!__palSel.size){ showToast("ما محدد شي للحذف ❌", true); return; }
   const arr = Array.from(__palSel).sort((a,b)=> b-a);
   arr.forEach(i=>{
     if(currentInvoice.items[i]) currentInvoice.items.splice(i,1);
@@ -3053,13 +3053,13 @@ document.getElementById('palSearch').addEventListener('input', (e)=>{
 
 // ===== Keyboard Scrolling (Desktop) =====
 // ===== Keyboard Scrolling (Desktop) — safer =====
+// ===== Keyboard Scrolling (Desktop) — robust =====
 function isTypingContext(e){
   const tag = (e.target.tagName||'').toLowerCase();
   return ['input','textarea','select'].includes(tag) || e.target.isContentEditable;
 }
 
-// يختار أقرب حاوية قابلة للتمرير تحت الماوس
-// احفظ آخر موقع للماوس (حتى نقدر نستخدم elementFromPoint)
+// نحفظ آخر موقع للماوس (للعثور على حاوية تحت المؤشر)
 let __lastPointer = { x: 0, y: 0 };
 document.addEventListener('mousemove', e => { __lastPointer = { x: e.clientX, y: e.clientY }; });
 
@@ -3067,9 +3067,10 @@ function isScrollable(el){
   if(!el) return false;
   const st = getComputedStyle(el);
   const canY = /(auto|scroll)/.test(st.overflowY);
-  return canY && el.scrollHeight > el.clientHeight + 1; // +1 لحدّ السقف
+  return canY && (el.scrollHeight - el.clientHeight) > 1;
 }
 
+// نصعد للأب القابل للتمرير
 function climbToScrollable(start){
   let el = start;
   while(el && el !== document && el !== document.documentElement){
@@ -3079,61 +3080,64 @@ function climbToScrollable(start){
   return null;
 }
 
+// نختار أفضل هدف للتمرير
 function findScrollableTarget(){
-  // 1) جرّب من العنصر المُركّز حالياً
-  const ae = document.activeElement;
-  const byFocus = climbToScrollable(ae);
+  // 1) بحسب الفوكس
+  const byFocus = climbToScrollable(document.activeElement);
   if(byFocus) return byFocus;
 
-  // 2) جرّب العنصر الموجود تحت مؤشر الماوس
-  const underPointer = document.elementFromPoint(__lastPointer.x, __lastPointer.y);
-  const byPointer = climbToScrollable(underPointer);
+  // 2) تحت الماوس
+  const under = document.elementFromPoint(__lastPointer.x, __lastPointer.y);
+  const byPointer = climbToScrollable(under);
   if(byPointer) return byPointer;
 
-  // 3) جرّب الحاويات المعروفة في الواجهة (ids/classes حقيقية)
-  const known = document.querySelector(
-    '.palette-body, .table-wrap, .invoices-list, #importedPdfList, #invoicesDropdown, #autocompleteSuggestions'
-  );
-  if(isScrollable(known)) return known;
+  // 3) fallback: صفحة الوثيقة
+  return document.scrollingElement || document.documentElement || document.body;
+}
 
-  // 4) أخيراً: صفحة الوثيقة نفسها
-  const docEl = document.scrollingElement || document.documentElement;
-  return (docEl.scrollHeight > docEl.clientHeight) ? docEl : null;
+// دالة تمرير عامة (تتعامل مع window والـ elements)
+function doScroll(el, amount){
+  // لو الهدف هو وثيقة الصفحة، استعمل window.scrollBy
+  const isDoc = (el === document.scrollingElement) ||
+                (el === document.documentElement) ||
+                (el === document.body);
+
+  if(isDoc){
+    window.scrollBy({ top: amount, behavior: 'smooth' });
+  }else{
+    // بعض العناصر تحتاج إزالة behavior للسلاسة في متصفحات قديمة
+    el.scrollBy({ top: amount, behavior: 'smooth' });
+  }
 }
 
 document.addEventListener('keydown', (e)=>{
   // ديسكتوب فقط
   if(window.innerWidth < 992) return;
-  // لا نتدخل إذا المستخدم يكتب في حقل
+  // لا نتدخل إذا المستخدم يكتب
   if(isTypingContext(e)) return;
 
   const key = e.key;
   if(!['ArrowDown','ArrowUp','PageDown','PageUp','Home','End'].includes(key)) return;
 
- const el = findScrollableTarget();
-
-  if(!el) return; // ماكو شيء ينتمرّج، خلّي المتصفح يتصرف
+  const el = findScrollableTarget();
+  if(!el) return;
 
   // احسب مقدار التمرير
   let amount = 0;
-  if(key === 'ArrowDown') amount = 60;
+  if(key === 'ArrowDown') amount =  60;
   if(key === 'ArrowUp')   amount = -60;
-  if(key === 'PageDown')  amount =  Math.floor(el.clientHeight * 0.9);
-  if(key === 'PageUp')    amount = -Math.floor(el.clientHeight * 0.9);
+  if(key === 'PageDown')  amount =  Math.floor((el.clientHeight || window.innerHeight) * 0.9);
+  if(key === 'PageUp')    amount = -Math.floor((el.clientHeight || window.innerHeight) * 0.9);
   if(key === 'Home')      amount = -el.scrollTop;
   if(key === 'End')       amount =  (el.scrollHeight - el.clientHeight - el.scrollTop);
 
-  // لو ماكو حركة لازمة، لا تمنع الافتراضي
-  if(amount === 0) return;
-
-  const before = el.scrollTop;
-  el.scrollBy({ top: amount, behavior: 'smooth' });
-
-  // امنع الافتراضي بس إذا فعلاً هناك مساحة للتمرير
-  const canScrollY = el.scrollHeight > el.clientHeight;
-  if(canScrollY) e.preventDefault();
+  // إذا فعلاً يوجد مجال للتمرير، امنع الافتراضي ونفّذ التمرير
+  const canScrollY = (el.scrollHeight - el.clientHeight) > 1 || ['Home','End'].includes(key);
+  if(canScrollY){
+    e.preventDefault();
+    doScroll(el, amount);
+  }
 });
-
 
     
     
@@ -3167,13 +3171,7 @@ window.addEventListener('load', ()=>{
 });
 
     
-    
-    
-    
-    
-    
-
-
+  
     
   </script>
   
