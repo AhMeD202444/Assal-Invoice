@@ -2879,13 +2879,54 @@ function palRender(){
         else __palSel.delete(it.orig);
       });
 
-      // تعديل العدد — حفظ مباشر
-     row.querySelector('.qty').addEventListener('input', (e)=>{
-  const val = e.currentTarget.value;
+      // بعد (استبدل الكود أعلاه بهذا)
+const qtyEl = row.querySelector('.qty');
+let prevVal = qtyEl.value;              // نخزّن القيمة قبل التحرير
+
+// لما ياخذ فوكس، نحفظ القيمة الحالية للمقارنة لاحقاً
+qtyEl.addEventListener('focus', ()=>{
+  prevVal = qtyEl.value;
+});
+
+// حفظ فعلي + رسالة عند انتهاء الإدخال (change)
+qtyEl.addEventListener('change', (e)=>{
+  const val = e.currentTarget.value.trim();
   currentInvoice.items[it.orig].qty = val;
   autoSaveInvoice();
-  renderItems(); // يحدث الجدول الرئيسي حيًا
-  __palDirty = true; // ← صار تعديل
+  renderItems();
+  __palDirty = true;
+  showToast("تم تغير عدد هذه المادة");   // ← النص المطلوب
+});
+
+// Enter = ثبّت التعديل ثم انقل فوكس لكمية السطر التالي
+qtyEl.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){
+    e.preventDefault();
+
+    // 1) ثبّت التعديل عبر blur (يشغّل change أعلاه)
+    qtyEl.blur();
+
+    // 2) بعد لحظة قصيرة، حرّك الفوكس لكمية العنصر التالي (يلف عند النهاية)
+    setTimeout(()=>{
+      const inputs = Array.from(document.querySelectorAll('#palList .item-row .qty'));
+      const idx = inputs.indexOf(qtyEl);
+      if(inputs.length){
+        const next = inputs[(idx + 1) % inputs.length]; // يلف للأول إذا آخر واحد
+        next?.focus();
+        next?.select?.();
+      }
+    }, 10);
+  }
+});
+
+
+// اختياري: لو تحب تظهر توست أيضاً عند الخروج إذا اختلفت القيمة
+qtyEl.addEventListener('blur', (e)=>{
+  const now = e.currentTarget.value.trim();
+  if(now !== prevVal){
+    // التوست صار بالفعل في change عادةً، هذا للتأكيد في حالات معيّنة
+    // showToast(`تم تحديث عدد "${it.name}" إلى ${now} ✅`);
+  }
 });
 
 
@@ -2921,7 +2962,7 @@ function palDeleteOne(orig){
 }
 
 function palBulkDelete(){
-  if(!__palSel.size){ showToast("ما محدد شي للحذف ❌", true); return; }
+  if(!__palSel.size){ showToast("ما محددت شي للحذف ❌", true); return; }
   const arr = Array.from(__palSel).sort((a,b)=> b-a);
   arr.forEach(i=>{
     if(currentInvoice.items[i]) currentInvoice.items.splice(i,1);
@@ -3148,4 +3189,3 @@ window.addEventListener('load', ()=>{
   
 </body>
 </html>
-
