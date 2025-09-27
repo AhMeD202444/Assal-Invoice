@@ -2921,7 +2921,7 @@ function palDeleteOne(orig){
 }
 
 function palBulkDelete(){
-  if(!__palSel.size){ showToast("ما محددت شي للحذف ❌", true); return; }
+  if(!__palSel.size){ showToast("ما محدد شي للحذف ❌", true); return; }
   const arr = Array.from(__palSel).sort((a,b)=> b-a);
   arr.forEach(i=>{
     if(currentInvoice.items[i]) currentInvoice.items.splice(i,1);
@@ -3148,3 +3148,4 @@ window.addEventListener('load', ()=>{
   
 </body>
 </html>
+
