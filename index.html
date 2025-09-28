@@ -1356,6 +1356,8 @@ input[type="number"]{
 
   <!-- الصنف الجديد المطلوب -->
   <div class="cat-item" data-val="FLAT LCD"><i class="fa-solid fa-film"></i> فلات شاشة</div>
+  <div class="cat-item" data-val="POWER"><i class="fa-solid fa-charging-station"></i> فلات بور</div>
+
 
   <div class="cat-item" data-val="NO-CATEGORY"><i class="fa-regular fa-square"></i> بدون صنف</div>
 </div>
@@ -1589,7 +1591,8 @@ document.getElementById("btnReload").addEventListener("click", ()=>{
           BUZZER   : XLSX.utils.sheet_to_json(workbook.Sheets["BUZZER"]   || {}, {defval:null}),
           HEADPHONE: XLSX.utils.sheet_to_json(workbook.Sheets["HEADPHONE"]|| {}, {defval:null}),
           FINGER   : XLSX.utils.sheet_to_json(workbook.Sheets["FINGER"]   || {}, {defval:null}),
-          "FLAT LCD"   : XLSX.utils.sheet_to_json(workbook.Sheets["FLAT LCD"]   || {}, {defval:null})
+          "FLAT LCD"   : XLSX.utils.sheet_to_json(workbook.Sheets["FLAT LCD"]   || {}, {defval:null}),
+          POWER   : XLSX.utils.sheet_to_json(workbook.Sheets["POWER"]   || {}, {defval:null})
           
         };
       }catch(err){
