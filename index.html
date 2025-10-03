@@ -293,58 +293,183 @@
 
 
 /* ===== Unified System Modal (maintenance / reload) ===== */
+/* ===== System Modal • Global-App Style ===== */
 .sys-overlay{
-  position: fixed; inset: 0; z-index: 9999;
+  position: fixed; inset: 0; z-index: 10080;
   display: none; align-items: center; justify-content: center;
-  background: rgba(10,11,14,.55);
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  animation: sysFade .25s ease forwards;
+  background: radial-gradient(120% 120% at 50% -10%, rgba(33,212,253,.18), transparent 55%),
+              radial-gradient(120% 120% at -10% 120%, rgba(109,94,252,.16), transparent 55%),
+              rgba(10,11,14,.54);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: sysFade .25s ease both;
 }
+.sys-overlay.show{ display:flex; }
 @keyframes sysFade { from{opacity:0} to{opacity:1} }
 
-.sys-card{
-  width: min(460px, 92%); text-align: center; color: #eaf0ff;
-  background: rgba(20,24,33,.92);
+.sys-window{
+  width: min(560px, 92vw);
+  background: linear-gradient(180deg, rgba(20,24,33,.92), rgba(13,16,22,.92));
   border: 1px solid rgba(255,255,255,.14);
-  border-radius: 18px; box-shadow: 0 18px 50px rgba(0,0,0,.45);
-  padding: 22px 18px; transform: translateY(8px);
+  border-radius: 22px;
+  box-shadow: 0 28px 80px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
+  padding: 20px 18px 16px;
+  color: var(--text);
+  position: relative;
+  transform: translateY(8px);
   animation: sysPop .25s ease forwards;
 }
 @keyframes sysPop { to{ transform: translateY(0) } }
 
-.sys-icon-wrap{
-  width: 64px; height: 64px; margin: 4px auto 12px;
-  display:grid; place-items:center; border-radius: 50%;
-  background: radial-gradient(120% 120% at 20% 20%, var(--brand-2), var(--brand-1));
-  box-shadow: 0 10px 30px rgba(0,0,0,.35);
-}
-.sys-spinner{
-  width: 28px; height: 28px; border-radius: 50%;
-  border: 3px solid rgba(255,255,255,.25);
-  border-top-color: #0b0d13;
-  animation: spin .8s linear infinite;
-}
-@keyframes spin { to{ transform: rotate(360deg) } }
-
-.sys-title{ margin:8px 0 4px; font-size:18px; font-weight:800; letter-spacing:.2px; }
-.sys-sub{ margin:0 0 12px; color: var(--muted); font-size:13px; }
-
-.sys-progress{
-  height: 8px; border-radius: 999px; overflow: hidden;
-  background: rgba(255,255,255,.08);
+.sys-close{
+  position: absolute; inset-inline-end: 10px; inset-block-start: 10px;
+  width: 40px; height: 40px; display:grid; place-items:center;
   border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform var(--speed), background var(--speed), border-color var(--speed);
 }
-.sys-bar{
-  height: 100%;
+.sys-close:hover{ transform: translateY(-2px); background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.24); }
+
+/* هيرو أخفّ ارتفاعًا وكلشي تحت بعض */
+.sys-hero{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 0;          /* يقلّل الارتفاع العام */
+  text-align: center;
+}
+@media (max-width:520px){
+  .sys-hero{ grid-template-columns: 1fr; justify-items: center; text-align: center; }
+}
+
+.ring{
+  position: relative; width: 150px; height: 150px;
+  display: grid; place-items: center;
+}
+.ring-svg{ width: 150px; height: 150px; transform: rotate(-90deg); }
+.ring-svg .track{
+  fill: none; stroke: rgba(255,255,255,.12); stroke-width: 10; 
+}
+.ring-svg .progress{
+  fill: none; stroke: url(#sysGrad);
+  stroke-width: 10; stroke-linecap: round; stroke-dasharray: 326.72; /* 2πr = 2*π*52 */
+  stroke-dashoffset: 326.72; transition: stroke-dashoffset .4s ease;
+  filter: drop-shadow(0 0 10px rgba(99,102,241,.45));
+}
+/* نضيف تدرّج عبر CSS mask (بدون <defs>) */
+.ring-svg .progress{ stroke: linear-gradient(135deg, var(--brand-2), var(--brand-1)); }
+
+.ring-core{
+  position: absolute; inset: 0; display:grid; place-items: center;
+}
+
+/* يخفي نسبة الحلقة بنعومة */
+.ring-percent.is-hidden{
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity .25s ease, transform .25s ease;
+}
+
+
+
+
+/* نخفي اللوغو داخل الحلقة (لو ظلّ بالـ HTML بالغلط) */
+.brand-dot{ display:none !important; }
+.ring-percent{
+  margin-top: 6px; font-weight: 900; font-size: 14px; color:#eaf0ff; letter-spacing:.2px;
+  opacity: .9;
+}
+.ring-check{
+  position: absolute; inset: 0; display:grid; place-items:center;
+  width: 100%; height: 100%;
+  color: #10b981; font-size: 46px;
+  transform: scale(.7); opacity: 0; pointer-events: none;
+  transition: transform .35s ease, opacity .35s ease;
+}
+.ring-check.show{ transform: scale(1); opacity: 1; }
+
+.sys-headings .sys-title{
+  font-size: 18px; font-weight: 800; letter-spacing: .2px; margin-bottom: 6px;
+}
+.sys-headings .sys-sub{
+  color: var(--muted); font-size: 13px;
+}
+
+
+/* الخطوات بسطر واحد تحت الدائرة */
+.sys-steps.row{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;                    /* مسافة بين العناصر */
+  margin: 6px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px dashed var(--stroke);
+  max-height: none;
+  overflow: visible;
+}
+
+/* شكل كل خطوة كبادج صغير */
+.sys-steps.row .sys-step{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  color:#dbe2f5; font-size: 12px;
+  white-space: nowrap;
+}
+
+/* نقطة الحالة + ألوانها */
+.sys-steps.row .sys-step .dot{
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(255,255,255,.22);
+}
+.sys-steps.row .sys-step.active .dot{
   background: linear-gradient(135deg, var(--brand-2), var(--brand-1));
-  width: 0%; transition: width .2s ease;
+  box-shadow: 0 0 0 3px rgba(109,94,252,.18);
 }
-.sys-count{
-  margin-top: 10px; color:#cbd5e1; font-weight:700; font-size:12px;
+.sys-steps.row .sys-step.done .dot{ background: #10b981; }
+
+/* نص التلميح داخل البادج (نخليه أصغر ويختفي على الشاشات الصغيرة) */
+.sys-steps.row .sys-step small{
+  color:#9aa3b9; display:inline-block;
+}
+@media (max-width:520px){
+  .sys-steps.row .sys-step small{ display:none; }
+}
+
+/* تقليل ارتفاع النافذة نفسها شوي */
+.sys-window{
+  padding: 16px 14px 12px;     /* أقل من قبل */
 }
 
 
-  
+
+
+.sys-step{
+  display:flex; align-items:center; gap:10px;
+  color:#dbe2f5; font-size: 13px;
+}
+.sys-step .dot{
+  width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(255,255,255,.18);
+}
+.sys-step.active .dot{ background: linear-gradient(135deg, var(--brand-2), var(--brand-1)); box-shadow: 0 0 0 3px rgba(109,94,252,.18); }
+.sys-step.done .dot{ background: #10b981; }
+.sys-step small{ color:#9aa3b9; }
+
+.sys-footer{
+  margin-top: 12px; display:flex; align-items:center; gap:10px; justify-content: space-between; flex-wrap: wrap;
+}
+#sysPrimaryBtn{ min-width: 220px; }
+.sys-mini{ color:#9aa3b9; font-size: 12px; }
 
   
  
@@ -1151,24 +1276,42 @@ input[type="number"]{
   
   
   
- <!-- نافذة النظام الموحّدة (صيانة/تحديث/معلومات) -->
-<div id="systemModal" class="sys-overlay" aria-hidden="true">
-  <div class="sys-card" role="dialog" aria-modal="true" aria-live="polite">
-    <div class="sys-icon-wrap">
-      <div class="sys-spinner"></div>
-    </div>
-    <h3 class="sys-title" id="sysTitle">جاري تحديث التطبيق</h3>
-    <p class="sys-sub"   id="sysSub">نحضّر لك كل شيء…</p>
 
-    <!-- عدّاد + شريط تقدّم اختياريان -->
-    <div class="sys-progress" id="sysProgress" hidden>
-      <div class="sys-bar" id="sysBar" style="width:0%"></div>
+<!-- نافذة النظام الجديدة (تحديث/إعادة تحميل/معلومة) -->
+<div id="systemModal" class="sys-overlay" aria-hidden="true">
+  <div class="sys-window" role="dialog" aria-modal="true" aria-live="polite">
+   
+
+    <div class="sys-hero">
+  <div class="ring">
+    <svg viewBox="0 0 120 120" class="ring-svg" aria-hidden="true">
+      <circle class="track" cx="60" cy="60" r="52" />
+      <circle class="progress" cx="60" cy="60" r="52" />
+    </svg>
+
+    <div class="ring-core">
+      <!-- حذف brand-dot نهائيًا -->
+      <div class="ring-percent" id="sysPct">0%</div>
+      <div class="ring-check" id="sysCheck" aria-hidden="true">
+        <i class="fa-solid fa-check"></i>
+      </div>
     </div>
-    <div class="sys-count" id="sysCount" hidden>3</div>
+  </div>
+
+  <!-- العناوين تحت الدائرة مباشرة -->
+  <div class="sys-headings">
+    <div class="sys-title" id="sysTitle">جاري تحديث التطبيق</div>
+    <div class="sys-sub" id="sysSub">نحضّر لك كل شيء…</div>
+  </div>
+
+  <!-- الخطوات: صف واحد تحت الدائرة -->
+  <div class="sys-steps row" id="sysSteps" role="status"></div>
+</div>
+
+    
   </div>
 </div>
 
-  
 
   <!-- ====== Header ====== -->
   <header class="app-header">
@@ -1554,131 +1697,178 @@ function detachBackdropGuards(modalEl){
 }
 
 
-function detachBackdropGuards(modalEl){
-  const s = modalEl.__swallow;
-  if(!s) return;
-  modalEl.removeEventListener('touchstart', s, { passive:false });
-  modalEl.removeEventListener('touchmove',  s, { passive:false });
-  modalEl.removeEventListener('pointerdown',s, { passive:false });
-  modalEl.removeEventListener('wheel',      s, { passive:false });
-  delete modalEl.__swallow;
-}
 
-
-
-
-
-
-// ===== واجهة موحّدة لرسائل النظام (صيانة/تحديث/معلومات) =====
-function openSystemModal({title, sub, showProgress=false, seconds=null} = {}){
+/* ===== System Modal Controller (جديد) ===== */
+function createSystemController(){
   const modal = document.getElementById("systemModal");
-  const t = document.getElementById("sysTitle");
-  const s = document.getElementById("sysSub");
-  const p = document.getElementById("sysProgress");
-  const b = document.getElementById("sysBar");
-  const c = document.getElementById("sysCount");
+  const title = document.getElementById("sysTitle");
+  const sub   = document.getElementById("sysSub");
+  const pctEl = document.getElementById("sysPct");
+  const check = document.getElementById("sysCheck");
+  const stepsHost = document.getElementById("sysSteps");
+  const ring  = modal.querySelector(".ring-svg .progress");
+  const CIRC  = 2 * Math.PI * 52;
 
-  t.textContent = title || "رسالة النظام";
-  s.textContent = sub   || "";
-  p.hidden = !showProgress; b.style.width = "0%";
-  c.hidden = (seconds==null);
+  let steps = [];
+  let activeIdx = -1;
 
-  if(seconds!=null) c.textContent = seconds;
+  function show(){
+    modal.classList.add("show");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("body-no-scroll");
+    attachBackdropGuards(modal, ".sys-window");
+  }
+  function hide(){
+    modal.classList.remove("show");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("body-no-scroll");
+    detachBackdropGuards(modal);
+  }
 
-  modal.style.display = "flex";
+  function renderSteps(){
+    stepsHost.innerHTML = "";
+    steps.forEach((s, i)=>{
+      const el = document.createElement("div");
+      el.className = "sys-step" + (i < activeIdx ? " done" : (i === activeIdx ? " active" : ""));
+      el.innerHTML = `
+        <div class="dot"></div>
+        <div>${s.label}${s.hint ? ` <small>• ${s.hint}</small>` : ""}</div>
+      `;
+      stepsHost.appendChild(el);
+    });
+  }
 
-  // 🔒 قفل سكرول الخلفية + 🛡️ حرس اللمس للخلفية فقط
-  document.body.classList.add('body-no-scroll');
-  attachBackdropGuards(modal, '.sys-card');
-
-  // إرجاع أدوات تحكم
-  let tickTimer = null;
   return {
-    setProgress: (val)=>{ if(!p.hidden){ b.style.width = `${Math.max(0,Math.min(100,val))}%`; } },
-    startCountdown: (sec, onDone)=>{
-      if(sec==null) return;
-      let left = sec;
-      c.hidden = false; c.textContent = left;
-      tickTimer = setInterval(()=>{
-        left -= 1;
-        if(left <= 0){
-          clearInterval(tickTimer);
-          c.textContent = "0";
-          onDone && onDone();
-        }else{
-          c.textContent = left;
-        }
-      }, 1000);
+    // 🔄 بدون primaryText/primaryAction
+    open({titleText, subText, stepsList = []} = {}){
+      title.textContent = titleText || "جاري التحديث";
+      sub.textContent   = subText   || "";
+      check.classList.remove("show");
+
+      // رجّع النسبة ظاهرة
+      pctEl.classList.remove("is-hidden");
+      pctEl.textContent = "0%";
+
+      // صفر الحلقة
+      ring.style.strokeDasharray  = CIRC;
+      ring.style.strokeDashoffset = CIRC;
+
+      // رجّع الخطوات إن كانت مخفية
+      stepsHost.style.removeProperty("display");
+      stepsHost.style.opacity = "1";
+      stepsHost.style.transform = "translateY(0)";
+
+      steps = stepsList;
+      activeIdx = steps.length ? 0 : -1;
+      renderSteps();
+      show();
     },
-    close: ()=>{
-      if(tickTimer) clearInterval(tickTimer);
-      // 🔓 افتح سكرول الخلفية + 🧹 فكّ الحرس
-      document.body.classList.remove('body-no-scroll');
-      detachBackdropGuards(modal);
-      modal.style.display = "none";
-    }
+
+    setStep(i){
+      activeIdx = Math.max(0, Math.min(i, steps.length - 1));
+      renderSteps();
+    },
+
+    setProgress(p){
+      const clamped = Math.max(0, Math.min(100, p|0));
+      pctEl.textContent = clamped + "%";
+      const off = CIRC * (1 - clamped/100);
+      ring.style.strokeDashoffset = off;
+    },
+
+    setText({titleText, subText}={}){
+      if(titleText != null) title.textContent = titleText;
+      if(subText   != null) sub.textContent   = subText;
+    },
+
+    // ✅ تسلسل أنيق عند 100%:
+    // 1) إخفاء الرقم  2) إظهار الصح  3) إخفاء الخطوات  4) تغيير العناوين
+    success({titleText="تم التحديث بنجاح ✅", subText="شكرًا لصبركم 💙"} = {}){
+      this.setProgress(100);
+
+      // (1) أخفِ الرقم
+      pctEl.classList.add("is-hidden");
+
+      // (2) بعد لمحة قصيرة، أظهر الصح
+      setTimeout(()=>{ check.classList.add("show"); }, 150);
+
+      // (3) اطمس الخطوات بسلاسة
+      stepsHost.style.transition = "opacity .28s ease, transform .28s ease";
+      requestAnimationFrame(()=>{
+        stepsHost.style.opacity = "0";
+        stepsHost.style.transform = "translateY(-4px)";
+      });
+
+      // (4) بعد طمس الخطوات، أخفها وحدّث النصوص
+      setTimeout(()=>{
+        stepsHost.style.display = "none";
+        this.setText({ titleText, subText });
+      }, 350);
+    },
+
+    close: hide
   };
 }
 
 
-// ===== آلية التحديث الجديدة (أجمل + أوضح) =====
-function reloadPage(options = {}){
-  const {
-    seconds = 3,                          // مدة العدّاد
-    preTitle = "جاري تحديث التطبيق",      // العنوان الأول
-    preSub   = "نحضّر لك كل شيء…",        // الوصف الأول
-    postTitle= "تم التحديث ✅",            // العنوان بعد الاكتمال
-    postSub  = "سيُعاد فتح الصفحة الآن",  // الوصف بعد الاكتمال
-    showBar  = true                       // إظهار شريط تقدّم
-  } = options;
 
-  // نعرض النافذة
-  const ctl = openSystemModal({
-    title: preTitle,
-    sub: preSub,
-    showProgress: showBar,
-    seconds
-  });
+/* ===== تجربة إعادة التحميل الجديدة ===== */
+function reloadPage({
+  seconds = 4,
+  steps = [
+    {label:"تجهيز الواجهة", hint:"تهيئة المكوّنات والأنماط"},
+    {label:"قراءة البيانات", hint:"جلب الملفّات اللازمة"},
+    {label:"لمسات أخيرة",  hint:"تحسينات وتجميع"}
+  ],
+  preTitle = "جاري تحديث الصفحة",
+  preSub   = "نحدّث البيانات والواجهات…",
+  postTitle= "تم التحديث ✅",
+  postSub  = "نأخذك لآخر نسخة الآن…"
+} = {}){
+  const ctl = createSystemController();
+  let p = 0;
+  let idx = 0;
 
-  // لو مفعّل شريط التقدّم نحركه تدريجياً مع العدّاد
-  if(showBar){
-    let elapsed = 0;
-    const total = seconds * 1000;
-    const step = 100; // كل 100ms
-    const timer = setInterval(()=>{
-      elapsed += step;
-      const pct = Math.min(100, Math.floor((elapsed/total)*100));
-      ctl.setProgress(pct);
-      if(pct >= 100) clearInterval(timer);
-    }, step);
-  }
+ ctl.open({
+  titleText: preTitle,
+  subText:  preSub,
+  stepsList: steps
+});
 
-  // نبدأ العدّاد؛ وبعده نبدّل النصّ ونحمّل
-  ctl.startCountdown(seconds, ()=>{
-    // تبديل النص للحظات قبل إعادة التحميل
-    document.getElementById("sysTitle").textContent = postTitle;
-    document.getElementById("sysSub").textContent   = postSub;
 
-    // فاصلة قصيرة تعطي إحساس انتقال أنيق
-    setTimeout(()=>{
-      // إعادة التحميل الفعلية
-      window.location.reload();
-    }, 600);
-  });
+  const totalMs = seconds * 1000;
+  const tick    = 80;
+  const perTick = 100 / (totalMs / tick);
+
+  const timer = setInterval(()=>{
+    p = Math.min(100, p + perTick);
+    ctl.setProgress(Math.round(p));
+
+    const stepSize = 100 / Math.max(steps.length, 1);
+    const newIdx = Math.min(steps.length - 1, Math.floor(p / stepSize));
+    if(newIdx !== idx){ idx = newIdx; ctl.setStep(idx); }
+
+   if(p >= 100){
+  clearInterval(timer);
+  ctl.success({ titleText: postTitle, subText: postSub });
+  setTimeout(()=> window.location.reload(), 1500);
+}
+  }, tick);
 }
 
-// ===== اربط الزر الموجود عندك بنفس الاسم =====
-document.getElementById("btnReload").addEventListener("click", ()=>{
-  // تقدر تغيّر الإعدادات هنا بسهولة
+/* زر الهيدر */
+document.getElementById("btnReload")?.addEventListener("click", ()=>{
   reloadPage({
-    seconds: 4,                     // عدّاد 4 ثواني
-    preTitle: "جاري تحديث الصفحة",  // نص قبل التحديث
+    seconds: 4,
+    preTitle: "جاري تحديث الصفحة",
     preSub:   "نحدّث البيانات والواجهات…",
     postTitle:"تم التحديث بنجاح ✅",
-    postSub:  "نأخذك لآخر نسخة الآن…",
-    showBar:  true
+    postSub:  "نأخذك لآخر نسخة الآن…"
   });
 });
+
+
+
 
 
 
@@ -2585,8 +2775,7 @@ const inv   = {
        ========================= */
        
  
-document.getElementById("btnExportJSON").addEventListener("click", exportExcelOnly);
-   document.getElementById("btnReload").addEventListener("click", reloadPage);
+    document.getElementById("btnExportJSON").addEventListener("click", exportExcelOnly);
     document.getElementById("fab").addEventListener("click", newInvoice);
     document.getElementById("btnExportCSV")?.addEventListener("click", exportCSVOnly);
     
