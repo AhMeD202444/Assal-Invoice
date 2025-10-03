@@ -30,6 +30,32 @@
   line-height: 1.7;          /* راحة بالقراءة */
 }
 
+
+/* قفل كامل للصفحة (html + body) أثناء المودال */
+.no-scroll {
+  overflow: hidden !important;
+  position: relative;       /* يمنع نطّة iOS */
+  touch-action: none;       /* يوقف الإيماءات العامة */
+}
+
+
+
+
+/* امنع الإيماءات على الخلفية (الخلفية فقط) */
+.auth-overlay, .sys-overlay{
+  touch-action: none;
+}
+
+/* اسمح باللمس/التمرير داخل الكارت نفسه */
+.auth-overlay .auth-card,
+.sys-overlay  .sys-card{
+  touch-action: auto;
+  max-height: 80vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+
   
   
   /* ===== Command Palette (Ctrl+K) ===== */
@@ -1492,6 +1518,57 @@ input[type="number"]{
 
 
 
+
+function attachBackdropGuards(modalEl, cardSelector){
+  const card = modalEl.querySelector(cardSelector);
+  if(!card) return;
+
+  const swallow = (e)=>{
+    if(!card.contains(e.target)){         // أي حدث على الخلفية فقط
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation?.();     // تأكيد كتم جميع الليسنرات
+    }
+  };
+
+  modalEl.__swallow = swallow;
+
+  modalEl.addEventListener('touchstart', swallow, { passive:false });
+  modalEl.addEventListener('touchmove',  swallow, { passive:false });
+  modalEl.addEventListener('pointerdown',swallow, { passive:false });
+  modalEl.addEventListener('wheel',      swallow, { passive:false });
+  // ✅ جديد: ابتلاع click أيضاً حتى ما يتعامل معه أي كود ثاني
+  modalEl.addEventListener('click',      swallow, { passive:false });
+}
+
+function detachBackdropGuards(modalEl){
+  const s = modalEl.__swallow;
+  if(!s) return;
+  modalEl.removeEventListener('touchstart', s, { passive:false });
+  modalEl.removeEventListener('touchmove',  s, { passive:false });
+  modalEl.removeEventListener('pointerdown',s, { passive:false });
+  modalEl.removeEventListener('wheel',      s, { passive:false });
+  // ✅ جديد: إزالة click
+  modalEl.removeEventListener('click',      s, { passive:false });
+  delete modalEl.__swallow;
+}
+
+
+function detachBackdropGuards(modalEl){
+  const s = modalEl.__swallow;
+  if(!s) return;
+  modalEl.removeEventListener('touchstart', s, { passive:false });
+  modalEl.removeEventListener('touchmove',  s, { passive:false });
+  modalEl.removeEventListener('pointerdown',s, { passive:false });
+  modalEl.removeEventListener('wheel',      s, { passive:false });
+  delete modalEl.__swallow;
+}
+
+
+
+
+
+
 // ===== واجهة موحّدة لرسائل النظام (صيانة/تحديث/معلومات) =====
 function openSystemModal({title, sub, showProgress=false, seconds=null} = {}){
   const modal = document.getElementById("systemModal");
@@ -1509,6 +1586,10 @@ function openSystemModal({title, sub, showProgress=false, seconds=null} = {}){
   if(seconds!=null) c.textContent = seconds;
 
   modal.style.display = "flex";
+
+  // 🔒 قفل سكرول الخلفية + 🛡️ حرس اللمس للخلفية فقط
+  document.body.classList.add('body-no-scroll');
+  attachBackdropGuards(modal, '.sys-card');
 
   // إرجاع أدوات تحكم
   let tickTimer = null;
@@ -1531,10 +1612,14 @@ function openSystemModal({title, sub, showProgress=false, seconds=null} = {}){
     },
     close: ()=>{
       if(tickTimer) clearInterval(tickTimer);
+      // 🔓 افتح سكرول الخلفية + 🧹 فكّ الحرس
+      document.body.classList.remove('body-no-scroll');
+      detachBackdropGuards(modal);
       modal.style.display = "none";
     }
   };
 }
+
 
 // ===== آلية التحديث الجديدة (أجمل + أوضح) =====
 function reloadPage(options = {}){
@@ -1891,21 +1976,37 @@ const existingIndex = (currentInvoice.items || []).findIndex(
 let __pendingDeleteInvoiceIndex = null;
 
 function openDeleteInvoiceModal(i, ev){
-  if(ev) ev.stopPropagation(); // ما يفتح الفاتورة بالغلط
+  if(ev) ev.stopPropagation();
   __pendingDeleteInvoiceIndex = i;
   const modal = document.getElementById('deleteInvoiceModal');
   modal.style.display = 'flex';
   modal.setAttribute('aria-hidden','false');
 
+  // 🔒 قفل الصفحة بالكامل (html + body)
+  document.documentElement.classList.add('no-scroll');
+  document.body.classList.add('no-scroll');
+
+  // 🛡️ امنع لمس/سحب/نقر الخلفية، واسمح داخل الكارت
+  attachBackdropGuards(modal, '.auth-card');
+
   // ربط الأزرار
   document.getElementById('delInvYes').onclick = confirmDeleteInvoice;
   document.getElementById('delInvNo').onclick  = closeDeleteInvoiceModal;
 
-  // إغلاق عند الضغط خارج الكارد
-  modal.addEventListener('click', outsideClickClose);
-  // إغلاق بـ Esc
+  // ❌ احذف سطر الإغلاق بالنقر خارج الكارت
+  // modal.addEventListener('click', outsideClickClose);
+
+  // (اختياري) الإغلاق بـ ESC — اتركه أو احذفه حسب رغبتك
   document.addEventListener('keydown', escClose);
 }
+
+
+
+
+
+
+
+
 
 function confirmDeleteInvoice(){
   if(__pendingDeleteInvoiceIndex===null) return;
@@ -1930,9 +2031,21 @@ function closeDeleteInvoiceModal(){
   modal.setAttribute('aria-hidden','true');
   __pendingDeleteInvoiceIndex = null;
 
-  modal.removeEventListener('click', outsideClickClose);
+  // 🔓 فتح الصفحة بالكامل
+  document.documentElement.classList.remove('no-scroll');
+  document.body.classList.remove('no-scroll');
+
+  // 🧹 فكّ الحرس
+  detachBackdropGuards(modal);
+
+  // ❌ لا تزيل listener غير مربوط
+  // modal.removeEventListener('click', outsideClickClose);
+
+  // (اختياري) إذا أبقيت ESC مفعّل فوق، فكّه هنا:
   document.removeEventListener('keydown', escClose);
 }
+
+
 
 function outsideClickClose(e){
   const card = e.currentTarget.querySelector('.auth-card');
@@ -2027,37 +2140,49 @@ function escClose(e){
     
     
     
-    function openMergeConfirmModal(dupCount, onConfirm){
+   function openMergeConfirmModal(dupCount, onConfirm){
   const modal = document.getElementById('mergeConfirmModal');
   const msg   = document.getElementById('mergeDupMsg');
- msg.innerHTML = `تم العثور على <b>${dupCount}</b> ايتمات متشابهة. هل تريد الدمج بأخذ <b>أكبر كمية</b>؟`;
+  msg.innerHTML = `تم العثور على <b>${dupCount}</b> ايتمات متشابهة. هل تريد الدمج بأخذ <b>أكبر كمية</b>؟`;
 
+  // إظهار المودال
   modal.style.display = 'flex';
   modal.setAttribute('aria-hidden','false');
-  document.body.classList.add('body-no-scroll');
 
-  const close = ()=>{
-    modal.style.display = 'none';
-    modal.setAttribute('aria-hidden','true');
-    document.body.classList.remove('body-no-scroll');
-    modal.removeEventListener('click', outside);
-    document.removeEventListener('keydown', esc);
-    yes.onclick = null; no.onclick = null;
-  };
+  // 🔒 قفل الصفحة بالكامل (نفس نافذة الحذف)
+  document.documentElement.classList.add('no-scroll');
+  document.body.classList.add('no-scroll');
+
+  // 🛡️ منع لمس/سحب/نقر الخلفية — والسماح داخل الكارت فقط
+  attachBackdropGuards(modal, '.auth-card');
+
   const yes = document.getElementById('mergeYes');
   const no  = document.getElementById('mergeNo');
+
+  // إغلاق موحّد
+  function close(){
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden','true');
+
+    // 🔓 فك القفل و الحارس
+    document.documentElement.classList.remove('no-scroll');
+    document.body.classList.remove('no-scroll');
+    detachBackdropGuards(modal);
+
+    document.removeEventListener('keydown', esc);
+    yes.onclick = null;
+    no.onclick  = null;
+  }
+
+  // أزرار الإجراء
   yes.onclick = ()=>{ close(); onConfirm && onConfirm(); };
-  no.onclick  = ()=>{ close(); };
+  no.onclick  = close;
 
-  const outside = (e)=>{
-    const card = modal.querySelector('.auth-card');
-    if(!card.contains(e.target)) close();
-  };
-  const esc = (e)=>{ if(e.key==='Escape') close(); };
-
-  modal.addEventListener('click', outside);
+  // (اختياري) إغلاق بـ ESC
+  const esc = (e)=>{ if(e.key === 'Escape') close(); };
   document.addEventListener('keydown', esc);
 }
+
 
     
     
