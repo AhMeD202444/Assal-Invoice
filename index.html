@@ -1289,18 +1289,25 @@ input[type="number"]{
     
         <!-- ====== Sidebar مستقل (الفواتير المستوردة PDF) ====== -->
     <aside class="sidebar" id="importedSidebar">
-      <div class="panel-title">
-   <h3><i class="fa-solid fa-file-import"></i> الفواتير المستوردة (Excel/CSV)</h3>
-        <div style="display:flex; gap:8px;">
-      <button class="icon-btn" id="btnImportPDF" title="استيراد JSON">
+    <div class="panel-title">
+  <h3><i class="fa-solid fa-file-import"></i> الفواتير المستوردة (Excel/CSV)</h3>
+  <div style="display:flex; gap:8px;">
+    <button class="icon-btn" id="btnImportPDF" title="استيراد JSON">
+      <i class="fa-solid fa-download"></i>
+    </button>
 
-            <i class="fa-solid fa-download"></i>
-          </button>
-          <button class="icon-btn" id="btnMergePDF" title="دمج (وترتيب الأيتمات)">
-            <i class="fa-solid fa-layer-group"></i>
-          </button>
-        </div>
-      </div>
+    <!-- PDF: نفس الزر بس بأيقونة أوضح -->
+    <button class="icon-btn" id="btnMergePDF" title="دمج (PDF مرتب)">
+      <i class="fa-regular fa-file-pdf"></i>
+    </button>
+
+    <!-- جديد: دمج وتصدير CSV -->
+    <button class="icon-btn" id="btnMergeCSV" title="دمج (CSV)">
+      <i class="fa-solid fa-file-csv"></i>
+    </button>
+  </div>
+</div>
+
 
       <div id="importedPdfList" class="invoices-list"></div>
      <input id="pdfFilePicker" type="file"
@@ -2082,7 +2089,7 @@ function escClose(e){
 
   // ننشئ Blob وننزّل بالـ fallback مالتك (بدون data:url)
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  downloadBlobFallback(csvName, blob);
+downloadBlobDirect(csvName, blob);
 
   showToast("✅ تم تصدير CSV");
 }
@@ -2454,34 +2461,26 @@ document.getElementById("btnImportPDF").addEventListener("click", ()=>{
 
 
     // الدمج + محاولة ترتيب الأيتمات أبجدياً
- document.getElementById("btnMergePDF").addEventListener("click", async ()=>{
+document.getElementById("btnMergePDF").addEventListener("click", async ()=>{
   if(importedPdfFiles.length < 2){
-    showToast("يرجى استيراد ملفين على الأقل (Excel/CSV) ❌", true);
+    showToast("يرجى استيراد ملفين  (Excel/CSV) ❌", true);
     return;
   }
 
   try{
-    // نقرأ كل الملفات بالتوازي
     const arrays = await Promise.all(importedPdfFiles.map(extractItemsFromFile));
-    // ندمج كل النتائج بآري وحد
-    let items = arrays.flat();
-
-    // نتأكد أكو آيتمات
-    items = items.filter(it => (it.item||"").trim().length);
+    let items = arrays.flat().filter(it => (it.item||"").trim().length);
     if(!items.length){
       showToast("ماكو عناصر صالحة بالملفات المستوردة ❌", true);
       return;
     }
 
-    // ترتيب + وسم المكرر (عندك الدوال جاهزة)
     const nicelySorted = sortAndFlagDuplicates(items);
-
-    // نولّد PDF مرتب (عندك buildItemsPdf)
     const doc = await buildItemsPdf(nicelySorted);
 
-    // ⚠️ حتى الموبايل ما يخرّب الملف، نستخدم Blob بدل save()
-    const blob = doc.output("blob");
-    downloadBlobFallback(autoMergedName("ASSAL_SORTED"), blob);
+    // ✅ نفس سلوكك القديم (بدون Share): تنزيل مباشر
+    const fileName = autoMergedName("ASSAL_SORTED","pdf");
+    doc.save(fileName);
 
     showToast("تم توليد PDF مدمج ومرتّب ✅");
   } catch(err){
@@ -2489,6 +2488,50 @@ document.getElementById("btnImportPDF").addEventListener("click", ()=>{
     showToast("فشل الدمج ❌", true);
   }
 });
+
+
+document.getElementById("btnMergeCSV").addEventListener("click", async ()=>{
+  if(importedPdfFiles.length < 2){
+    showToast("يرجى استيراد ملفين  (Excel/CSV) ❌", true);
+    return;
+  }
+  try{
+    const arrays = await Promise.all(importedPdfFiles.map(extractItemsFromFile));
+    let items = arrays.flat().filter(it => (it.item||"").trim().length);
+    if(!items.length){ showToast("ماكو عناصر صالحة ❌", true); return; }
+
+    // ترتيب مثل الـ PDF
+    items.sort((a,b)=>{
+      const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
+      return c!==0 ? c : String(a.item||"").localeCompare(String(b.item||""), "en", {sensitivity:"base"});
+    });
+
+    // CSV آمن + BOM
+    const esc = v=>{
+      const s = String(v ?? "");
+      const needs = /[",\r\n]/.test(s);
+      const dd = s.replace(/"/g,'""');
+      return needs ? `"${dd}"` : dd;
+    };
+    const rows = [
+      ["Category","Item","Quantity","Notes"],
+      ...items.map(it=> [it.category||"", it.item||"", it.qty||"", it.note||""])
+    ];
+    const csv = "\uFEFF" + rows.map(r=>r.map(esc).join(",")).join("\r\n");
+
+    // ✅ تنزيل مباشر بدون Share
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const name = autoMergedName("ASSAL_SORTED","csv");
+    downloadBlobDirect(name, blob);
+
+    showToast("تم توليد CSV مدمج ✅");
+  }catch(err){
+    console.error(err);
+    showToast("فشل إنشاء CSV ❌", true);
+  }
+});
+
+
 
 
     /* =========================
@@ -2633,18 +2676,39 @@ document.getElementById("itemQty").addEventListener("keydown", function(e) {
 
 
 
+
+// تنزيل Blob مباشرةً بدون Web Share — نفس إحساس doc.save
+function downloadBlobDirect(filename, blob){
+  // Edge القديم
+  if (window.navigator && window.navigator.msSaveOrOpenBlob){
+    window.navigator.msSaveOrOpenBlob(blob, filename);
+    return;
+  }
+  // رابط تنزيل مخفي
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500);
+}
+
+
+
     // ===== أدوات الدمج والفرز وبناء PDF مرتب =====
 
     // اسم تلقائي للملف الناتج
-    function autoMergedName(prefix="ASSAL_MERGED"){
-      const d = new Date();
-      const y = d.getFullYear();
-      const mo = String(d.getMonth()+1).padStart(2,"0");
-      const da = String(d.getDate()).padStart(2,"0");
-      const hh = String(d.getHours()).padStart(2,"0");
-      const mm = String(d.getMinutes()).padStart(2,"0");
-      return `${prefix}_${y}${mo}${da}_${hh}${mm}.pdf`;
-    }
+   function autoMergedName(prefix="ASSAL_MERGED", ext="pdf"){
+  const d  = new Date();
+  const y  = d.getFullYear();
+  const mo = String(d.getMonth()+1).padStart(2,"0");
+  const da = String(d.getDate()).padStart(2,"0");
+  const hh = String(d.getHours()).padStart(2,"0");
+  const mm = String(d.getMinutes()).padStart(2,"0");
+  return `${prefix}_${y}${mo}${da}_${hh}${mm}.${ext}`;
+}
 
     // تنزيل Bytes كـ PDF
     function downloadBytes(bytes, filename){
