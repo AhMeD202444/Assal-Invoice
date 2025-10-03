@@ -16,18 +16,20 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
   
-  
- 
 
-  
-  
 
   <style>
   
   
- 
   
-  
+  #mergeDupMsg{
+  text-align: center;        /* توسيط النص */
+  white-space: normal;       /* يسمح بالتفاف السطر */
+  word-break: break-word;    /* يكسر الكلمات الطويلة إذا لزم */
+  overflow-wrap: anywhere;   /* يلفف حتى مع الأحرف الطويلة */
+  line-height: 1.7;          /* راحة بالقراءة */
+}
+
   
   
   /* ===== Command Palette (Ctrl+K) ===== */
@@ -1255,6 +1257,22 @@ input[type="number"]{
 </div>
 
 
+
+<!-- نافذة تأكيد دمج الملفات -->
+<div id="mergeConfirmModal" class="auth-overlay" aria-hidden="true">
+  <div class="auth-card" role="dialog" aria-modal="true" style="text-align:center;">
+    <h3 style="margin:0 0 6px 0;">تم العثور على عناصر متشابهة</h3>
+    <p id="mergeDupMsg" style="margin:0 0 14px 0; color:#aab0c0;">
+      هل تريد الدمج بأخذ <b>أكبر كمية</b> لكل مجموعة متشابهة؟
+    </p>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button id="mergeYes" class="btn green"><i class="fa-solid fa-check"></i> نعم، دمج</button>
+      <button id="mergeNo"  class="btn amber"><i class="fa-solid fa-xmark"></i> تراجع</button>
+    </div>
+  </div>
+</div>
+
+
   
   
   
@@ -1272,7 +1290,7 @@ input[type="number"]{
   <!-- زر استيراد + مُلتقط ملف مخفي -->
   <div style="display:flex; gap:8px;">
     <button class="icon-btn" id="btnImportPrev" title="استيراد فاتورة (Excel/CSV)">
-      <i class="fa-solid fa-file-arrow-up"></i>
+      <i class="fa-solid fa-file-arrow-down"></i>
     </button>
     <input id="prevImportPicker" type="file"
            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.csv,text/csv"
@@ -1290,9 +1308,9 @@ input[type="number"]{
         <!-- ====== Sidebar مستقل (الفواتير المستوردة PDF) ====== -->
     <aside class="sidebar" id="importedSidebar">
     <div class="panel-title">
-  <h3><i class="fa-solid fa-file-import"></i> الفواتير المستوردة (Excel/CSV)</h3>
+  <h3><i class="fa-solid fa-file-import"></i>الفواتير المستوردة</h3>
   <div style="display:flex; gap:8px;">
-    <button class="icon-btn" id="btnImportPDF" title="استيراد JSON">
+    <button class="icon-btn" id="btnImportPDF" title="استيراد ملفات">
       <i class="fa-solid fa-download"></i>
     </button>
 
@@ -1993,6 +2011,7 @@ function escClose(e){
       renderItems();
       showToast("تم تحميل الفاتورة 📄");
     }
+    
 
     function deleteInvoice(i){
       invoices.splice(i,1);
@@ -2004,6 +2023,42 @@ function escClose(e){
       renderInvoicesDropdown();
       showToast("تم حذف الفاتورة 🗑️");
     }
+    
+    
+    
+    
+    function openMergeConfirmModal(dupCount, onConfirm){
+  const modal = document.getElementById('mergeConfirmModal');
+  const msg   = document.getElementById('mergeDupMsg');
+ msg.innerHTML = `تم العثور على <b>${dupCount}</b> ايتمات متشابهة. هل تريد الدمج بأخذ <b>أكبر كمية</b>؟`;
+
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden','false');
+  document.body.classList.add('body-no-scroll');
+
+  const close = ()=>{
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden','true');
+    document.body.classList.remove('body-no-scroll');
+    modal.removeEventListener('click', outside);
+    document.removeEventListener('keydown', esc);
+    yes.onclick = null; no.onclick = null;
+  };
+  const yes = document.getElementById('mergeYes');
+  const no  = document.getElementById('mergeNo');
+  yes.onclick = ()=>{ close(); onConfirm && onConfirm(); };
+  no.onclick  = ()=>{ close(); };
+
+  const outside = (e)=>{
+    const card = modal.querySelector('.auth-card');
+    if(!card.contains(e.target)) close();
+  };
+  const esc = (e)=>{ if(e.key==='Escape') close(); };
+
+  modal.addEventListener('click', outside);
+  document.addEventListener('keydown', esc);
+}
+
     
     
     
@@ -2365,13 +2420,13 @@ document.getElementById("prevImportPicker").addEventListener("change", async (e)
     }
 
     // نصنع فاتورة جديدة من الملف المستورد
-    const baseName = file.name.replace(/\.[^.]+$/,'');
-    const today    = new Date().toLocaleDateString("ar-EG");
-    const inv      = {
-      id: `${baseName} • ${today}`,
-      date: today,
-      items: mapped
-    };
+   const today = new Date().toLocaleDateString("ar-EG");
+const inv   = {
+  id: formatInvoiceName(),   // نفس شكل "فاتورة الأحد - ٢٠٢٥/٠١/٠٣"
+  date: today,
+  items: mapped
+};
+
 
     // نحفظها ضمن الفواتير ونعرضها فورًا قابلة للتعديل
     invoices.push(inv);
@@ -2475,19 +2530,36 @@ document.getElementById("btnMergePDF").addEventListener("click", async ()=>{
       return;
     }
 
-    const nicelySorted = sortAndFlagDuplicates(items);
-    const doc = await buildItemsPdf(nicelySorted);
+    // احسب التكرارات على أساس (Category+Item+Notes)
+    const group = new Map();
+    for(const it of items){
+      const k = `${(it.category||"").toLowerCase()}||${(it.item||"").toLowerCase()}||${(it.note||"").toLowerCase()}`;
+      group.set(k, (group.get(k)||0)+1);
+    }
+    const dupCount = Array.from(group.values()).filter(c=> c>1).length;
 
-    // ✅ نفس سلوكك القديم (بدون Share): تنزيل مباشر
-    const fileName = autoMergedName("ASSAL_SORTED","pdf");
-    doc.save(fileName);
+    const proceed = async ()=>{
+      // دمج بأكبر كمية
+      const merged = mergeByMaxQuantity(items);
+      const doc = await buildItemsPdf(merged);
+      const fileName = autoMergedName("ASSAL_SORTED","pdf");
+      doc.save(fileName);
+      showToast("تم توليد PDF مدمج (أخذ أكبر كمية) ✅");
+    };
 
-    showToast("تم توليد PDF مدمج ومرتّب ✅");
+    if(dupCount > 0){
+      openMergeConfirmModal(dupCount, proceed);
+      return;
+    }
+
+    await proceed();
+
   } catch(err){
     console.error(err);
     showToast("فشل الدمج ❌", true);
   }
 });
+
 
 
 document.getElementById("btnMergeCSV").addEventListener("click", async ()=>{
@@ -2500,36 +2572,50 @@ document.getElementById("btnMergeCSV").addEventListener("click", async ()=>{
     let items = arrays.flat().filter(it => (it.item||"").trim().length);
     if(!items.length){ showToast("ماكو عناصر صالحة ❌", true); return; }
 
-    // ترتيب مثل الـ PDF
-    items.sort((a,b)=>{
-      const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
-      return c!==0 ? c : String(a.item||"").localeCompare(String(b.item||""), "en", {sensitivity:"base"});
-    });
+    // احسب التكرارات
+    const group = new Map();
+    for(const it of items){
+      const k = `${(it.category||"").toLowerCase()}||${(it.item||"").toLowerCase()}||${(it.note||"").toLowerCase()}`;
+      group.set(k, (group.get(k)||0)+1);
+    }
+    const dupCount = Array.from(group.values()).filter(c=> c>1).length;
 
-    // CSV آمن + BOM
-    const esc = v=>{
-      const s = String(v ?? "");
-      const needs = /[",\r\n]/.test(s);
-      const dd = s.replace(/"/g,'""');
-      return needs ? `"${dd}"` : dd;
+    const proceed = ()=>{
+      // ✳️ دمج بأكبر كمية
+      const merged = mergeByMaxQuantity(items);
+
+      // CSV آمن + BOM
+      const esc = v=>{
+        const s = String(v ?? "");
+        const needs = /[",\r\n]/.test(s);
+        const dd = s.replace(/"/g,'""');
+        return needs ? `"${dd}"` : dd;
+      };
+      const rows = [
+        ["Category","Item","Quantity","Notes"],
+        ...merged.map(it=> [it.category||"", it.item||"", it.qty||"", it.note||""])
+      ];
+      const csv = "\uFEFF" + rows.map(r=>r.map(esc).join(",")).join("\r\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const name = autoMergedName("ASSAL_SORTED","csv");
+      downloadBlobDirect(name, blob);
+
+      showToast("تم توليد CSV مدمج (أخذ أكبر كمية) ✅");
     };
-    const rows = [
-      ["Category","Item","Quantity","Notes"],
-      ...items.map(it=> [it.category||"", it.item||"", it.qty||"", it.note||""])
-    ];
-    const csv = "\uFEFF" + rows.map(r=>r.map(esc).join(",")).join("\r\n");
 
-    // ✅ تنزيل مباشر بدون Share
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const name = autoMergedName("ASSAL_SORTED","csv");
-    downloadBlobDirect(name, blob);
+    if(dupCount > 0){
+      openMergeConfirmModal(dupCount, proceed);
+      return;
+    }
 
-    showToast("تم توليد CSV مدمج ✅");
+    proceed();
   }catch(err){
     console.error(err);
     showToast("فشل إنشاء CSV ❌", true);
   }
 });
+
 
 
 
@@ -2698,6 +2784,41 @@ function downloadBlobDirect(filename, blob){
 
 
     // ===== أدوات الدمج والفرز وبناء PDF مرتب =====
+
+
+
+// يدمج العناصر المتشابهة بأخذ أكبر كمية (Category + Item + Notes)
+function mergeByMaxQuantity(items){
+  const map = new Map();
+  for(const it of (items||[])){
+    const category = String(it.category || "").trim();
+    const item     = String(it.item     || it.name || "").trim();
+    const note     = String(it.note     || "").trim();
+
+    // خلي العدد رقم صحيح، وإذا ماكو نخليه 1
+    let qty = parseInt(String(it.qty ?? "").trim(), 10);
+    if(isNaN(qty) || qty < 0) qty = 1;
+
+    const key = `${category.toLowerCase()}||${item.toLowerCase()}||${note.toLowerCase()}`;
+    if(!map.has(key)){
+      map.set(key, { category, item, qty, note });
+    }else{
+      const cur = map.get(key);
+      cur.qty = Math.max(cur.qty, qty); // أخذ أكبر كمية
+    }
+  }
+
+  // رجّع مصفوفة مرتّبة: Category ثم Item
+  return Array.from(map.values()).sort((a,b)=>{
+    const c = a.category.localeCompare(b.category, 'en', {sensitivity:'base'});
+    return c !== 0 ? c : a.item.localeCompare(b.item, 'en', {sensitivity:'base'});
+  });
+}
+
+
+
+
+
 
     // اسم تلقائي للملف الناتج
    function autoMergedName(prefix="ASSAL_MERGED", ext="pdf"){
