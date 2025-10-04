@@ -1254,6 +1254,80 @@ input[type="number"]{
 
 
 
+/* ===== System Modal • Responsive & A11y Upgrades ===== */
+:root{
+  /* حجم الحلقة/الدائرة يتأقلم تلقائيًا */
+  --sys-ring: clamp(120px, 22vw, 180px);
+  /* أحجام نص مرنة */
+  --sys-title-size: clamp(16px, 2.4vw, 20px);
+  --sys-sub-size:   clamp(12px, 1.6vw, 14px);
+  --sys-step-size:  clamp(11px, 1.5vw, 13px);
+}
+
+/* النافذة: تتكيّف عرضًا وارتفاعًا + قابلية تمرير داخلية */
+.sys-window{
+  width: min(700px, 92vw);
+  max-height: 92vh;              /* ما تطلع خارج الشاشة */
+  overflow: auto;                /* سكول داخلي عند صِغَر الارتفاع */
+  padding: clamp(14px, 2.4vh, 22px) clamp(12px, 2.4vw, 18px);
+}
+
+/* دعم شاشات واسعة جدًا: تكبر شوي */
+@media (min-width: 1400px){
+  .sys-window{ width: min(820px, 70vw); }
+}
+
+/* الهيرو + التيبوغرافيا مرنة */
+.sys-headings .sys-title{ font-size: var(--sys-title-size); }
+.sys-headings .sys-sub{   font-size: var(--sys-sub-size);   }
+
+.sys-steps.row .sys-step{
+  font-size: var(--sys-step-size);
+  padding: clamp(6px, 1.2vh, 8px) clamp(10px, 1.2vw, 12px);
+}
+
+/* الحلقة تتبع متغير الحجم */
+.ring{ width: var(--sys-ring); height: var(--sys-ring); }
+.ring-svg{ width: var(--sys-ring); height: var(--sys-ring); }
+.ring-percent{ font-size: clamp(13px, 1.7vw, 16px); }
+
+/* زر إغلاق اختياري (إن أضفته) يبقى على نفس المقياس */
+.sys-close{ width: 42px; height: 42px; }
+
+/* عند صِغَر الارتفاع (موبايل أفقي مثلاً) */
+@media (max-height: 560px){
+  .sys-window{
+    max-height: 96vh;
+    padding: 10px 12px;
+  }
+  .sys-steps.row{ gap: 6px; }
+}
+
+/* لو المتصفح ما يدعم blur، نخلي خلفية أكثر قتامة */
+@supports not ((backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px))){
+  .sys-overlay{
+    background: rgba(10,11,14,.85);
+  }
+}
+
+/* تباين أفضل لحالة سكان-لون */
+@media (prefers-contrast: more){
+  .sys-window{ border-color: rgba(255,255,255,.25); }
+  .sys-steps.row .sys-step{ border-color: rgba(255,255,255,.3); }
+}
+
+/* تقليل الحركة: نلغي الترنزشنات الثقيلة */
+@media (prefers-reduced-motion: reduce){
+  .sys-overlay, .sys-window, .ring-check, .ring-percent,
+  .sys-steps.row, .ring-svg .progress{
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+
+
+
 
 
   </style>
