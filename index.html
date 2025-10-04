@@ -7,11 +7,10 @@
 
   <!-- أيقونات -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
-  <link rel="preload" href="./Cairo-Regular.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="./Cairo-Bold.woff2"    as="font" type="font/woff2" crossorigin>
 
+  <!-- خطوط (Cairo للعربي + Poppins للإنكليزي) -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"/>
 
- 
   <!-- XLSX + jsPDF + AutoTable -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -20,27 +19,6 @@
 
 
   <style>
-  
-  
-  
-  
-  @font-face{
-  font-family: 'Cairo';
-  src: url('./Cairo-Regular.woff2') format('woff2'),
-       url('./Cairo-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face{
-  font-family: 'Cairo';
-  src: url('./Cairo-Bold.woff2') format('woff2'),
-       url('./Cairo-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
   
   
   
@@ -519,7 +497,7 @@
 html,body{ height:100%; }
 body{
   margin:0;
-  font-family: "Cairo", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans";
+  font-family: "Cairo","Poppins", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans";
   color: var(--text);
   background:
     radial-gradient(1200px 1200px at 120% -20%, rgba(33,212,253,.20), transparent 60%),
@@ -1272,9 +1250,7 @@ input[type="number"]{
 }
 
 
-
-
-
+    
 
 /* ===== System Modal • Responsive & A11y Upgrades ===== */
 :root{
@@ -1346,6 +1322,9 @@ input[type="number"]{
     transition: none !important;
   }
 }
+
+
+
 
 
 
@@ -2477,73 +2456,6 @@ function escClose(e){
     
     
         // ===== قائمة ملفات PDF المستوردة في الـ Aside المستقل =====
-        
-        
-        function abToBase64(buf){
-  let s='', b=new Uint8Array(buf), ch=0x8000;
-  for(let i=0;i<b.length;i+=ch) s+=String.fromCharCode.apply(null,b.subarray(i,i+ch));
-  return btoa(s);
-}
-function safeJSONParse(s, fallback=null){ try{ return JSON.parse(s) }catch{ return fallback }}
-
-// ===== [B] مدير الخط العربي (تحميل بالخلفية + كاش محلي) =====
-// ===== [B] Cairo local font (simple & fast) =====
-const AR_FONT_NAME = "Cairo";
-const AR_FONT_FILE = "Cairo-Regular.ttf";     // موجود يم index.html
-const AR_VFS_KEY   = "ASSAL_FONT_CAIRO_REGULAR_V1"; // كاش محلي
-
-function abToBase64(buf){
-  let s='', b=new Uint8Array(buf), ch=0x8000;
-  for(let i=0;i<b.length;i+=ch) s+=String.fromCharCode.apply(null,b.subarray(i,i+ch));
-  return btoa(s);
-}
-
-let __AR_FONT_B64 = null;
-
-async function preloadArabicFont(){
-  // 1) جرّب من الكاش
-  try{
-    const cached = JSON.parse(localStorage.getItem(AR_VFS_KEY)||"null");
-    if(cached && typeof cached.b64 === "string" && cached.b64.length > 1000){
-      __AR_FONT_B64 = cached.b64; 
-      return true;
-    }
-  }catch(_){}
-
-  // 2) حمِّل من نفس المجلد
-  try{
-    const res = await fetch("./" + AR_FONT_FILE, { cache: "force-cache" });
-    if(!res.ok) throw new Error("Font fetch failed");
-    const buf = await res.arrayBuffer();
-    const b64 = abToBase64(buf);
-    if(b64 && b64.length > 1000){
-      __AR_FONT_B64 = b64;
-      localStorage.setItem(AR_VFS_KEY, JSON.stringify({ b64 }));
-      return true;
-    }
-  }catch(_){}
-  return false;
-}
-
-// تسجّل الخط داخل كائن jsPDF
-function attachArabicFont(doc){
-  if(!__AR_FONT_B64) return false;
-  if(doc.__arabicFontAttached) return true;
-  try{
-    doc.addFileToVFS(AR_FONT_FILE, __AR_FONT_B64);
-    doc.addFont(AR_FONT_FILE, AR_FONT_NAME, "normal");
-    doc.__arabicFontAttached = true;
-    return true;
-  }catch(_){ return false; }
-}
-
-// حضّر الخط عند تشغيل الصفحة
-window.addEventListener("load", ()=>{ preloadArabicFont().catch(()=>{}); });
-
-        
-        
-        
-        
    function renderImportedPdfList(){
   const wrap = document.getElementById("importedPdfList");
   wrap.innerHTML = "";
@@ -2685,46 +2597,30 @@ async function extractItemsFromFile(file){
     /* =========================
        تصدير PDF بشكل أنيق بالإنكليزي
        ========================= */
-async function exportPDF(){
+  async function exportPDF() {
   if (!currentInvoice || (currentInvoice.items || []).length === 0) {
-    showToast("لا توجد بيانات للتصدير ❌", true);
+    showToast("No data to export ❌", true);
     return;
   }
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
 
-  // 1) جرّب ربط الخط إذا كان محمّل سابقاً
-  let arOk = attachArabicFont(doc);
-
-  // 2) إذا ما مرتبط، اقرأه مباشرةً من المستودع وأرفقه
-  if(!arOk){
-    try{
-      const res = await fetch("./Cairo-Regular.ttf", { cache: "no-cache" });
-      if(!res.ok) throw new Error("Font fetch failed: " + res.status);
-      const buf = await res.arrayBuffer();
-      const b64 = abToBase64(buf);                  // موجودة عندك بالأعلى
-      doc.addFileToVFS("Cairo-Regular.ttf", b64);
-      doc.addFont("Cairo-Regular.ttf", AR_FONT_NAME, "normal");
-      doc.setFont(AR_FONT_NAME, "normal");
-      arOk = true;
-    }catch(err){
-      console.warn("Arabic font not available, continuing with default.", err);
-    }
-  }else{
-    doc.setFont(AR_FONT_NAME, "normal");
-  }
-
-  // ترتيب العناصر
+  // ترتيب العناصر (Category ثم Item)
   const sortedItems = [...(currentInvoice.items || [])].sort((a, b) => {
-    const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
-    return c!==0 ? c : String(a.name||"").localeCompare(String(b.name||""), "en", {sensitivity:"base"});
+    const catA = String(a.category || "");
+    const catB = String(b.category || "");
+    const nameA = String(a.name || "");
+    const nameB = String(b.name || "");
+    const catCompare = catA.localeCompare(catB, "en", { sensitivity: "base" });
+    return catCompare !== 0 ? catCompare : nameA.localeCompare(nameB, "en", { sensitivity: "base" });
   });
 
   const pageWidth  = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
   // Header
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
   doc.setTextColor(25, 25, 112);
   doc.text("ASSAL OFFICE", pageWidth / 2, 65, { align: "center" });
@@ -2733,60 +2629,48 @@ async function exportPDF(){
   doc.text("YOUR BEST CHOICE", pageWidth / 2, 85, { align: "center" });
 
   // Meta
-  const d = new Date();
-  const invoiceDate = d.toLocaleDateString("en-GB");
-  const invoiceId   = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+  const today = new Date();
+  const invoiceDate = today.toLocaleDateString("en-GB");
+  const invoiceId = `INV-${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
 
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(12);
   doc.setTextColor(0);
   doc.text(`Invoice ID: ${invoiceId}`, pageWidth - 60, 120, { align: "right" });
   doc.text(`Date: ${invoiceDate}`, 60, 120, { align: "left" });
 
-  // جدول
+  // Table
   doc.autoTable({
-    head: [[ "#", "Category", "Item", "Quantity", "Notes" ]],
-    body: sortedItems.map((it, i)=>[
-      i+1,
-      String(it.category||""),
-      String(it.name||""),   // ← يدعم عربي/إنكليزي
-      String(it.qty||""),
-      String(it.note||"")
+    head: [["#", "Category", "Item", "Quantity", "Notes"]],
+    body: sortedItems.map((it, i) => [
+      i + 1,
+      String(it.category || ""),
+      String(it.name || ""),
+      String(it.qty || ""),
+      String(it.note || "")
     ]),
     startY: 160,
     theme: "grid",
-    styles: {
-      font: arOk ? AR_FONT_NAME : "helvetica",
-      fontSize: 11,
-      halign: "center"
-    },
+    styles: { halign: "center", font: "helvetica", fontSize: 11 },
     headStyles: { fillColor: [40, 90, 160], textColor: [255, 255, 255], fontStyle: "bold" },
     alternateRowStyles: { fillColor: [245, 245, 245] },
     margin: { left: 50, right: 50 },
-    didParseCell: (data)=>{
-      if(data.section !== 'body') return;
-      const col = data.column.index;
-      if(col === 2 || col === 4){
-        const txt = String(data.cell.raw||"");
-        if(/[\u0600-\u06FF]/.test(txt)) data.cell.styles.halign = 'right';
-      }
-    },
-    didDrawPage: ()=>{
-      doc.setDrawColor(80,80,80);
+    didDrawPage: () => {
+      doc.setDrawColor(80, 80, 80);
       doc.setLineWidth(1.5);
-      doc.rect(30, 30, pageWidth-60, pageHeight-60, "S");
+      doc.rect(30, 30, pageWidth - 60, pageHeight - 60, "S");
       const pageCount   = doc.internal.getNumberOfPages();
       const pageCurrent = doc.internal.getCurrentPageInfo().pageNumber;
       doc.setFontSize(10);
       doc.setTextColor(100);
-      doc.text(`Page ${pageCurrent} of ${pageCount}`, pageWidth/2, pageHeight-20, { align:"center" });
+      doc.text(`Page ${pageCurrent} of ${pageCount}`, pageWidth / 2, pageHeight - 20, { align: "center" });
     }
   });
 
+  // ⬅️ حفظ PDF فقط (الطريقة القديمة)
   doc.save(`Invoice_${invoiceId}.pdf`);
-
-  showToast(arOk ? "تم تصدير PDF بالعربي ✅" : "تم التصدير (بدون خط عربي) ❕", !arOk);
+  showToast("تم تصدير PDF فقط ✅");
 }
-
 
 
 
@@ -3380,30 +3264,66 @@ function mergeByMaxQuantity(items){
 
 
     // توليد PDF جديد بجدول مرتب + تظليل مكرر (jsPDF + autoTable)
-async function buildItemsPdf(sortedItems){
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation:"p", unit:"pt", format:"a4" });
+    async function buildItemsPdf(sortedItems){
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation:"p", unit:"pt", format:"a4" });
+      const pageWidth  = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
 
-  const arOk = attachArabicFont(doc);
-  if(arOk) doc.setFont(AR_FONT_NAME, "normal");
+      // Header
+      doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(25,25,112);
+      doc.text("ASSAL OFFICE", pageWidth/2, 65, { align:"center" });
+      doc.setFontSize(12); doc.setTextColor(100);
+      doc.text("YOUR BEST CHOICE", pageWidth/2, 85, { align:"center" });
 
-  // ...
-  doc.autoTable({
-    // ...
-    styles:{ font: arOk ? AR_FONT_NAME : "helvetica", fontSize: 11, halign:"center" },
-    didParseCell: (data)=>{
-      if(data.section!=='body') return;
-      const col = data.column.index;
-      if(col===2 || col===4){
-        const txt = String(data.cell.raw||"");
-        if(/[\u0600-\u06FF]/.test(txt)) data.cell.styles.halign = 'right';
-      }
+      // Meta
+      const today = new Date();
+      const invoiceDate = today.toLocaleDateString("en-GB");
+      const invoiceId = `MERGE-${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+      doc.setFont("helvetica","normal"); doc.setFontSize(12); doc.setTextColor(0);
+      doc.text(`Merge ID: ${invoiceId}`, pageWidth - 60, 120, { align:"right" });
+      doc.text(`Date: ${invoiceDate}`, 60, 120, { align:"left" });
+
+      // جدول
+      doc.autoTable({
+        head: [["#", "Category", "Item", "Quantity", "Notes"]],
+        body: sortedItems.map((it, i)=>[
+          i+1,
+          String(it.category||""),
+          String(it.item||""),
+          String(it.qty||""),
+          String(it.note||"")
+        ]),
+        startY: 160,
+        theme: "grid",
+        styles: { halign:"center", font:"helvetica", fontSize:11 },
+        headStyles: { fillColor:[40,90,160], textColor:[255,255,255], fontStyle:"bold" },
+        alternateRowStyles: { fillColor:[245,245,245] },
+        margin: { left:50, right:50 },
+
+        didParseCell: function(data){
+          if(data.section==='body'){
+            const r = data.row.index;
+            if(sortedItems[r].__dup){
+              data.cell.styles.fillColor = [255,230,230]; // أحمر خفيف للمكرر
+            }
+          }
+        },
+
+        didDrawPage: ()=>{
+          doc.setDrawColor(80,80,80); doc.setLineWidth(1.5);
+          doc.rect(30, 30, pageWidth-60, pageHeight-60, "S");
+          const pageCount   = doc.internal.getNumberOfPages();
+          const pageCurrent = doc.internal.getCurrentPageInfo().pageNumber;
+          doc.setFontSize(10); doc.setTextColor(100);
+          doc.text(`Page ${pageCurrent} of ${pageCount}`, pageWidth/2, pageHeight-20, {align:"center"});
+        }
+      });
+
+     return doc; // نرجّع كائن jsPDF نفسه
+
+
     }
-  });
-
-  return doc;
-}
-
     
     
     
@@ -3923,15 +3843,6 @@ window.addEventListener('load', ()=>{
   const viaQuery = getQueryFlag('maintenance') === '1';
   toggleMaintenance( MAINTENANCE_MODE || viaQuery );
 });
-
-
-
-window.addEventListener("load", ()=>{
-  // نحاول نحضّر الخط مبكرًا — بدون أي إيقاف للواجهة
-  preloadArabicFont().catch(()=>{});
-});
-
-
 
     
   
