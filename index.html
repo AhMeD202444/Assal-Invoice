@@ -8,9 +8,7 @@
   <!-- أيقونات -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
 
-  <!-- خطوط (Cairo للعربي + Poppins للإنكليزي) -->
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"/>
-
+ 
   <!-- XLSX + jsPDF + AutoTable -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -19,6 +17,27 @@
 
 
   <style>
+  
+  
+  
+  
+  @font-face{
+  font-family: 'Cairo';
+  src: url('./Cairo-Regular.woff2') format('woff2'),
+       url('./Cairo-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face{
+  font-family: 'Cairo';
+  src: url('./Cairo-Bold.woff2') format('woff2'),
+       url('./Cairo-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
   
   
   
@@ -497,7 +516,7 @@
 html,body{ height:100%; }
 body{
   margin:0;
-  font-family: "Cairo","Poppins", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans";
+  font-family: "Cairo", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans";
   color: var(--text);
   background:
     radial-gradient(1200px 1200px at 120% -20%, rgba(33,212,253,.20), transparent 60%),
@@ -2465,82 +2484,59 @@ function escClose(e){
 function safeJSONParse(s, fallback=null){ try{ return JSON.parse(s) }catch{ return fallback }}
 
 // ===== [B] مدير الخط العربي (تحميل بالخلفية + كاش محلي) =====
-const AR_FONT_NAME   = "Cairo";
-const AR_FONT_FILE   = "Cairo-Regular.ttf";
-/* زِد الإصدار حتى ننظّف الكاش القديم اللي فشل */
-const AR_VFS_KEY     = "ASSAL_FONT_V2_CAIRO_REGULAR";
+// ===== [B] Cairo local font (simple & fast) =====
+const AR_FONT_NAME = "Cairo";
+const AR_FONT_FILE = "Cairo-Regular.ttf";     // موجود يم index.html
+const AR_VFS_KEY   = "ASSAL_FONT_CAIRO_REGULAR_V1"; // كاش محلي
 
-/* رتّب المصادر من الأكثر ضماناً للأقل */
-const AR_CANDIDATES  = [
-  // ✅ استضف الخط عندك (أنصح به جداً) ← غيّر هذا الرابط لملفك الحقيقي
-  "https://assap-app-project.ahmed-al-bayatii-90.workers.dev/assets/Cairo-Regular.ttf",
-
-  // ✅ GitHub Raw — شغّال ويقبل CORS
-  "https://raw.githubusercontent.com/google/fonts/main/ofl/cairo/Cairo-Regular.ttf",
-
-  // ➖ jsDelivr غالباً يطيح بـ 403 لهذه الريبو — نخليه آخر خيار أو نشيله
-  // "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/cairo/Cairo-Regular.ttf"
-];
-
-let __AR_FONT_B64 = null;     // ذاكرة مؤقتة بالجلسة
-
-// تحميل مرّة عند فتح الصفحة (بدون انتظار الزر)
-async function preloadArabicFont(){
-  const cached = safeJSONParse(localStorage.getItem(AR_VFS_KEY), null);
-  if (cached && typeof cached.b64 === "string" && cached.b64.length > 1000){
-    __AR_FONT_B64 = cached.b64;
-    return true;
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(()=> controller.abort(), 8000); // 8 ثواني
-
-  try{
-    for (const url of AR_CANDIDATES){
-      try{
-        const res = await fetch(url, {
-          cache: "force-cache",
-          mode: "cors",
-          referrerPolicy: "no-referrer",
-          signal: controller.signal
-        });
-        if (!res.ok) continue;
-        const buf = await res.arrayBuffer();
-        const b64 = abToBase64(buf);
-        if (b64 && b64.length > 1000){
-          __AR_FONT_B64 = b64;
-          localStorage.setItem(AR_VFS_KEY, JSON.stringify({ b64 }));
-          return true;
-        }
-      }catch(_){}
-    }
-    return false;
-  }finally{
-    clearTimeout(timeout);
-  }
+function abToBase64(buf){
+  let s='', b=new Uint8Array(buf), ch=0x8000;
+  for(let i=0;i<b.length;i+=ch) s+=String.fromCharCode.apply(null,b.subarray(i,i+ch));
+  return btoa(s);
 }
 
+let __AR_FONT_B64 = null;
 
-// تُسجّل الخط في كائن jsPDF الحالي — بدون await إطلاقاً
+async function preloadArabicFont(){
+  // 1) جرّب من الكاش
+  try{
+    const cached = JSON.parse(localStorage.getItem(AR_VFS_KEY)||"null");
+    if(cached && typeof cached.b64 === "string" && cached.b64.length > 1000){
+      __AR_FONT_B64 = cached.b64; 
+      return true;
+    }
+  }catch(_){}
+
+  // 2) حمِّل من نفس المجلد
+  try{
+    const res = await fetch("./" + AR_FONT_FILE, { cache: "force-cache" });
+    if(!res.ok) throw new Error("Font fetch failed");
+    const buf = await res.arrayBuffer();
+    const b64 = abToBase64(buf);
+    if(b64 && b64.length > 1000){
+      __AR_FONT_B64 = b64;
+      localStorage.setItem(AR_VFS_KEY, JSON.stringify({ b64 }));
+      return true;
+    }
+  }catch(_){}
+  return false;
+}
+
+// تسجّل الخط داخل كائن jsPDF
 function attachArabicFont(doc){
-  if(!__AR_FONT_B64){
-    // ما وصلنا الخط بعد — نرجّع false علشان نعرف
-    return false;
-  }
+  if(!__AR_FONT_B64) return false;
   if(doc.__arabicFontAttached) return true;
   try{
     doc.addFileToVFS(AR_FONT_FILE, __AR_FONT_B64);
     doc.addFont(AR_FONT_FILE, AR_FONT_NAME, "normal");
     doc.__arabicFontAttached = true;
     return true;
-  }catch(e){
-    console.warn("خطأ تسجيل خط Cairo:", e);
-    return false;
-  }
+  }catch(_){ return false; }
 }
 
-// ابدأ التحميل بالخلفية عند تشغيل الصفحة
+// حضّر الخط عند تشغيل الصفحة
 window.addEventListener("load", ()=>{ preloadArabicFont().catch(()=>{}); });
+
         
         
         
