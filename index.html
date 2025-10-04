@@ -7,6 +7,9 @@
 
   <!-- أيقونات -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+  <link rel="preload" href="./Cairo-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./Cairo-Bold.woff2"    as="font" type="font/woff2" crossorigin>
+
 
  
   <!-- XLSX + jsPDF + AutoTable -->
@@ -2682,7 +2685,7 @@ async function extractItemsFromFile(file){
     /* =========================
        تصدير PDF بشكل أنيق بالإنكليزي
        ========================= */
-function exportPDF(){
+async function exportPDF(){
   if (!currentInvoice || (currentInvoice.items || []).length === 0) {
     showToast("لا توجد بيانات للتصدير ❌", true);
     return;
@@ -2691,14 +2694,25 @@ function exportPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
 
-  // ✅ حاول نركّب الخط العربي فوراً (بدون انتظار)
-  const arOk = attachArabicFont(doc);
-  if(arOk){
-    doc.setFont(AR_FONT_NAME, "normal");
+  // 1) جرّب ربط الخط إذا كان محمّل سابقاً
+  let arOk = attachArabicFont(doc);
+
+  // 2) إذا ما مرتبط، اقرأه مباشرةً من المستودع وأرفقه
+  if(!arOk){
+    try{
+      const res = await fetch("./Cairo-Regular.ttf", { cache: "no-cache" });
+      if(!res.ok) throw new Error("Font fetch failed: " + res.status);
+      const buf = await res.arrayBuffer();
+      const b64 = abToBase64(buf);                  // موجودة عندك بالأعلى
+      doc.addFileToVFS("Cairo-Regular.ttf", b64);
+      doc.addFont("Cairo-Regular.ttf", AR_FONT_NAME, "normal");
+      doc.setFont(AR_FONT_NAME, "normal");
+      arOk = true;
+    }catch(err){
+      console.warn("Arabic font not available, continuing with default.", err);
+    }
   }else{
-    // ما صار الخط جاهز — نكمّل فورًا بخط افتراضي (بدون تجميد الزر)
-    // وننبّه المستخدم مرة وحدة فقط.
-    console.warn("Arabic font not ready — proceeding with default.");
+    doc.setFont(AR_FONT_NAME, "normal");
   }
 
   // ترتيب العناصر
@@ -2728,38 +2742,34 @@ function exportPDF(){
   doc.text(`Invoice ID: ${invoiceId}`, pageWidth - 60, 120, { align: "right" });
   doc.text(`Date: ${invoiceDate}`, 60, 120, { align: "left" });
 
-  // ✅ جدول مع دعم عربي (لو arOk=true)
+  // جدول
   doc.autoTable({
     head: [[ "#", "Category", "Item", "Quantity", "Notes" ]],
     body: sortedItems.map((it, i)=>[
       i+1,
       String(it.category||""),
-      String(it.name||""),   // ← عربي أو إنكليزي
+      String(it.name||""),   // ← يدعم عربي/إنكليزي
       String(it.qty||""),
-      String(it.note||"")    // ← عربي أو إنكليزي
+      String(it.note||"")
     ]),
     startY: 160,
     theme: "grid",
     styles: {
-      font: arOk ? AR_FONT_NAME : "helvetica",   // ← لو الخط جاهز نستعمله
+      font: arOk ? AR_FONT_NAME : "helvetica",
       fontSize: 11,
       halign: "center"
     },
     headStyles: { fillColor: [40, 90, 160], textColor: [255, 255, 255], fontStyle: "bold" },
     alternateRowStyles: { fillColor: [245, 245, 245] },
     margin: { left: 50, right: 50 },
-
-    // محاذاة يمين تلقائيًا إذا النص عربي (اختياري)
     didParseCell: (data)=>{
       if(data.section !== 'body') return;
       const col = data.column.index;
-      // الأعمدة المحتملة بالعربي: اسم القطعة + الملاحظات
       if(col === 2 || col === 4){
         const txt = String(data.cell.raw||"");
         if(/[\u0600-\u06FF]/.test(txt)) data.cell.styles.halign = 'right';
       }
     },
-
     didDrawPage: ()=>{
       doc.setDrawColor(80,80,80);
       doc.setLineWidth(1.5);
@@ -2774,14 +2784,7 @@ function exportPDF(){
 
   doc.save(`Invoice_${invoiceId}.pdf`);
 
-  // ملاحظة ودّية لو الخط ما كان جاهز أول ضغطة (الملف اشتغل لكن يمكن العربي مو مركّب)
-  if(!arOk){
-    showToast("تم التصدير — جهّزنا الخط للعربي للتصدير القادم ✅");
-    // نحاول نحفّز التحميل بالخلفية فوراً لو ما صار
-    preloadArabicFont().catch(()=>{});
-  }else{
-    showToast("تم تصدير PDF بالعربي ✅");
-  }
+  showToast(arOk ? "تم تصدير PDF بالعربي ✅" : "تم التصدير (بدون خط عربي) ❕", !arOk);
 }
 
 
