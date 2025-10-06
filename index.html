@@ -491,6 +491,7 @@
   --radius: 18px;
   --blur: 14px;
   --speed: .32s;
+   --side: 340px;   /* ← عرض العمود الأيسر (السايدبارين) على الديسكتوب */
 }
 
 *{ box-sizing: border-box; }
@@ -542,14 +543,14 @@ body{
 /* ====== Layout ====== */
 .layout{
   max-width:1200px; margin:22px auto; padding:0 16px;
-  display:grid; grid-template-columns: 280px 1fr; gap:16px;
+  display:grid; grid-template-columns: var(--side) 1fr; gap:16px;
 }
 
 /* ===== تخطيط الشبكة: جانبين فوق بعض ومحتوى على اليمين ===== */
 .layout{
   display: grid;
-  grid-template-columns: 280px 1fr;
-  grid-auto-rows: min-content;         /* ارتفاع الصفوف حسب المحتوى */
+  grid-template-columns: var(--side) 1fr;
+  grid-auto-rows: min-content;
 }
 
 /* تموضع العناصر على الشاشات الكبيرة */
@@ -814,6 +815,43 @@ tbody tr:last-child td{ border-bottom:none; }
   background: linear-gradient(45deg,#dc2626,#b91c1c);
   transform: translateY(-2px);
 }
+
+
+
+
+
+/* زر إعادة التسمية — سماوي/أزرق وأخف بصريًا */
+.btn-rename-custom{
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #fff;
+  background: linear-gradient(135deg,#22d3ee,#3b82f6); /* سماوي → أزرق */
+  border: none;
+  cursor: pointer;
+  transition: transform .2s, filter .2s, box-shadow .2s;
+  box-shadow: 0 6px 16px rgba(59,130,246,.28);         /* ظل ناعم جذاب */
+}
+.btn-rename-custom:hover{
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+  box-shadow: 0 10px 22px rgba(59,130,246,.35);
+}
+.btn-rename-custom:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.35), 0 8px 20px rgba(59,130,246,.35);
+}
+.btn-rename-custom i{
+  opacity: .95; /* الأيقونة أخف شوي */
+}
+
+
+
+
+
 
 
 #itemsTable td:last-child {
@@ -1499,6 +1537,23 @@ input[type="number"]{
     </div>
   </div>
 </div>
+
+
+
+<!-- نافذة إعادة تسمية الفاتورة -->
+<div id="renameInvoiceModal" class="auth-overlay" aria-hidden="true">
+  <div class="auth-card" role="dialog" aria-modal="true" style="text-align:center;">
+    <h3 style="margin:0 0 6px 0;">إعادة تسمية الفاتورة</h3>
+    <p style="margin:0 0 10px 0; color:#aab0c0;">اكتب الاسم الجديد ثم اضغط حفظ</p>
+    <input id="renameInvInput" class="gfield" type="text" placeholder="اسم الفاتورة"
+           style="text-align:center; margin-bottom:12px;" />
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button id="renameInvYes" class="btn green"><i class="fa-solid fa-check"></i> حفظ</button>
+      <button id="renameInvNo"  class="btn amber"><i class="fa-solid fa-xmark"></i> إلغاء</button>
+    </div>
+  </div>
+</div>
+
 
 
 
@@ -2213,25 +2268,32 @@ const existingIndex = (currentInvoice.items || []).findIndex(
     /* =========================
        إنشاء / حفظ / فتح / حذف فواتير
        ========================= */
-    function newInvoice(){
-      const today = new Date().toLocaleDateString("ar-EG");
-      const existingIndex = invoices.findIndex(inv => inv.date === today);
+       
+       
+ function newInvoice(){
+  const today = new Date().toLocaleDateString("ar-EG");
+  const defaultName = formatInvoiceName(); // الاسم الافتراضي: "فاتورة <اليوم> - <التاريخ>"
 
-      if(existingIndex !== -1){
-        currentInvoice = invoices[existingIndex];
-        selectedInvoiceIndex = existingIndex;
-        showToast("فاتورة اليوم موجودة، تم تحميلها ✅");
-      } else {
-        currentInvoice = { id: formatInvoiceName(), date: today, items: [] };
-        invoices.push(currentInvoice);
-        selectedInvoiceIndex = invoices.length - 1;
-        showToast("تم إنشاء فاتورة جديدة ✅");
-      }
+  // نبحث فقط عن فاتورة اليوم التي ما زالت تحمل الاسم الافتراضي (يعني غير مُعاد تسميتها)
+  const existingIndex = invoices.findIndex(inv => inv.date === today && inv.id === defaultName);
 
-      document.getElementById("invoiceId").textContent = currentInvoice.id;
-      renderItems();
-      renderInvoicesDropdown();
-    }
+  if(existingIndex !== -1){
+    currentInvoice = invoices[existingIndex];
+    selectedInvoiceIndex = existingIndex;
+    showToast("فاتورة اليوم موجودة، تم تحميلها ✅");
+  } else {
+    // ماكو فاتورة اليوم بالاسم الافتراضي ⇒ أنشئ واحدة جديدة
+    currentInvoice = { id: defaultName, date: today, items: [] };
+    invoices.push(currentInvoice);
+    selectedInvoiceIndex = invoices.length - 1;
+    showToast("تم إنشاء فاتورة جديدة ✅");
+  }
+
+  document.getElementById("invoiceId").textContent = currentInvoice.id;
+  renderItems();
+  renderInvoicesDropdown();
+}
+
     
     
     
@@ -2326,6 +2388,100 @@ function escClose(e){
     
     
     
+// ===== إعادة تسمية الفاتورة =====
+let __pendingRenameInvoiceIndex = null;
+
+function openRenameInvoiceModal(i, ev){
+  ev?.stopPropagation?.();
+  __pendingRenameInvoiceIndex = i;
+
+  const modal = document.getElementById('renameInvoiceModal');
+  const input = document.getElementById('renameInvInput');
+  const inv = invoices[i];
+
+  input.value = inv?.id || "";
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+
+  // 🔒 قفل الصفحة بالكامل (مثل نافذة الحذف)
+  document.documentElement.classList.add('no-scroll');
+  document.body.classList.add('no-scroll');
+
+  // 🛡️ امنع لمس/سحب/نقر الخلفية — واسمح داخل الكارت فقط
+  attachBackdropGuards(modal, '.auth-card');
+
+  // ربط الأزرار
+  document.getElementById('renameInvYes').onclick = confirmRenameInvoice;
+  document.getElementById('renameInvNo').onclick  = closeRenameInvoiceModal;
+
+  // إدخال مريح
+  setTimeout(()=>{
+    input.focus();
+    input.select?.();
+  }, 10);
+
+  // دعم Enter/ESC
+  document.addEventListener('keydown', renameEscEnterHandler);
+}
+
+function confirmRenameInvoice(){
+  if(__pendingRenameInvoiceIndex === null) return;
+
+  const input = document.getElementById('renameInvInput');
+  const newName = String(input.value || "").trim();
+
+  if(!newName){
+    showToast("يرجى إدخال اسم صالح ❌", true);
+    input.focus(); return;
+  }
+
+  // حدّث الاسم داخل المصفوفة
+  invoices[__pendingRenameInvoiceIndex].id = newName;
+
+  // إذا هي الفاتورة المفتوحة حاليًا، حدّث العنوان أعلى الصفحة
+  if(selectedInvoiceIndex === __pendingRenameInvoiceIndex && currentInvoice){
+    currentInvoice.id = newName;
+    document.getElementById("invoiceId").textContent = newName;
+  }
+
+  // حفظ وتحديث القائمة
+  localStorage.setItem("invoices", JSON.stringify(invoices));
+  renderInvoicesDropdown();
+
+  closeRenameInvoiceModal();
+  showToast("تم تحديث اسم الفاتورة ✅");
+}
+
+function closeRenameInvoiceModal(){
+  const modal = document.getElementById('renameInvoiceModal');
+  modal.style.display = 'none';
+  modal.setAttribute('aria-hidden','true');
+
+  // 🔓 فتح الصفحة بالكامل
+  document.documentElement.classList.remove('no-scroll');
+  document.body.classList.remove('no-scroll');
+
+  // 🧹 فكّ الحرس
+  detachBackdropGuards(modal);
+
+  // فكّ اختصارات الكيبورد
+  document.removeEventListener('keydown', renameEscEnterHandler);
+
+  // تفريغ الحالة
+  __pendingRenameInvoiceIndex = null;
+}
+
+function renameEscEnterHandler(e){
+  if(e.key === 'Escape'){ e.preventDefault(); closeRenameInvoiceModal(); return; }
+  if(e.key === 'Enter'){
+    // نفّذ حفظ إذا النافذة مفتوحة
+    const within = document.getElementById('renameInvoiceModal');
+    if(within && within.style.display === 'flex'){
+      e.preventDefault();
+      confirmRenameInvoice();
+    }
+  }
+}
     
     
     
@@ -2367,15 +2523,23 @@ function escClose(e){
   invoices.forEach((inv, i)=>{
     const row = document.createElement("div");
     row.className = "invoice-chip";
-    row.innerHTML = `
-      <div class="chip-meta">
-        <strong>${inv.id}</strong>
-        <small>${inv.date} • ${inv.items.length} مادة</small>
-      </div>
-      <button class="btn-danger-custom" title="حذف" onclick="openDeleteInvoiceModal(${i}, event)">
-        <i class="fa-regular fa-trash-can"></i>
-      </button>
-    `;
+   row.innerHTML = `
+  <div class="chip-meta">
+    <strong>${inv.id}</strong>
+    <small>${inv.date} • ${inv.items.length} مادة</small>
+  </div>
+  <div style="display:flex; gap:8px;">
+    <button class="btn-rename-custom" title="إعادة تسمية" aria-label="إعادة تسمية"
+            onclick="openRenameInvoiceModal(${i}, event)">
+      <i class="fa-regular fa-pen-to-square"></i>
+    </button>
+    <button class="btn-danger-custom" title="حذف" aria-label="حذف"
+            onclick="openDeleteInvoiceModal(${i}, event)">
+      <i class="fa-regular fa-trash-can"></i>
+    </button>
+  </div>
+`;
+
     row.onclick = ()=> loadInvoice(i);
     wrap.appendChild(row);
   });
