@@ -2,4023 +2,1995 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <title>ASSAL OFFICE • Invoices</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>ASSAL • فواتير ديون يومية مكتب عسل</title>
 
-  <!-- أيقونات -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
-
-  <!-- خطوط (Cairo للعربي + Poppins للإنكليزي) -->
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"/>
-
-  <!-- XLSX + jsPDF + AutoTable -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
   
-
 
   <style>
   
-  
-  
-  #mergeDupMsg{
-  text-align: center;        /* توسيط النص */
-  white-space: normal;       /* يسمح بالتفاف السطر */
-  word-break: break-word;    /* يكسر الكلمات الطويلة إذا لزم */
-  overflow-wrap: anywhere;   /* يلفف حتى مع الأحرف الطويلة */
-  line-height: 1.7;          /* راحة بالقراءة */
+  /* فكّ حماية أيقونات Font Awesome من Cairo وتحديد الوزن الصحيح */
+.fa-solid, .fas{
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 900 !important;   /* مهم للـ solid */
 }
-
-
-/* قفل كامل للصفحة (html + body) أثناء المودال */
-.no-scroll {
-  overflow: hidden !important;
-  position: relative;       /* يمنع نطّة iOS */
-  touch-action: none;       /* يوقف الإيماءات العامة */
+.fa-regular, .far{
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 400 !important;
 }
-
-
-
-
-/* امنع الإيماءات على الخلفية (الخلفية فقط) */
-.auth-overlay, .sys-overlay{
-  touch-action: none;
+.fa-brands, .fab{
+  font-family: "Font Awesome 6 Brands" !important;
+  font-weight: 400 !important;
 }
-
-/* اسمح باللمس/التمرير داخل الكارت نفسه */
-.auth-overlay .auth-card,
-.sys-overlay  .sys-card{
-  touch-action: auto;
-  max-height: 80vh;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
 
   
   
-  /* ===== Command Palette (Ctrl+K) ===== */
-.palette-overlay{
-  position: fixed; inset: 0; z-index: 10060;
-  display: none; align-items: center; justify-content: center;
-  background: rgba(10,11,14,.55);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  overscroll-behavior: contain;
-   touch-action: none;            /* يمنع السحب على الخلفية */
+  /* 1) خط Cairo على كل الواجهة (يشمل الأزرار والنوافذ والمدخلات) */
+:root{ --ui-font: "Cairo", system-ui; }
+
+/* غطّي كل العناصر المرئية في الصفحة */
+:where(html, body, button, input, select, textarea, .btn, .field,
+       .ribbon, .ribbon *, .layout, .rail, .rail *,
+       .board, .board *, .masonry, .card, .card *,
+       .insights, .insights *, .dock, .dock *,
+       .footer, .footer *, .modal, .modal *){
+  font-family: var(--ui-font) !important;
 }
 
-
-/* مسافة أنيقة أعلى كرت نافذة الأوامر */
-.palette{
-  padding-block-start: 10px;   /* ينزل الهيدر شويّة داخل الكرت */
-   touch-action: auto;            /* يظل السكول داخل قائمة العناصر طبيعي */
+/* 2) حماية أيقونات Font Awesome حتى لا يتغيّر خطّها */
+i.fa, i.fa-solid, i.fa-regular, i.fa-brands,
+.fa, .fa-solid, .fa-regular, .fa-brands{
+  font-family: var(--fa-style-family, "Font Awesome 6 Free") !important;
+  font-weight: inherit;
 }
 
+  
+  
+  
+  
+    /* =================== لوحة ألوان عصرية =================== */
+    :root{
+      /* أساسيات */
+      --bg:#0b1220;                /* خلفية داكنة أنيقة */
+      --bg-2:#121a2b;              /* أغمق قليلاً لمناطق ثانوية */
+      --paper:#0f172a;             /* لوحات وبطاقات داكنة ناعمة */
+      --rail:#0f172a;              /* سايدبار */
+      --ink:#e5e7eb;               /* نص رئيسي فاتح */
+      --muted:#9aa4b2;             /* نص ثانوي */
+      --stroke:#1f2a44;            /* حدود رفيعة */
 
-/* نستعمل كلاس على الـ body حتى نوقف سكرول الصفحة */
-.body-no-scroll{
-  overflow: hidden !important;
-  position: relative; /* يمنع اهتزاز iOS */
-}
+      /* ألوان العلامة (تدرّج عصري) */
+      --brand:#12d1b4;             /* فيروزي */
+      --brand-2:#7c3aed;           /* بنفسجي */
+      --brand-3:#0ea5e9;           /* أزرق سماوي للتفاصيل */
 
-@media (max-width: 768px){
-  .palette{ padding-block-start: 6px; }
-}
+      /* دلالية */
+      --good:#16a34a;
+      --warn:#f59e0b;
+      --danger:#ef4444;
 
+      /* مؤثرات */
+      --radius:16px;
+      --shadow:0 18px 50px rgba(0,0,0,.35);
 
+      /* قياسات */
+      --footer-h:44px;
+      --dock-gap:68px;
+      --hdr-h:54px;
 
+      /* أسطح فاتحة داخل الداكن */
+      --surface:#111a2f;
+      --surface-2:#0e1630;
+      --chip:#0f1a33;
+    }
 
+    /* خلفية بنمط شعاعي لطيف */
+    body{
+      margin:0;
+      height:100%;
+      color:var(--ink);
+      font-family:"Cairo",system-ui;
+      background:
+        radial-gradient(1000px 600px at 80% -10%, rgba(124,58,237,.18), transparent 60%),
+        radial-gradient(900px 500px at -10% 10%, rgba(18,209,180,.12), transparent 60%),
+        linear-gradient(180deg, var(--bg), var(--bg-2));
+      overflow-x:hidden;
+    }
+    *{ box-sizing:border-box }
+    html,body{ height:100% }
 
-.palette{
-  width: min(980px, 96vw);         /* أصغر شوي حتى ما تضيق على الشاشات */
-  max-height: 86vh;
-  background: linear-gradient(180deg, rgba(20,24,33,.97), rgba(12,15,21,.97));
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.45);
-  display: flex; flex-direction: column;
-  overflow: hidden;                 /* مهم: يمنع الخروج خارج الإطار */
-}
+    /* =================== Header (عنوان بالمنتصف + زجاجي) =================== */
+    .ribbon{
+      position:sticky; top:0; z-index:70;
+      background:linear-gradient(180deg, rgba(17,24,39,.7), rgba(17,24,39,.5));
+      border-bottom:1px solid rgba(124,58,237,.25);
+      backdrop-filter:blur(10px);
+    }
+    .ribbon-wrap{
+      height:var(--hdr-h);
+      max-width:1480px;
+      margin:auto;
+      padding:0 14px;
+      display:grid;
+      grid-template-columns: 1fr auto 1fr; /* يسار | مركز | يمين */
+      align-items:center;
+      gap:10px;
+    }
+    .r-left{display:flex;align-items:center;gap:8px}
+    .r-center{justify-self:center}
+    .r-right{justify-self:end;display:flex;gap:6px}
 
-.palette-top{
+    .brand{display:flex;align-items:center;gap:10px;font-weight:900}
+    .brand .dot{
+      width:26px;height:26px;border-radius:8px;
+      display:grid;place-items:center;
+      background:linear-gradient(135deg,var(--brand),var(--brand-2));
+      color:#fff;font-size:13px;font-weight:800;
+      box-shadow:0 8px 22px rgba(124,58,237,.35);
+    }
+    .brand .name{
+      font-size:15px;letter-spacing:.1px;color:#fff;
+      text-shadow:0 1px 0 rgba(0,0,0,.25);
+    }
+    .pill{
+      border:1px solid rgba(124,58,237,.25);
+      border-radius:999px;
+      padding:4px 10px;
+      color:#cbd5e1;
+      background:linear-gradient(180deg, #0b1220, #0d1527);
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
+      font-size:12px;
+    }
+    .icon{
+      width:34px;height:34px;border:1px solid var(--stroke);
+      background:linear-gradient(180deg,#0c1426,#0e1830);
+      border-radius:10px;display:grid;place-items:center;cursor:pointer;
+      color:#e2e8f0;
+    }
+    .icon:hover{
+      border-color:rgba(124,58,237,.55);
+      box-shadow:0 8px 24px rgba(124,58,237,.25);
+      transform:translateY(-1px);
+      transition:.18s ease;
+    }
+
+    /* =================== Layout =================== */
+    .layout{
+      max-width:1480px;margin:14px auto;padding:0 14px;
+      display:grid;grid-template-columns: 280px 1fr 320px;gap:14px
+    }
+    @media (max-width:1280px){ .layout{grid-template-columns: 240px 1fr 280px} }
+    @media (max-width:980px){ .layout{grid-template-columns: 1fr; grid-auto-rows:min-content} }
+
+    /* =================== Rail =================== */
+    .rail{
+      background:var(--surface);
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      padding:12px;
+      position:sticky;
+      top:calc(var(--hdr-h) + 8px);
+      height:calc(100vh - var(--hdr-h) - 24px);
+      display:flex;flex-direction:column
+    }
+    .rail h3{margin:0 0 6px 0;font-size:14px;font-weight:900;color:#e2e8f0}
+    .rail .search{margin:6px 0}
+    .input{
+      width:100%;height:34px;padding:8px 10px;
+      border:1px solid var(--stroke);border-radius:10px;background:#0c1325;color:#e5e7eb;
+      font-family:"Cairo",system-ui;
+      outline:none;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+    }
+    .input:focus{
+      border-color:rgba(18,209,180,.6);
+      box-shadow:0 0 0 3px rgba(18,209,180,.14);
+    }
+
+    /* شهور + أيام */
+    .month{
+      margin:10px 0 8px 0;
+      padding:8px;
+      border:1px dashed rgba(124,58,237,.35);
+      border-radius:12px;
+      background:linear-gradient(180deg, #0e1730, #0c1427);
+    }
+    .month-title{
+      font-weight:900;color:#e5e7eb;margin-bottom:6px;
+      display:flex;align-items:center;gap:8px;
+    }
+    .month-title .mchip{
+      font-size:11px;border:1px solid var(--stroke);border-radius:999px;padding:2px 8px;
+      background:#0a1020;color:#a0aec0
+    }
+
+    .day{
+      position:relative;margin:8px 0;padding:8px 10px;border:1px solid var(--stroke);
+      border-radius:10px;cursor:pointer;background:#0b1327;
+      display:flex;align-items:center;justify-content:space-between
+    }
+    .day .title{font-weight:800;font-size:13px;color:#e2e8f0}
+    .day .meta{font-size:11px;color:#9aa4b2}
+    .day:hover{border-color:rgba(124,58,237,.45)}
+    .day.active{outline:2px solid rgba(124,58,237,.35)}
+
+    /* =================== Board =================== */
+    .board{min-height:60vh;padding-bottom:calc(var(--dock-gap) + var(--footer-h) + 18px)}
+ 
+ 
+   /* استبدل تعريف .board-head الحالي بهذا */
+.board-head{
+  position: sticky;
+  top: calc(var(--hdr-h) + 10px);  /* تحت الشريط العلوي */
+  z-index: 60;
+
   display: grid;
-  grid-template-columns: minmax(0,1fr) auto;  /* يسمح للبحث يتقلّص */
-  gap: 10px;
+  grid-template-columns: auto 1fr auto; /* يسار | وسط (بحث) | يمين */
   align-items: center;
-  padding: 12px;
-  border-bottom: 1px solid var(--stroke);
-}
-
-.palette-top .k{ color:#94a3b8; font-size:12px; }
-.palette-search{
-  display:flex; align-items:center; gap:8px;
-  background: rgba(255,255,255,.08);
-  border: 1px solid var(--stroke);
-  border-radius: 12px;
-  padding: 8px 10px;
-  min-width: 0;                   /* مهم جداً مع Grid */
-}
-.palette-search input{
-  flex: 1 1 auto;
-  min-width: 0;                   /* يمنع التمدد الزائد */
-  background: transparent; border:none; outline:none; color:#eaf0ff; font-size:14px;
-}
-
-.palette-actions{
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
   gap: 8px;
-  flex-wrap: nowrap;        /* مهم: لا يلف */
-  max-width: 100%;
-}
-.palette-actions .btn{
-  width: auto;              /* يلغي width:100% العامة */
-  min-width: 0;
-  flex: 0 0 auto;           /* حجم المحتوى فقط */
-  padding:10px 12px; border-radius:10px; font-weight:800;
-}
+  margin-bottom: 10px;
 
-/* على الشاشات الصغيرة: الأزرار تحت البحث */
-@media (max-width: 520px){
-  .palette-top{
-    grid-template-columns: minmax(0,1fr) auto; /* يبقون سطر واحد */
-    gap: 8px;
-  }
-  .palette-actions{
-    justify-content: flex-end;  /* أو center حسب ذوقك */
-    flex-wrap: nowrap;          /* يمنع النزول لسطر جديد */
-  }
-  .palette-actions .btn{
-    flex: 0 0 auto;             /* ترجع لحجمها الطبيعي */
-  }
-}
-
-
-.palette-body{
-  overflow:auto; padding: 10px 12px;
-  background: rgba(255,255,255,.03);
-}
-.group-title{
-  position: sticky; top:0; z-index:1;
-  background: linear-gradient(180deg, rgba(15,17,24,.95), rgba(15,17,24,.85));
-  color:#cbd5e1; font-weight:800; font-size:12px;
-  padding: 6px 10px; margin: 6px -6px 6px; border-left: 3px solid var(--brand-2);
-}
-
-
-
-
-
-/* زر مسح داخل شريط البحث */
-.palette-search{
-  position: relative;            /* حتى يتموضع الزر داخل الحقل */
-}
-
-.palette-search .search-clear{
-  display: none;                 /* نُظهره فقط عند وجود نص */
-  place-items: center;
-  position: absolute;
-  inset-inline-end: 8px;         /* يمين في RTL */
-  top: 50%; transform: translateY(-50%);
-  width: 28px; height: 28px;
-  border: 1px solid var(--stroke);
-  background: rgba(255,255,255,.10);
-  color: #eaf0ff;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: transform var(--speed), background var(--speed), border-color var(--speed), opacity .2s;
-}
-.palette-search .search-clear:hover{
-  transform: translateY(-50%) translateY(-1px);
-  background: rgba(255,255,255,.16);
-  border-color: rgba(255,255,255,.25);
-}
-
-/* نُظهر الزر عندما يكون في الحقل نص */
-.palette-search.has-text .search-clear{
-  display: grid;
-}
-
-/* موبايل: تكبير نقطة اللمس قليلاً */
-@media (max-width: 520px){
-  .palette-search .search-clear{ width: 32px; height: 32px; }
-}
-
-
-
-
-
-
-
-
-.item-row{
-  display:grid;
-  grid-template-columns: 28px minmax(0,1.2fr) 90px minmax(0,1fr) 60px; /* الحقول قابلة للتقلّص */
-  gap:8px;
-  align-items:center; background:#fff; color:#0f172a; border:1px solid #e2e8f0;
-  border-radius: 10px; padding:10px; margin-bottom:8px;
-}
-.item-row .name{ font-weight:700; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.item-row .note{ font-size:13px; color:#475569; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-
-
-
-
-.item-row input.qty{
-  width: 100%; text-align:center; padding:8px; border:1px solid #cbd5e1; border-radius:8px; outline:none;
-}
-.item-row input.qty:focus{ border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.15); }
-.item-row .del{
-  width:36px; height:36px; display:flex; align-items:center; justify-content:center;
-  border-radius:8px; color:#fff; border:none; cursor:pointer;
-  background: linear-gradient(45deg,#ef4444,#dc2626);
-}
-.item-row .del:hover{ transform: translateY(-2px); background: linear-gradient(45deg,#dc2626,#b91c1c); }
-
-.item-row .chk{ width:18px; height:18px; }
-
-
-
-/* ===== Command Palette • Foot (متوسط) ===== */
-.palette-foot{
-  justify-content: center;
-  padding: 9px 12px;      /* مسافة متوسطة */
-  font-size: 12px;        /* حجم نص عام متوسط */
-  border-top: 1px solid var(--stroke);
-}
-
-.palette-foot .foot-note{
-  text-align: center;
-  font-size: clamp(11px, 1.25vw, 13px);  /* متوسط ويتأقلم مع العرض */
-  line-height: 1.6;                      /* راحة بالقراءة */
-  letter-spacing: 0.1px;
-}
-
-
-
-
-/* فتح/غلق سريع */
-.palette-overlay.show{ display:flex; }
-
-/* تلميح صغير في الهيدر */
-.kbd-hint{ color:#94a3b8; font-size:12px; border:1px dashed var(--stroke); padding:4px 8px; border-radius:8px; }
-
-  
-  
-  
-  
-  
-  /* Confirm Modal */
-.auth-overlay{
-  position: fixed; inset: 0; z-index: 9999;
-  display: none;              /* نخليها مخفية، نعرضها بالـ JS */
-  align-items: center; justify-content: center;
-  background: rgba(10,11,14,.55);
+  padding: 10px;
+  background: linear-gradient(135deg, rgba(20,30,55,.85), rgba(17,25,45,.85));
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-.auth-card{
-  width: min(420px, 92%);
-  background: rgba(20,24,33,.92);
-  border: 1px solid rgba(255,255,255,.14);
-  border-radius: 18px;
-  box-shadow: 0 18px 50px rgba(0,0,0,.45);
-  padding: 22px 18px;
-  color: #eaf0ff;
+  border: 1px solid rgba(124,58,237,.28);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.35);
 }
 
+/* تأكد حقل البحث ياخذ العرض كامل في الوسط */
+.board-search .input{ width:100%; height:34px; }
 
 
 
 
-/* ===== Unified System Modal (maintenance / reload) ===== */
-/* ===== System Modal • Global-App Style ===== */
-.sys-overlay{
-  position: fixed; inset: 0; z-index: 10080;
-  display: none; align-items: center; justify-content: center;
-  background: radial-gradient(120% 120% at 50% -10%, rgba(33,212,253,.18), transparent 55%),
-              radial-gradient(120% 120% at -10% 120%, rgba(109,94,252,.16), transparent 55%),
-              rgba(10,11,14,.54);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  animation: sysFade .25s ease both;
+
+.board-head .chip input[type="checkbox"]{
+  transform: translateY(1px);
 }
-.sys-overlay.show{ display:flex; }
-@keyframes sysFade { from{opacity:0} to{opacity:1} }
 
-.sys-window{
-  width: min(560px, 92vw);
-  background: linear-gradient(180deg, rgba(20,24,33,.92), rgba(13,16,22,.92));
-  border: 1px solid rgba(255,255,255,.14);
-  border-radius: 22px;
-  box-shadow: 0 28px 80px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
-  padding: 20px 18px 16px;
-  color: var(--text);
-  position: relative;
-  transform: translateY(8px);
-  animation: sysPop .25s ease forwards;
+
+ 
+ 
+    .chips{display:flex;gap:6px;flex-wrap:wrap}
+    .chip{
+      border:1px solid var(--stroke);border-radius:999px;padding:6px 10px;
+      background:#0b1327;color:#cbd5e1;font-size:12px
+    }
+
+    .masonry{
+  display: grid;
+  grid-template-columns: 1fr; /* كولمن واحد */
+  gap: 12px;                  /* المسافة بين الكروت */
 }
-@keyframes sysPop { to{ transform: translateY(0) } }
 
-.sys-close{
-  position: absolute; inset-inline-end: 10px; inset-block-start: 10px;
-  width: 40px; height: 40px; display:grid; place-items:center;
-  border: 1px solid var(--stroke);
-  background: rgba(255,255,255,.06);
-  color: var(--text);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: transform var(--speed), background var(--speed), border-color var(--speed);
+
+    .card{
+      background:linear-gradient(180deg, #0f1a33, #0d172d);
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      box-shadow:var(--shadow);
+      padding:10px;display:flex;flex-direction:column;gap:10px
+    }
+    .card-head{display:flex;align-items:center;justify-content:space-between}
+    .cust{font-weight:900;display:flex;align-items:center;gap:8px;color:#e7eef9}
+    .bill-badge{
+      font-size:11px;padding:2px 8px;border-radius:999px;
+      background:linear-gradient(180deg,#0f5132,#0b3d25);
+      color:#b7f7d6;border:1px solid rgba(34,197,94,.35)
+    }
+    .tag{
+      font-size:11px;border:1px solid var(--stroke);border-radius:999px;padding:2px 8px;
+      color:#c6d0e1;background:#0a1020
+    }
+
+
+    /* =================== Rows =================== */
+    .items{display:flex;flex-direction:column;gap:6px}
+    .item{
+       display:grid;
+  grid-template-columns: auto auto 1fr 1fr 1fr 1fr auto auto; 
+     gap:8px;align-items:center;border:1px solid var(--stroke);
+  border-radius:12px;padding:10px;background:#0c1529;transition:background .2s ease, opacity .2s ease
+    }
+    .btn-mini{
+      width:28px;height:28px;border:1px solid var(--stroke);
+      background:linear-gradient(180deg,#0d172d,#0b1426);
+      border-radius:8px;display:grid;place-items:center;cursor:pointer;color:#e5e7eb
+    }
+    .btn-mini:hover{border-color:rgba(18,209,180,.5)}
+    .btn-return:hover{box-shadow:0 0 0 3px rgba(245,158,11,.18)}
+    .btn-pay:hover{box-shadow:0 0 0 3px rgba(18,209,180,.18)}
+    .btn-del:hover{box-shadow:0 0 0 3px rgba(239,68,68,.18)}
+
+    .iname{font-weight:800;font-size:13px;color:#e8eef8}
+    .icat{font-size:11px;color:#9aa4b2}
+    .iqty{font-weight:800;color:#e8eef8}
+
+    
+    
+    .ichip{
+  font-size:12px;color:#c7d2e1;
+  padding:4px 10px;border-radius:999px;background:#0a1122;border:1px solid var(--stroke);
+  max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-align:center;
 }
-.sys-close:hover{ transform: translateY(-2px); background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.24); }
+.inote{
+  font-size:12px;color:#c7d2e1;
+  padding:2px 8px;  /* تقلل العرض بصريًا */
+  border-radius:999px;background:#0a1122;border:1px solid var(--stroke);
+  max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.iqty {font-weight:800;color:#e8eef8;text-align:center}
 
-/* هيرو أخفّ ارتفاعًا وكلشي تحت بعض */
-.sys-hero{
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+    
+    
+    .itime{font-size:11px;color:#97a3b8}
+    .badge{
+      font-size:10px;padding:2px 6px;border-radius:999px;border:1px solid var(--stroke);
+      background:#0a1020;color:#a5b0c2;margin-inline-start:6px
+    }
+    .item.returned .iname,.item.returned .icat{ text-decoration: line-through; color:#e3b860 }
+    .item.paid .iname,.item.paid .icat{ text-decoration: line-through; color:#4ade80 }
+    .item.returned{background:#261a06}
+    .item.paid{background:#0b2617}
+
+    /* =================== Foot actions =================== */
+    .card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .foot-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .i-btn{
+      height:32px;min-width:32px;padding:0 10px;border:1px solid var(--stroke);
+      background:linear-gradient(180deg,#0c1426,#0e1830);
+      border-radius:10px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#e2e8f0
+    }
+    .i-btn .fa-solid,.i-btn .fa-regular{font-size:13px}
+    .i-btn.primary{
+      background:linear-gradient(135deg,var(--brand),var(--brand-2));
+      color:#fff;border-color:transparent;box-shadow:0 10px 28px rgba(124,58,237,.35)
+    }
+    .i-btn.ghost{background:#0b1327;border:1px solid var(--stroke);color:#cbd5e1}
+    .i-btn:hover{transform:translateY(-1px);transition:.18s ease}
+
+    /* =================== Insights =================== */
+    .insights{
+      background:linear-gradient(180deg,#0f1a33,#0d172d);
+      border:1px solid var(--stroke);border-radius:18px;box-shadow:var(--shadow);padding:12px;
+      position:sticky;top:calc(var(--hdr-h) + 8px);height:calc(100vh - var(--hdr-h) - 24px);
+      display:flex;flex-direction:column;gap:10px
+    }
+    .stat{
+      display:flex;align-items:center;justify-content:space-between;
+      border:1px solid var(--stroke);border-radius:12px;padding:8px;background:#0c1529;color:#e5e7eb
+    }
+
+    /* =================== Dock =================== */
+    .dock{
+  position:fixed;
+  inset-inline:50%;
+  transform:translateX(50%); /* خليه مثل ما هو حتى يبقى بمحاذاة RTL */
+  bottom:var(--dock-gap);
+    bottom: calc(var(--footer-h) + 5px); /* 10px فوق الفوتر */
+  z-index:80;
+
+  /* كبّر العرض */
+  max-width: 1380px;            /* كان 1020px */
+  width: calc(100vw - 96px);    /* كان calc(100vw - 260px) */
+}
+@media (max-width:980px){
+  .dock{ width: calc(100vw - 24px); } /* كانت -36px */
+}
+
+.dock-inner{
+  display:grid;
+  grid-template-columns: 180px 140px 170px 1fr 100px minmax(440px, 2fr);
+  gap:8px;
+  background:linear-gradient(135deg, rgba(20,30,55,.85), rgba(17,25,45,.85));
+  backdrop-filter:blur(12px);
+  border:1px solid rgba(124,58,237,.35);
+  border-radius:14px;
+  box-shadow:0 18px 40px rgba(0,0,0,.45);
+  padding:8px;
+  position:relative;
+}
+
+/* 3) (اختياري بس مفيد) امنع أي عنصر يدفش الشبكة خارج الحاوية */
+.dock-inner > *{
+  min-width: 0;
+}
+
+
+
+/* تغليف الملاحظات مع زر الإضافة داخلها */
+/* 1) صغّر الملاحظات وكبّر زر الإضافة داخل .note-wrap */
+.note-wrap{
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 180px; /* الملاحظات أصغر، الزر أعرض */
   gap: 8px;
-  padding: 4px 8px 0;          /* يقلّل الارتفاع العام */
-  text-align: center;
-}
-@media (max-width:520px){
-  .sys-hero{ grid-template-columns: 1fr; justify-items: center; text-align: center; }
 }
 
-.ring{
-  position: relative; width: 150px; height: 150px;
-  display: grid; place-items: center;
-}
-.ring-svg{ width: 150px; height: 150px; transform: rotate(-90deg); }
-.ring-svg .track{
-  fill: none; stroke: rgba(255,255,255,.12); stroke-width: 10; 
-}
-.ring-svg .progress{
-  fill: none; stroke: url(#sysGrad);
-  stroke-width: 10; stroke-linecap: round; stroke-dasharray: 326.72; /* 2πr = 2*π*52 */
-  stroke-dashoffset: 326.72; transition: stroke-dashoffset .4s ease;
-  filter: drop-shadow(0 0 10px rgba(99,102,241,.45));
-}
-/* نضيف تدرّج عبر CSS mask (بدون <defs>) */
-.ring-svg .progress{ stroke: linear-gradient(135deg, var(--brand-2), var(--brand-1)); }
-
-.ring-core{
-  position: absolute; inset: 0; display:grid; place-items: center;
+.note-field{
+  height: 36px;        /* نفس الارتفاع */
+  min-width: 0;        /* يمنع التمدد الزايد */
 }
 
-/* يخفي نسبة الحلقة بنعومة */
-.ring-percent.is-hidden{
-  opacity: 0;
-  transform: scale(0.92);
-  transition: opacity .25s ease, transform .25s ease;
-}
-
-
-
-
-/* نخفي اللوغو داخل الحلقة (لو ظلّ بالـ HTML بالغلط) */
-.brand-dot{ display:none !important; }
-.ring-percent{
-  margin-top: 6px; font-weight: 900; font-size: 14px; color:#eaf0ff; letter-spacing:.2px;
-  opacity: .9;
-}
-.ring-check{
-  position: absolute; inset: 0; display:grid; place-items:center;
-  width: 100%; height: 100%;
-  color: #10b981; font-size: 46px;
-  transform: scale(.7); opacity: 0; pointer-events: none;
-  transition: transform .35s ease, opacity .35s ease;
-}
-.ring-check.show{ transform: scale(1); opacity: 1; }
-
-.sys-headings .sys-title{
-  font-size: 18px; font-weight: 800; letter-spacing: .2px; margin-bottom: 6px;
-}
-.sys-headings .sys-sub{
-  color: var(--muted); font-size: 13px;
-}
-
-
-/* الخطوات بسطر واحد تحت الدائرة */
-.sys-steps.row{
-  display: flex;
-  align-items: center;
+.note-add{
+  height: 36px;        /* يكبر الزر ويا الحقل */
+  padding: 0 16px;     /* مساحة أكبر للنص والأيقونة */
+  font-weight: 800;
   justify-content: center;
-  gap: 10px;                    /* مسافة بين العناصر */
-  margin: 6px 0 0;
-  padding: 6px 0 0;
-  border-top: 1px dashed var(--stroke);
-  max-height: none;
-  overflow: visible;
-}
-
-/* شكل كل خطوة كبادج صغير */
-.sys-steps.row .sys-step{
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid var(--stroke);
-  border-radius: 999px;
-  background: rgba(255,255,255,.04);
-  color:#dbe2f5; font-size: 12px;
   white-space: nowrap;
 }
 
-/* نقطة الحالة + ألوانها */
-.sys-steps.row .sys-step .dot{
-  width: 8px; height: 8px; border-radius: 50%;
-  background: rgba(255,255,255,.22);
-}
-.sys-steps.row .sys-step.active .dot{
-  background: linear-gradient(135deg, var(--brand-2), var(--brand-1));
-  box-shadow: 0 0 0 3px rgba(109,94,252,.18);
-}
-.sys-steps.row .sys-step.done .dot{ background: #10b981; }
-
-/* نص التلميح داخل البادج (نخليه أصغر ويختفي على الشاشات الصغيرة) */
-.sys-steps.row .sys-step small{
-  color:#9aa3b9; display:inline-block;
-}
-@media (max-width:520px){
-  .sys-steps.row .sys-step small{ display:none; }
-}
-
-/* تقليل ارتفاع النافذة نفسها شوي */
-.sys-window{
-  padding: 16px 14px 12px;     /* أقل من قبل */
-}
 
 
-
-
-.sys-step{
-  display:flex; align-items:center; gap:10px;
-  color:#dbe2f5; font-size: 13px;
-}
-.sys-step .dot{
-  width: 10px; height: 10px; border-radius: 50%;
-  background: rgba(255,255,255,.18);
-}
-.sys-step.active .dot{ background: linear-gradient(135deg, var(--brand-2), var(--brand-1)); box-shadow: 0 0 0 3px rgba(109,94,252,.18); }
-.sys-step.done .dot{ background: #10b981; }
-.sys-step small{ color:#9aa3b9; }
-
-.sys-footer{
-  margin-top: 12px; display:flex; align-items:center; gap:10px; justify-content: space-between; flex-wrap: wrap;
-}
-#sysPrimaryBtn{ min-width: 220px; }
-.sys-mini{ color:#9aa3b9; font-size: 12px; }
-
-  
- 
+    .dock-inner::before{
+      content:""; position:absolute; inset-inline-start:8px; inset-block:8px 8px; width:4px; border-radius:999px;
+      background:linear-gradient(180deg,var(--brand),var(--brand-2));
+      box-shadow:0 0 18px rgba(124,58,237,.45);
+    }
+    .field, .btn{ font-family:"Cairo",system-ui }
+    .field{
+      height:36px;padding:8px 10px;border:1px solid var(--stroke);border-radius:10px;background:#0b1327;color:#e8eef8;
+      outline:none;
+    }
+    .field:focus{
+      border-color:rgba(14,165,233,.6);
+      box-shadow:0 0 0 3px rgba(14,165,233,.16);
+    }
   
   
-    :root{
-  --bg-1:#0e0f13;
-  --bg-2:#0a0b0e;
-  --glass: rgba(255,255,255,.06);
-  --stroke: rgba(255,255,255,.14);
-  --text:#f5f7ff;
-  --muted:#aab0c0;
-  --brand-1:#6d5efc;
-  --brand-2:#21d4fd;
-  --good:#22c55e;
-  --warn:#f59e0b;
-  --danger:#ef4444;
-  --shadow: 0 10px 30px rgba(0,0,0,.35);
-  --radius: 18px;
-  --blur: 14px;
-  --speed: .32s;
-   --side: 340px;   /* ← عرض العمود الأيسر (السايدبارين) على الديسكتوب */
-}
+  .btn{height:36px;padding:0 12px;border:none;border-radius:10px;cursor:pointer;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:8px}
 
-*{ box-sizing: border-box; }
-html,body{ height:100%; }
-body{
-  margin:0;
-  font-family: "Cairo","Poppins", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans";
-  color: var(--text);
-  background:
-    radial-gradient(1200px 1200px at 120% -20%, rgba(33,212,253,.20), transparent 60%),
-    radial-gradient(900px 900px at -10% 120%, rgba(109,94,252,.20), transparent 60%),
-    linear-gradient(180deg, var(--bg-1), var(--bg-2));
-  overflow-x:hidden;
-}
+  
+  
+    .primary{
+      background:linear-gradient(135deg,var(--brand),var(--brand-2));
+      color:#fff;box-shadow:0 12px 28px rgba(124,58,237,.35)
+    }
+    .primary:hover{transform:translateY(-1px)}
+    .ghost{background:#0b1327;border:1px solid var(--stroke);color:#e2e8f0}
 
-/* ====== Header ====== */
-.app-header{
-  position:sticky; top:0; z-index:50;
-  backdrop-filter: blur(var(--blur));
-  -webkit-backdrop-filter: blur(var(--blur));
-  background: linear-gradient( to bottom, rgba(10,11,14,.75), rgba(10,11,14,.35) );
-  border-bottom: 1px solid var(--stroke);
-}
-.head-wrap{
-  max-width:1200px; margin:auto; padding:14px 18px;
-  display:flex; align-items:center; justify-content:space-between; gap:12px;
-}
-.brand{
-  display:flex; align-items:center; gap:12px;
-  font-weight:700; letter-spacing:.3px;
-}
-.brand .badge{
-  width:40px; height:40px; display:grid; place-items:center;
-  background: radial-gradient(120% 120% at 20% 20%, var(--brand-2), var(--brand-1));
-  border-radius:12px; color:#0b0d13; font-weight:900;
-  box-shadow: var(--shadow);
-}
-.brand small{ color: var(--muted); font-weight:600; display:block; margin-top:-2px; font-size:12px; }
-.head-actions{ display:flex; align-items:center; gap:10px; }
-.icon-btn{
-  width:40px; height:40px; display:grid; place-items:center;
-  border:1px solid var(--stroke);
-  background: var(--glass);
-  border-radius:12px; color:var(--text);
-  cursor:pointer; transition: transform var(--speed), background var(--speed), border-color var(--speed);
-}
-.icon-btn:hover{ transform: translateY(-2px); background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.25); }
+    /* =================== Footer =================== */
+    .footer{
+      position:fixed;bottom:0;inset-inline:0;height:var(--footer-h);z-index:75;
+      background:linear-gradient(180deg, rgba(17,24,39,.7), rgba(17,24,39,.55));
+      border-top:1px solid rgba(124,58,237,.25);
+      display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:12px;
+      backdrop-filter:blur(8px);
+    }
 
-/* ====== Layout ====== */
-.layout{
-  max-width:1200px; margin:22px auto; padding:0 16px;
-  display:grid; grid-template-columns: var(--side) 1fr; gap:16px;
+    /* =================== Modal =================== */
+    .modal-backdrop{
+      position:fixed;inset:0;z-index:1000;
+      background:rgba(2,6,23,.6);
+      display:none;
+      backdrop-filter:blur(2px);
+    }
+    .modal-backdrop.active{ display:block }
+    .modal{
+      position:fixed;inset:0;z-index:1001;
+      display:none;align-items:center;justify-content:center;
+    }
+    .modal.active{ display:flex }
+    
+    
+    .modal-card{
+  width:min(480px, calc(100vw - 48px));
+  background:linear-gradient(180deg,#0f1a33,#0d172d);
+  border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow);
+  padding:16px;display:flex;flex-direction:column;gap:12px;color:#e7eef9;
+  align-items:center;   /* توسيط أفقي */
+  text-align:center;    /* توسيط النص */
 }
-
-/* ===== تخطيط الشبكة: جانبين فوق بعض ومحتوى على اليمين ===== */
-.layout{
-  display: grid;
-  grid-template-columns: var(--side) 1fr;
-  grid-auto-rows: min-content;
-}
-
-/* تموضع العناصر على الشاشات الكبيرة */
-#sidebar{
-  grid-column: 1;  /* العمود الأيسر */
-  grid-row: 1;     /* الصف الأول */
-}
-#importedSidebar{
-  grid-column: 1;  /* نفس العمود الأيسر */
-  grid-row: 2;     /* ينزل تحت الفواتير السابقة */
-}
-.content{
-  grid-column: 2;        /* العمود الأيمن */
-  grid-row: 1 / span 2;  /* يمتد على صفّين */
-}
-
-/* على 992px وأصغر: نرجّع كلشي عمود واحد (مثل ما عندك) */
-@media (max-width: 992px){
-  .layout{
-    grid-template-columns: 1fr;
-    grid-auto-rows: initial;
-  }
-  #sidebar, #importedSidebar, .content{
-    grid-column: auto;
-    grid-row: auto;
-  }
-}
-
-
-/* تابلت */
-@media (max-width: 992px){
-  .layout{ grid-template-columns: 1fr; }
-}
-
-/* موبايل */
-@media (max-width: 576px){
-  .layout{
-    display: flex;             /* بدل Grid حتى نستخدم order */
-    flex-direction: column;
-    padding: 0 10px;
-    margin: 14px auto;
-  }
-  .content { order: 1; }
-  .sidebar { order: 2; }
-}
-
-
-@media (max-width: 768px){
-  .editor > div{
-    flex-direction: column;    /* أي سطر داخله display:flex (مثل العدد+الملاحظات/الأزرار) يصير عمودي */
-  }
-  .editor .ginput{ flex: 1 1 100%; }
-}
-
-
-
-/* ====== Sidebar ====== */
-.sidebar{
-  background: var(--glass);
-  border:1px solid var(--stroke);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding:14px;
-  position:relative;
-  overflow:hidden;
-}
-.panel-title{
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
-  padding:8px 6px 12px; border-bottom:1px dashed var(--stroke);
-  margin-bottom:10px;
-}
-.panel-title h3{ margin:0; font-size:16px; font-weight:800; letter-spacing:.2px; }
-.pill{
-  background: rgba(255,255,255,.08);
-  border:1px solid var(--stroke);
-  padding:6px 10px; border-radius:999px; color: var(--muted); font-size:12px;
-}
-
-/* Category select */
-.category{ margin-top:10px; display:flex; flex-direction:column; gap:10px; }
-.cat-label{ font-size:12px; color:var(--muted); padding:0 6px; }
-.cat-select{ position:relative; user-select:none; }
-.cat-btn{
+.modal-actions{
+  display:flex;
+  gap:8px;
+  justify-content:center;  /* توسيط الأزرار */
   width:100%;
-  display:flex; align-items:center; justify-content:space-between; gap:8px;
-  background: rgba(255,255,255,.06);
-  border:1px solid var(--stroke);
-  border-radius:14px;
-  padding:12px 14px; cursor:pointer;
-  transition: background var(--speed), border-color var(--speed), transform var(--speed);
-}
-.cat-btn:hover{ background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.25); transform: translateY(-1px); }
-.cat-list{
-  position:absolute; inset-inline:0; top: calc(100% + 8px); z-index:5;
-  background: rgba(16,18,24,.98);
-  border:1px solid var(--stroke);
-  border-radius:16px;
-  box-shadow: var(--shadow);
-  padding:6px;
-  display:none;
-  max-height: 280px; overflow:auto;
-}
-.cat-item{
-  padding:10px 12px; border-radius:10px; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  color:var(--text); font-weight:600;
-  transition: background var(--speed), transform var(--speed);
-  border-bottom: 1px dashed rgba(255,255,255,.08);
-  text-align:center;
-}
-.cat-item:last-child{ border-bottom:none; }
-.cat-item:hover{ background: rgba(255,255,255,.06); transform: translateY(-1px); }
-.cat-item i{ color: var(--brand-2); }
-
-/* Invoices list */
-.invoices-list{ display:flex; flex-direction:column; gap:8px; margin-top:12px; }
-.invoice-chip{
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
-  background: rgba(255,255,255,.05);
-  border:1px solid var(--stroke);
-  padding:10px 12px; border-radius:12px; cursor:pointer;
-  transition: background var(--speed), transform var(--speed);
-}
-.invoice-chip:hover{ background: rgba(255,255,255,.09); transform: translateY(-1px); }
-.chip-meta{ display:flex; flex-direction:column; gap:4px; }
-.chip-meta strong{ font-size:13px; }
-.chip-meta small{ color:var(--muted); }
-
-/* ====== Content ====== */
-.content{ display:flex; flex-direction:column; gap:18px; }
-
-/* Grid cards */
-.grid{
-  display:grid; grid-template-columns: repeat(3,1fr); gap:14px;
-}
-@media (max-width: 992px){
-  .grid{ grid-template-columns: repeat(2,1fr); }
-}
-@media (max-width: 576px){
-  .editor .ginput {
-    flex: 1 1 100%;
-  }
-  .editor > div {
-    flex-direction: column;
-  }
-  .gfield, .btn {
-    font-size:14px;
-    padding:10px 12px;
-  }
 }
 
-.card{
-  background: var(--glass);
-  border:1px solid var(--stroke);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding:16px;
-  overflow:hidden;
-  position:relative;
-}
-.card .title{ display:flex; align-items:center; justify-content:space-between; color:var(--muted); font-size:12px; margin-bottom:8px; }
-.value{ font-weight:900; font-size:22px; letter-spacing:.3px; display:flex; align-items:center; gap:8px; }
-.trend{ font-size:12px; color: var(--good); }
-
-/* Editor */
-.editor{ display: flex; flex-direction: column; gap: 12px; }
-#searchInput { width: 100%; }
-.card.table-wrap { margin-top: 20px; }
-
-/* Footer */
-.app-footer {
-  position: sticky; bottom: 0; z-index: 50;
-  backdrop-filter: blur(var(--blur));
-  -webkit-backdrop-filter: blur(var(--blur));
-  background: linear-gradient(to top, rgba(10,11,14,.85), rgba(10,11,14,.35));
-  border-top: 1px solid var(--stroke);
-}
-.foot-wrap {
-  max-width: 1200px;
-  margin: auto;
-  padding: 12px 18px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-/* Inputs and buttons */
-.ginput{ display:flex; flex-direction:column; gap:8px; }
-.glabel{ font-size:12px; color:var(--muted); padding:0 6px; }
-.gfield{
-  background: rgba(255,255,255,.06);
-  border:1px solid var(--stroke);
-  padding:12px 14px; border-radius:14px; color: var(--text);
-  outline:none; transition: border-color var(--speed), background var(--speed), transform var(--speed);
-  text-align:center;
-  width:100%; max-width:100%;
-}
-.gfield::placeholder{ color: #93a0b8; }
-.gfield:focus{ border-color: rgba(255,255,255,.35); background: rgba(255,255,255,.09); transform: translateY(-1px); }
-
-.btn{
-  display:inline-flex; align-items:center; justify-content:center; gap:8px;
-  padding:12px 14px; border:none; cursor:pointer; font-weight:800; letter-spacing:.3px;
-  border-radius:14px; color:#0b0d13;
-  background: linear-gradient(135deg, var(--brand-2), var(--brand-1));
-  box-shadow: 0 8px 20px rgba(109,94,252,.35);
-  transition: transform var(--speed), box-shadow var(--speed), filter var(--speed);
-  width:100%; max-width:100%;
-}
-.btn:hover{ transform: translateY(-2px); filter: brightness(1.05); box-shadow: 0 10px 26px rgba(109,94,252,.45); }
-.btn.green{ background:linear-gradient(135deg,#34d399,#10b981); color:#091018; }
-.btn.amber{ background:linear-gradient(135deg,#f59e0b,#d97706); color:#0b0d13; }
-.btn.blue{ background:linear-gradient(135deg,#60a5fa,#2563eb); color:#0b0d13; }
-
-/* Table */
-.table-wrap {
-  padding: 0;
-  overflow-x: auto;              /* يطلع سكرول إذا الجدول أعرض من الشاشة */
-  -webkit-overflow-scrolling: touch; /* سلاسة على iOS */
-  border-radius: 14px;
-
-  max-height: 300px;             /* يحدد أقصى ارتفاع (تقديراً 5 صفوف) */
-  overflow-y: auto;              /* يخلي سكرول عمودي إذا تعدى 5 صفوف */
-}
-
-
-table{
-  width: 100%;
-  min-width: 680px;            /* نخلي الجدول أكبر شوية حتى يطلع Scroll بالموبايل */
-  border-collapse: collapse;
-  table-layout: fixed;         /* حتى يلفّ النص داخل الخلايا */
-  background: rgba(255,255,255,.04);
-  border: 1px solid var(--stroke);
-  border-radius: 14px;
-  overflow: hidden;
-}
-
-thead th, tbody td{
-  word-break: break-word;      /* يكسر الكلمات الطويلة داخل الخلية */
-  text-align: center;
-  padding: 14px;
-}
-
-tbody tr:last-child td{ border-bottom:none; }
-
-
-
-.btn-danger-custom {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  color: #fff;
-  background: linear-gradient(45deg,#ef4444,#dc2626);
-  border: none;
-  cursor: pointer;
-  transition: transform .2s, background .2s;
-}
-.btn-danger-custom:hover {
-  background: linear-gradient(45deg,#dc2626,#b91c1c);
-  transform: translateY(-2px);
-}
-
-
-
-
-
-/* زر إعادة التسمية — سماوي/أزرق وأخف بصريًا */
-.btn-rename-custom{
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  color: #fff;
-  background: linear-gradient(135deg,#22d3ee,#3b82f6); /* سماوي → أزرق */
-  border: none;
-  cursor: pointer;
-  transition: transform .2s, filter .2s, box-shadow .2s;
-  box-shadow: 0 6px 16px rgba(59,130,246,.28);         /* ظل ناعم جذاب */
-}
-.btn-rename-custom:hover{
-  transform: translateY(-2px);
-  filter: brightness(1.05);
-  box-shadow: 0 10px 22px rgba(59,130,246,.35);
-}
-.btn-rename-custom:focus{
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(59,130,246,.35), 0 8px 20px rgba(59,130,246,.35);
-}
-.btn-rename-custom i{
-  opacity: .95; /* الأيقونة أخف شوي */
-}
-
-
-
-
-
-
-
-#itemsTable td:last-child {
-  text-align: center;
-  vertical-align: middle;
-}
-
-
-
-
-/* ====== تنسيق الجدول داخل الواجهة ====== */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  border: 1px solid var(--stroke);   /* حدود خارجية */
-  border-radius: 14px;
-  overflow: hidden;
-}
-
-/* رأس الجدول */
-thead th {
-  background: linear-gradient(135deg, #1e293b, #0f172a); /* تدرج داكن أنيق (كحلي/أسود مزرق) */
-  color: #f1f5f9;                          /* نص فاتح جداً (رمادي مائل للأبيض) */
-  font-weight: 700;                        /* خط عريض */
-  padding: 14px;
-  border: 1px solid rgba(255,255,255,.08); /* حدود ناعمة جداً */
-  text-align: center;
-  letter-spacing: .5px;                    /* مسافة بسيطة بين الحروف */
-  font-size: 15px;
-  text-transform: none;                    /* نخلي النص طبيعي بدون أحرف كبيرة */
-  box-shadow: inset 0 -1px 6px rgba(0,0,0,.4); /* ظل داخلي غامق يضيف عمق */
-}
-
-
-/* الخلايا */
-tbody td {
-  padding: 12px;
-  border: 1px solid #cbd5e1;  /* خطوط ناعمة بين الخلايا */
-  text-align: center;
-  font-size: 14px;
-  color: #0f172a;             /* نص داكن واضح */
-}
-
-
-
-
-#itemsTable .btn-danger-custom {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
-}
-
-
-
-
-
-
-/* تلوين الصفوف بالتناوب */
-/* صفوف الجدول */
-tbody tr:nth-child(even) {
-  background-color: #f8fafc;  /* لون فاتح للصفوف الزوجية */
-}
-tbody tr:nth-child(odd) {
-  background-color: #e2e8f0;  /* لون أغمق شوي للصفوف الفردية */
-}
-
-/* عند المرور بالماوس */
-tbody tr:hover {
-  background: rgba(33,212,253,.15);  /* هايلايت أنيق */
-  transition: background 0.3s ease;
-}
-
-
-
-
-
-
-
-
-
-/* زر إنشاء الفاتورة العائم — يمين تحت، أصغر وبشكل مربّع ناعم */
-/* زر إنشاء الفاتورة العائم — يمين/تحت، دائري، لون متناسق */
-.fab{
-  position: fixed;
-  right: 20px;             /* ← يمين */
-  bottom: 20px;            /* ← تحت */
-  z-index: 60;
-
-  width: 56px;             /* حجم مناسب */
-  height: 56px;
-  border-radius: 50%;      /* ← دائري */
-
-  display: grid;
-  place-items: center;
-
-  /* تدرّج أنعم (سماوي → أزرق) يلائم الثيم */
-  background: linear-gradient(135deg, #22d3ee, #3b82f6);
-  color: #ffffff;          /* أيقونة بيضاء */
-  font-size: 20px;         /* حجم الأيقونة */
-  box-shadow: 0 12px 28px rgba(59,130,246,.35);
-  cursor: pointer;
-
-  transition: transform .25s, filter .25s, box-shadow .25s;
-}
-
-.fab:hover{
-  transform: translateY(-2px);
-  filter: brightness(1.05);
-  box-shadow: 0 14px 34px rgba(59,130,246,.45);
-}
-
-.fab:active{
-  transform: translateY(0);
-}
-
-.fab i{ pointer-events: none; }  /* حتى ما تعيق الأيقونة الكليك */
-
-
-
-/* خلّي التنبيه فوق كل الطبقات */
-.toast-container{
-  z-index: 12000 !important;  /* أعلى من 10060 تبع لوحة الأوامر */
-}
-
-
-/* Toast */
-.toast-container{ position: fixed; inset-block-start:18px; inset-inline:0; display:grid; place-items:center; z-index:70; }
-.toast{
-  background: rgba(20,24,33,.96);
-  border: 1px solid var(--stroke);
-  color: var(--text);
-  padding:12px 16px; border-radius:12px; box-shadow: var(--shadow);
-  display:none; align-items:center; gap:10px; font-weight:700;
-}
-.toast.show{ display:flex; animation: pop .3s ease; }
-@keyframes pop{ from{ transform: translateY(-8px); opacity:.0; } to{ transform: translateY(0); opacity:1; } }
-
-
-
-
-/* Search suggestions */
-#autocompleteSuggestions{
-  position: absolute; inset-inline:0; inset-block-start:100%; margin-block-start:6px;
-  background: rgba(16,18,24,.98);
-  border:1px solid var(--stroke);
-  border-radius:14px;
-  max-height:240px; overflow:auto; z-index:40; display:none;
-}
-#autocompleteSuggestions li{
-  list-style:none; padding:10px 12px; cursor:pointer; text-align:center; color:#eaf0ff;
-  border-bottom:1px dashed rgba(255,255,255,.08);
-}
-#autocompleteSuggestions li:last-child{ border-bottom:none; }
-#autocompleteSuggestions li:hover{ background: rgba(255,255,255,.06); }
-
-#autocompleteSuggestions li.active{
-  background: rgba(33,212,253,.15);
-}
-
-
-/* Responsive header + footer for small screens */
-@media (max-width:576px){
-  .brand .badge{ width:32px; height:32px; font-size:14px; }
-  .head-actions .icon-btn{ width:34px; height:34px; }
-  .head-wrap, .foot-wrap{ padding:10px 12px; }
-}
-
-
-
-/* صفين متساويين دائماً: العدد+الملاحظات، حفظ+PDF */
-.line-qty-note,
-.line-actions{
-  display: grid;
-  grid-template-columns: 1fr 1fr; /* تساوي العرض */
-  gap: 12px;
-  align-items: stretch;
-}
-
-.line-qty-note .ginput,
-.line-actions .btn{
-  min-width: 0; /* يمنع البروز/التمدد الزائد */
-}
-
-/* لو عندك قواعد قديمة تقلب أسطر .editor لعمودي بالموبايل،
-   هذا الكود ما يتأثر لأننا Grid، و flex-direction ما ينطبق على grid */
+    
+    
+    
+    .modal-head{font-weight:900;font-size:16px}
+    .modal-body{color:#cbd5e1;font-size:14px}
+   
+  
    
    
-   
-   
-   /* ===== Maintenance Overlay ===== */
-.maint-overlay{
-  position: fixed; inset: 0; z-index: 10000;
-  display: none;                    /* نظهرها بالـ JS */
-  align-items: center; justify-content: center;
-  background: rgba(10,11,14,.55);
-  backdrop-filter: blur(var(--blur));
-  -webkit-backdrop-filter: blur(var(--blur));
+    .modal-btn{
+      height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--stroke);
+      background:#0b1327;cursor:pointer;color:#e5e7eb
+    }
+    .modal-btn.danger{
+      background:linear-gradient(135deg,#ef4444,#f97316);
+      color:#fff;border-color:transparent;box-shadow:0 10px 26px rgba(249,115,22,.3)
+    }
+    .modal-btn.ghost{background:#0b1327}
+    
+    
+    
+    /* بادج نوع الفاتورة جنب اسم الزبون */
+.badge-type{
+  font-size:11px;
+  padding:2px 8px;
+  border-radius:999px;
+  border:1px solid var(--stroke);
+  background:#0a1020;
+  margin-inline-start:6px;
 }
-.maint-card{
-  width: min(520px, 92%);
-  background: linear-gradient(180deg, rgba(20,24,33,.96), rgba(13,16,22,.96));
-  border: 1px solid var(--stroke);
-  border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
-  padding: 28px 22px;
-  text-align: center;
-  color: var(--text);
+.badge-type.sell{
+  color:#a7f3d0;                 /* أخضر فاتح */
+  background:linear-gradient(180deg,#064e3b,#052e2a);
+  border-color:rgba(16,185,129,.35);
 }
-.maint-card h2{
-  margin: 6px 0 6px; font-size: 22px; font-weight: 800; letter-spacing: .2px;
-}
-.maint-card p{
-  margin: 0; color: var(--muted); font-size: 14px;
-}
-.maint-spin{
-  width: 58px; height: 58px; margin: 0 auto 12px;
-  border-radius: 50%;
-  border: 4px solid rgba(255,255,255,.18);
-  border-top: 4px solid var(--brand-2);
-  animation: maint-rot 1s linear infinite;
-  box-shadow: 0 0 0 4px rgba(33,212,253,.06), 0 10px 24px rgba(0,0,0,.25);
-}
-@keyframes maint-rot { to { transform: rotate(360deg); } }
-
-
-
-
-/* أزرار أيقونية دائرية أنيقة */
-.palette-actions .btn.icon{
-  width: 42px; height: 42px;
-  padding: 0; border-radius: 12px;
-  display: grid; place-items: center;
-  font-size: 16px;
+.badge-type.return{
+  color:#fecaca;                 /* أحمر فاتح */
+  background:linear-gradient(180deg,#7f1d1d,#4c0b0b);
+  border-color:rgba(239,68,68,.35);
 }
 
-/* تحسين توزيع عناصر صفّ المادة */
-.item-row{ grid-template-columns: 28px 1.2fr 90px 1fr 60px; }
-.item-row .name{ min-width: 0; }
-.item-row .note{
-  min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+/* خلي المواد الراجعة أوضح بالأحمر */
+.item.returned{
+  background:#2a0c12;            /* خلفية أحمر داكن */
+  border-color:#7f1d1d;
+}
+.item.returned .iname,
+.item.returned .icat{
+  color:#fca5a5;                  /* نص أحمر وردي */
+  text-decoration:line-through;   /* تبقيها مشطوب */
 }
 
-/* استجابة: جوّال/شاشات ضيّقة — نخفي الملاحظات حتى ما تنعصر */
-@media (max-width: 768px){
-  .palette{ width: 96vw; max-height: 90vh; }
-  .palette-top{ grid-template-columns: 1fr auto; gap: 8px; }
-  .palette-search input{ font-size: 16px; } /* كيبد عربي/إنكليزي واضح */
-  .item-row{
-    grid-template-columns: 24px 1fr 80px 44px;  /* نشيل عمود الملاحظات */
-    gap: 8px;
-  }
-  .item-row .note{ display: none; }
-  .item-row input.qty{ padding: 6px; }
-  .palette-actions .btn.icon{ width: 40px; height: 40px; }
+    
+ 
+ 
+ /* بادج "جديد" لاسم غير موجود بالمصفوفة */
+.badge-new{
+  font-size:11px;
+  padding:2px 8px;
+  border-radius:999px;
+  border:1px solid rgba(127,29,29,.55);
+  background:linear-gradient(180deg,#7f1d1d,#4c0b0b);
+  color:#fecaca; /* وردي فاتح للنص */
+  margin-inline-start:8px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
 }
 
-/* جوّال أصغر */
-@media (max-width: 480px){
-  .item-row{
-    grid-template-columns: 22px 1fr 72px 40px;
-    padding: 8px;
-  }
-  .palette-actions .btn.icon{ width: 38px; height: 38px; }
+ 
+ 
+    
+    
+    
+    
+    /* 2) إلغاء عدّاد الزيادة/النقصان بحقل العدد (الأسهم) */
+#qty {
+  -moz-appearance: textfield;   /* فايرفوكس */
 }
-
-
-
-
-:root{
-  --pal-row-h: 64px;          /* ارتفاع الكارت/السطر */
-  --pal-head-h: 52px;         /* تقريبًا ارتفاع شريط البحث والأزرار */
-}
-
-.palette{
-  max-height: 86vh;           /* ثابت مثل ما عندك */
-}
-
-.palette-body{
-  /* أقل شي يشيل 5 عناصر + مساحة بسيطة */
-  max-height: calc(var(--pal-row-h) * 5 + var(--pal-head-h));
-  overflow-y: auto;
-}
-
-.item-row{
-  min-height: var(--pal-row-h);
-}
-
-
-
-
-/* ===== Scrollbars • Right side • Hidden until hover/active ===== */
-
-/* 0) نحافظ على استقرار التخطيط لما تظهر السكرول */
-html, body,
-.palette-body, .table-wrap, .invoices-list, #importedPdfList,
-.cat-list, #autocompleteSuggestions {
-  scrollbar-gutter: stable;                /* حديث ومدعوم بالمتصفحات الجديدة */
-}
-
-/* 1) اخفاء افتراضي لكل السكروولات */
-* {
-  scrollbar-width: none;                   /* Firefox */
-}
-*::-webkit-scrollbar {
-  width: 0; height: 0;                     /* Chrome/Edge/Safari */
-}
-
-/* 2) إظهار رشيق عند الهوفر على الحاوية القابلة للتمرير */
-body:hover,
-.palette-body:hover,
-.table-wrap:hover,
-.invoices-list:hover,
-#importedPdfList:hover,
-.cat-list:hover,
-#autocompleteSuggestions:hover {
-  scrollbar-width: thin;                   /* Firefox */
-  scrollbar-color: #94a3b8 transparent;    /* لون المقبض فقط */
-}
-
-/* 3) WebKit: شكل السكرول عند الظهور */
-body:hover::-webkit-scrollbar,
-.palette-body:hover::-webkit-scrollbar,
-.table-wrap:hover::-webkit-scrollbar,
-.invoices-list:hover::-webkit-scrollbar,
-#importedPdfList:hover::-webkit-scrollbar,
-.cat-list:hover::-webkit-scrollbar,
-#autocompleteSuggestions:hover::-webkit-scrollbar {
-  width: 10px;                             /* سماكة أنيقة */
-  height: 10px;
-}
-
-body:hover::-webkit-scrollbar-thumb,
-.palette-body:hover::-webkit-scrollbar-thumb,
-.table-wrap:hover::-webkit-scrollbar-thumb,
-.invoices-list:hover::-webkit-scrollbar-thumb,
-#importedPdfList:hover::-webkit-scrollbar-thumb,
-.cat-list:hover::-webkit-scrollbar-thumb,
-#autocompleteSuggestions:hover::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #21d4fd, #6d5efc);
-  border-radius: 999px;
-  border: 2px solid transparent;           /* حتى يصير أنعم */
-  background-clip: content-box;
-  box-shadow: 0 4px 10px rgba(0,0,0,.15);
-}
-
-body:hover::-webkit-scrollbar-track,
-.palette-body:hover::-webkit-scrollbar-track,
-.table-wrap:hover::-webkit-scrollbar-track,
-.invoices-list:hover::-webkit-scrollbar-track,
-#importedPdfList:hover::-webkit-scrollbar-track,
-.cat-list:hover::-webkit-scrollbar-track,
-#autocompleteSuggestions:hover::-webkit-scrollbar-track {
-  background: transparent;                  /* مسار شفاف */
-}
-
-/* 4) ضمان اليمين على بيئات RTL (هو الافتراضي حالياً)
-   إذا شفت أي حاوية تتصرف وتطلع الشاشة يسار، أعطها هالكلاس: .rtl-scroll */
-.rtl-scroll { direction: rtl; }             /* يبقي السّكرول يمين بدون ما يغيّر اتجاه الصفحة */
-
-
-
-
-/* إخفاء أسهم number في كروم/إدج/سفاري */
-input[type="number"]::-webkit-outer-spin-button,
-input[type="number"]::-webkit-inner-spin-button{
-  -webkit-appearance: none;
+#qty::-webkit-outer-spin-button,
+#qty::-webkit-inner-spin-button{
+  -webkit-appearance: none;     /* كروم/إيدج/سفاري */
   margin: 0;
 }
-/* إخفاءها في فايرفوكس */
-input[type="number"]{
-  -moz-appearance: textfield;
+
+
+
+
+/* ===== Toasts (أعلى الصفحة + توسيط الرسالة) ===== */
+.toasts{
+  position:fixed;
+  inset-inline:50%;
+  transform:translateX(50%);
+  top:18px;                 /* أعلى الصفحة */
+  z-index:12000;
+  display:flex;flex-direction:column;gap:8px;
+  pointer-events:none;
+}
+.toast{
+  min-width:280px;max-width:520px;padding:10px 12px;border-radius:12px;
+  border:1px solid var(--stroke);
+  background:linear-gradient(135deg, rgba(20,30,55,.95), rgba(17,25,45,.95));
+  box-shadow:0 10px 28px rgba(0,0,0,.45);color:#e7eef9;
+  display:flex;align-items:center;gap:10px;pointer-events:auto;
+  animation:toast-in-top .25s ease-out both;
+
+  /* المفتاح: خلّي توزيع العناصر يسمح بتوسيط النص */
+  justify-content:space-between;
+}
+.toast__icon{
+  width:28px;height:28px;border-radius:8px;
+  display:grid;place-items:center;background:#0b1327;border:1px solid var(--stroke);
+  flex:0 0 auto;                  /* حجم ثابت */
+}
+.toast__msg{
+  font-size:14px;font-weight:800;letter-spacing:.2px;
+  flex:1 1 auto;                  /* تاخذ المساحة الوسطية */
+  text-align:center;              /* توسيط النص داخل الحاوية */
+}
+.toast__close{
+  margin-inline-start:8px;cursor:pointer;opacity:.9;
+  display:grid;place-items:center;width:28px;height:28px;border-radius:8px;
+  border:1px solid var(--stroke);background:#0b1327;
+  flex:0 0 auto;                  /* حجم ثابت */
+}
+
+.toast.success .toast__icon{background:linear-gradient(180deg,#064e3b,#052e2a);border-color:rgba(16,185,129,.35)}
+.toast.warn    .toast__icon{background:linear-gradient(180deg,#5b3b06,#3a2704);border-color:rgba(245,158,11,.4)}
+.toast.error   .toast__icon{background:linear-gradient(180deg,#7f1d1d,#4c0b0b);border-color:rgba(239,68,68,.45)}
+.toast.info    .toast__icon{background:linear-gradient(180deg,#0b3b5b,#07293f);border-color:rgba(14,165,233,.45)}
+
+@keyframes toast-in-top{from{transform:translateX(50%) translateY(-10px);opacity:0}to{transform:translateX(50%) translateY(0);opacity:1}}
+@keyframes toast-out-top{from{transform:translateX(50%) translateY(0);opacity:1}to{transform:translateX(50%) translateY(-8px);opacity:0}}
+
+/* أخفِ زر الإغلاق نهائياً */
+.toast__close{ display:none !important; }
+
+
+/* ===== تعديلات أسطر البطاقة (داخل الكارت) =====
+   [راجع] [تسديد] | اسم المادة | الصنف | العدد | الملاحظات | الوقت | حذف
+   ملاحظة: استعملنا !important حتى نضمن التطبيق فوق القواعد القديمة
+*/
+.card .item{
+  grid-template-columns: auto auto 2.2fr .9fr .6fr 1fr auto auto !important;
+  column-gap: 6px !important;
+}
+
+/* وسّط ووسّع اسم المادة */
+.card .item .iname{
+  text-align: center !important;
+  min-width: 0 !important;     /* يمنع التمدد */
+}
+
+/* صغّر الصنف والملاحظات بصرياً وامنعها تقصّر الصف */
+.card .item .ichip,
+.card .item .inote{
+  padding-inline: 8px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* العدد بمساحة أضيق ومحاذاة وسط */
+.card .item .iqty{
+  text-align: center !important;
+}
+
+/* (اختياري) صغّر خط الوقت شوي */
+.card .item .itime{
+  font-size: 10.5px !important;
+}
+
+
+
+/* لمعة مؤقتة للبطاقة الجديدة */
+/* لمعة مؤقتة للبطاقة الجديدة */
+.flash-card{
+  outline: 2px solid rgba(124,58,237,.55);
+  box-shadow: 0 0 0 3px rgba(124,58,237,.22), var(--shadow);
+  transition: outline .2s ease, box-shadow .2s ease;
+}
+
+/* خلّي المتصفّح يحسب مسافة فوق الكارت مساوية لارتفاع الهيدر */
+.card{
+  scroll-margin-top: calc(var(--hdr-h) + 10px);
+  
+}
+
+
+
+/* ===== Zebra قوية وواضحة بين البطاقات ===== */
+
+/* ضمّن إن البطاقة نسبية للزخرفة */
+.masonry > .card{ position:relative; }
+
+/* الزوجية: أفتح شوي */
+.masonry > .card:nth-child(even){
+  background: linear-gradient(180deg, #122243, #0e1b36) !important;
+  border-color: #2c3f66 !important;
+}
+
+/* الفردية: أغمق شوي */
+.masonry > .card:nth-child(odd){
+  background: linear-gradient(180deg, #0b162e, #091126) !important;
+  border-color: #223556 !important;
+}
+
+
+.masonry > .card:nth-child(even)::before{
+  background: linear-gradient(180deg, var(--brand-3), var(--brand-2));
+  opacity:.85;
+}
+
+/* لمسة ظل مختلفة خفيفة */
+.masonry > .card:nth-child(even){
+  box-shadow: 0 16px 36px rgba(0,0,0,.42);
+}
+.masonry > .card:nth-child(odd){
+  box-shadow: 0 14px 32px rgba(0,0,0,.38);
+}
+
+
+
+/* ========= إبراز اسم الزبون داخل البطاقة ========= */
+
+/* أيقونة صغيرة قبل الاسم (من Font Awesome) */
+.card .card-head .cust{
+  position: relative;
+  gap: 10px;
+}
+.card .card-head .cust::before{
+  content: "\f007"; /* user icon */
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  display: grid; place-items: center;
+  width: 26px; height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(124,58,237,.28);
+  margin-inline-start: 0;
+  margin-inline-end: 6px;
+}
+
+/* اسم الزبون نفسه (أول span داخل .cust) بتدرّج أنيق */
+.card .card-head .cust > span:first-child{
+  position: relative;
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: .2px;
+  line-height: 1.1;
+  background: linear-gradient(90deg, #eef2ff, #cbd5ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;               /* يُظهر التدرّج كنص */
+  text-shadow: 0 1px 0 rgba(255,255,255,.04);
+}
+
+
+
+/* مسافات أنظف بين الاسم والبادجات اللاحقة */
+.card .card-head .cust .badge-type,
+.card .card-head .cust .bill-badge{
+  margin-inline-start: 8px;
+}
+
+/* تباين بسيط لبادج النوع قرب الاسم */
+.card .card-head .cust .badge-type{
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
 }
 
 
 
 
+/* خلي حاوية البحث صف واحد */
+.board-search{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+/* الحقل يتمدّد، بدون ما يطيح للتالي */
+.board-search .input{
+  flex:1 1 auto;
+  min-width:160px;
+  height:34px;
+}
+
+/* (اختياري) استجابة للشاشات الصغيرة: خليه يلفّ بنعومة */
+@media (max-width:700px){
+  .board-search{
+    flex-wrap:wrap;
+  }
+  .board-search .input{
+    flex:1 1 100%;
+  }
+}
 
 
 
-/* ===== Command Palette: Graphite + Royal Gold ===== */
-.palette .group-title{
-  background: linear-gradient(180deg, #17191f, #12141a);
-  color:#f3e8c8;                  /* ذهبـي فاتح للعنوان */
-  border-left-color:#d4b25e;      /* ذهبـي */
+
+/* === توحيد المسافات داخل رأس البطاقة (الاسم + البادجات) === */
+:root{ --cust-inline-gap: 6px; }  /* غيّرها لـ 4px أو 8px إذا تريد تضبط أكثر */
+
+.card .card-head .cust{
+  gap: var(--cust-inline-gap) !important;               /* مسافة موحّدة بين العناصر */
 }
 
-/* صف العنصر */
-.palette .item-row{
-  background: linear-gradient(180deg,#14171d,#0f1217);
-  color:#e9edf6;
-  border:1px solid rgba(255,255,255,.10);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
-  transition: transform .08s ease, border-color .2s ease, background .25s ease;
-}
-.palette .item-row:hover{
-  border-color: rgba(212,178,94,.55); /* إبراز ذهبي */
-  background: linear-gradient(180deg,#171b22,#11151b);
-}
-.palette .item-row:focus-within{
-  border-color:#d4b25e;
-  box-shadow: 0 0 0 2px rgba(212,178,94,.25);
+/* شيل أي هوامش إضافية قديمة حتى ما تتضاعف المسافات */
+.card .card-head .cust .badge-new,
+.card .card-head .cust .badge-type,
+.card .card-head .cust .bill-badge{
+  margin-inline-start: 0 !important;
 }
 
-/* الاسم + الملاحظات */
-.palette .item-row .name{ color:#f4f6fb; }
-.palette .item-row .note{ color:#b9c0cf; }
-
-/* حقل الكمية */
-.palette .item-row input.qty{
-  background: rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.16);
-  color:#f4f6fb;
-}
-.palette .item-row input.qty:focus{
-  border-color:#d4b25e;
-  box-shadow:0 0 0 3px rgba(212,178,94,.22);
+/* خلي أيقونة المستخدم بنفس المسافة */
+.card .card-head .cust::before{
+  margin-inline-end: var(--cust-inline-gap) !important;
 }
 
-/* زر الحذف – أحمر داكن أنيق */
-.palette .item-row .del{
-  background: linear-gradient(45deg,#b23b3b,#902e2e);
-  color:#fff; border:none;
-}
-.palette .item-row .del:hover{
-  transform: translateY(-2px);
-  filter: brightness(1.06);
-}
 
-/* صندوق التحديد */
-.palette .item-row .chk{
-  accent-color:#d4b25e;   /* ذهبـي للنقر */
-}
 
 
     
-
-/* ===== System Modal • Responsive & A11y Upgrades ===== */
-:root{
-  /* حجم الحلقة/الدائرة يتأقلم تلقائيًا */
-  --sys-ring: clamp(120px, 22vw, 180px);
-  /* أحجام نص مرنة */
-  --sys-title-size: clamp(16px, 2.4vw, 20px);
-  --sys-sub-size:   clamp(12px, 1.6vw, 14px);
-  --sys-step-size:  clamp(11px, 1.5vw, 13px);
-}
-
-/* النافذة: تتكيّف عرضًا وارتفاعًا + قابلية تمرير داخلية */
-.sys-window{
-  width: min(700px, 92vw);
-  max-height: 92vh;              /* ما تطلع خارج الشاشة */
-  overflow: auto;                /* سكول داخلي عند صِغَر الارتفاع */
-  padding: clamp(14px, 2.4vh, 22px) clamp(12px, 2.4vw, 18px);
-}
-
-/* دعم شاشات واسعة جدًا: تكبر شوي */
-@media (min-width: 1400px){
-  .sys-window{ width: min(820px, 70vw); }
-}
-
-/* الهيرو + التيبوغرافيا مرنة */
-.sys-headings .sys-title{ font-size: var(--sys-title-size); }
-.sys-headings .sys-sub{   font-size: var(--sys-sub-size);   }
-
-.sys-steps.row .sys-step{
-  font-size: var(--sys-step-size);
-  padding: clamp(6px, 1.2vh, 8px) clamp(10px, 1.2vw, 12px);
-}
-
-/* الحلقة تتبع متغير الحجم */
-.ring{ width: var(--sys-ring); height: var(--sys-ring); }
-.ring-svg{ width: var(--sys-ring); height: var(--sys-ring); }
-.ring-percent{ font-size: clamp(13px, 1.7vw, 16px); }
-
-/* زر إغلاق اختياري (إن أضفته) يبقى على نفس المقياس */
-.sys-close{ width: 42px; height: 42px; }
-
-/* عند صِغَر الارتفاع (موبايل أفقي مثلاً) */
-@media (max-height: 560px){
-  .sys-window{
-    max-height: 96vh;
-    padding: 10px 12px;
-  }
-  .sys-steps.row{ gap: 6px; }
-}
-
-/* لو المتصفح ما يدعم blur، نخلي خلفية أكثر قتامة */
-@supports not ((backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px))){
-  .sys-overlay{
-    background: rgba(10,11,14,.85);
-  }
-}
-
-/* تباين أفضل لحالة سكان-لون */
-@media (prefers-contrast: more){
-  .sys-window{ border-color: rgba(255,255,255,.25); }
-  .sys-steps.row .sys-step{ border-color: rgba(255,255,255,.3); }
-}
-
-/* تقليل الحركة: نلغي الترنزشنات الثقيلة */
-@media (prefers-reduced-motion: reduce){
-  .sys-overlay, .sys-window, .ring-check, .ring-percent,
-  .sys-steps.row, .ring-svg .progress{
-    animation: none !important;
-    transition: none !important;
-  }
-}
-
-
-
-
-
-
-
-
-
+    
   </style>
 </head>
+
 <body>
-  
-  
-
-  
-  
-  
-  
-  <div id="maintenanceOverlay" class="maint-overlay" style="display:none;">
-  <div class="maint-card">
-    <div class="maint-spin"></div>
-    <h2>التطبيق تحت الصيانة</h2>
-    <p>نرجعلك حالاً.. شكراً لصبرك 💙</p>
-  </div>
-</div>
-  
-  
-  
-
-<!-- نافذة النظام الجديدة (تحديث/إعادة تحميل/معلومة) -->
-<div id="systemModal" class="sys-overlay" aria-hidden="true">
-  <div class="sys-window" role="dialog" aria-modal="true" aria-live="polite">
-   
-
-    <div class="sys-hero">
-  <div class="ring">
-    <svg viewBox="0 0 120 120" class="ring-svg" aria-hidden="true">
-      <circle class="track" cx="60" cy="60" r="52" />
-      <circle class="progress" cx="60" cy="60" r="52" />
-    </svg>
-
-    <div class="ring-core">
-      <!-- حذف brand-dot نهائيًا -->
-      <div class="ring-percent" id="sysPct">0%</div>
-      <div class="ring-check" id="sysCheck" aria-hidden="true">
-        <i class="fa-solid fa-check"></i>
+  <!-- Header -->
+  <div class="ribbon">
+    <div class="ribbon-wrap">
+      <div class="r-left">
+        <span id="dateBadge" class="pill">—</span>
       </div>
-    </div>
-  </div>
 
-  <!-- العناوين تحت الدائرة مباشرة -->
-  <div class="sys-headings">
-    <div class="sys-title" id="sysTitle">جاري تحديث التطبيق</div>
-    <div class="sys-sub" id="sysSub">نحضّر لك كل شيء…</div>
-  </div>
-
-  <!-- الخطوات: صف واحد تحت الدائرة -->
-  <div class="sys-steps row" id="sysSteps" role="status"></div>
-</div>
-
-    
-  </div>
-</div>
-
-
-  <!-- ====== Header ====== -->
-  <header class="app-header">
-    <div class="head-wrap">
-      <div class="brand">
-  <div class="badge">A</div>
-  <span style="font-weight:700; font-size:18px;">ASSAL OFFICE</span>
-</div>
-
-      <div class="head-actions">
-  <button class="icon-btn" id="btnReload" title="تحديث الصفحة"><i class="fa-solid fa-rotate-right"></i></button>
-
-  <!-- زر تصدير JSON فقط -->
- <button class="icon-btn" id="btnExportJSON" title="تصدير Excel">
-  <i class="fa-solid fa-file-excel"></i>
-  </button>
-  
-  
-  <button class="icon-btn" id="btnExportCSV" title="تصدير CSV">
-  <i class="fa-solid fa-file-csv"></i>
-</button>
-
-<button class="icon-btn" id="btnCommand" title="لوحة الأوامر">
-  <i class="fa-solid fa-magnifying-glass"></i>
-</button>
-
-
-</div>
-
-
-
-    </div>
-  </header>
-  
-  
-  
-  
-  
-  <div id="paletteOverlay" class="palette-overlay" aria-hidden="true">
-  <div class="palette" role="dialog" aria-modal="true">
-    <div class="palette-top">
-      
-      
-      
-      
-     <div class="palette-search">
-  <i class="fa-solid fa-magnifying-glass" style="color:#21d4fd;"></i>
-  <input id="palSearch" type="text" placeholder="ابحث هنا عن اي مادة للتعديل عليها مباشر" />
-  <button id="palClear" class="search-clear" title="مسح" aria-label="مسح">
-    <i class="fa-solid fa-xmark"></i>
-  </button>
-</div>
-
-      
-      
-      
-      
-    <div class="palette-actions">
-  <button class="btn amber icon" id="palBulkDel" title="حذف المحدد" aria-label="حذف المحدد">
-    <i class="fa-regular fa-trash-can"></i>
-  </button>
-  <button class="btn blue icon" id="palClose" title="إغلاق" aria-label="إغلاق">
-    <i class="fa-solid fa-xmark"></i>
-  </button>
-</div>
-
-    </div>
-
-    <div class="palette-body" id="palList">
-      <!-- يُولد ديناميكياً -->
-    </div>
-
-   <div class="palette-foot">
-  <div class="foot-note">تحديث حيّ — أي تعديل هنا يُحفظ فورًا ويظهر في الجدول مباشرةً</div>
-</div>
-
-    
-    
-    
-  </div>
-</div>
-
-  
-  
-  
-  
-  <!-- نافذة تأكيد تعديل المادة -->
-<div id="confirmModal" class="auth-overlay">
-  <div class="auth-card" style="text-align:center;">
-    <h3 style="margin:0 0 6px 0;">المادة موجودة بالفعل</h3>
-    <p style="margin:0 0 14px 0; color:#aab0c0;">هل تريد تعديل العدد والملاحظات؟</p>
-    <div style="display:flex; gap:10px; justify-content:center;">
-      <button id="confirmYes" class="btn green"><i class="fa-solid fa-check"></i> نعم</button>
-      <button id="confirmNo" class="btn amber"><i class="fa-solid fa-xmark"></i> لا</button>
-    </div>
-  </div>
-</div>
-
-
-
-
-<!-- نافذة تأكيد حذف الفاتورة -->
-<div id="deleteInvoiceModal" class="auth-overlay" aria-hidden="true">
-  <div class="auth-card" role="dialog" aria-modal="true" style="text-align:center;">
-    <h3 style="margin:0 0 6px 0;">حذف الفاتورة؟</h3>
-    <p style="margin:0 0 14px 0; color:#aab0c0;">سيتم حذف الفاتورة نهائياً من الجهاز.</p>
-    <div style="display:flex; gap:10px; justify-content:center;">
-      <button id="delInvYes" class="btn green"><i class="fa-solid fa-check"></i> نعم</button>
-      <button id="delInvNo"  class="btn amber"><i class="fa-solid fa-xmark"></i> لا</button>
-    </div>
-  </div>
-</div>
-
-
-
-<!-- نافذة إعادة تسمية الفاتورة -->
-<div id="renameInvoiceModal" class="auth-overlay" aria-hidden="true">
-  <div class="auth-card" role="dialog" aria-modal="true" style="text-align:center;">
-    <h3 style="margin:0 0 6px 0;">إعادة تسمية الفاتورة</h3>
-    <p style="margin:0 0 10px 0; color:#aab0c0;">اكتب الاسم الجديد ثم اضغط حفظ</p>
-    <input id="renameInvInput" class="gfield" type="text" placeholder="اسم الفاتورة"
-           style="text-align:center; margin-bottom:12px;" />
-    <div style="display:flex; gap:10px; justify-content:center;">
-      <button id="renameInvYes" class="btn green"><i class="fa-solid fa-check"></i> حفظ</button>
-      <button id="renameInvNo"  class="btn amber"><i class="fa-solid fa-xmark"></i> إلغاء</button>
-    </div>
-  </div>
-</div>
-
-
-
-
-<!-- نافذة تأكيد دمج الملفات -->
-<div id="mergeConfirmModal" class="auth-overlay" aria-hidden="true">
-  <div class="auth-card" role="dialog" aria-modal="true" style="text-align:center;">
-    <h3 style="margin:0 0 6px 0;">تم العثور على عناصر متشابهة</h3>
-    <p id="mergeDupMsg" style="margin:0 0 14px 0; color:#aab0c0;">
-      هل تريد الدمج بأخذ <b>أكبر كمية</b> لكل مجموعة متشابهة؟
-    </p>
-    <div style="display:flex; gap:10px; justify-content:center;">
-      <button id="mergeYes" class="btn green"><i class="fa-solid fa-check"></i> نعم، دمج</button>
-      <button id="mergeNo"  class="btn amber"><i class="fa-solid fa-xmark"></i> تراجع</button>
-    </div>
-  </div>
-</div>
-
-
-  
-  
-  
-  
-  
-
-  <!-- ====== Layout ====== -->
-  <main class="layout">
-
-    <!-- ====== Sidebar ====== -->
-    <aside class="sidebar" id="sidebar">
-      <div class="panel-title">
-  <h3><i class="fa-regular fa-folder-open"></i> الفواتير السابقة</h3>
-
-  <!-- زر استيراد + مُلتقط ملف مخفي -->
-  <div style="display:flex; gap:8px;">
-    <button class="icon-btn" id="btnImportPrev" title="استيراد فاتورة (Excel/CSV)">
-      <i class="fa-solid fa-file-arrow-down"></i>
-    </button>
-    <input id="prevImportPicker" type="file"
-           accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.csv,text/csv"
-           style="display:none;">
-  </div>
-</div>
-    
-
-      <!-- لائحة الفواتير السابقة (نفس الـ id القديم لكن داخل الشريط) -->
-      <div class="invoices-list" id="invoicesDropdown"></div>
-    </aside>
-    
-    
-    
-        <!-- ====== Sidebar مستقل (الفواتير المستوردة PDF) ====== -->
-    <aside class="sidebar" id="importedSidebar">
-    <div class="panel-title">
-  <h3><i class="fa-solid fa-file-import"></i>الفواتير المستوردة</h3>
-  <div style="display:flex; gap:8px;">
-    <button class="icon-btn" id="btnImportPDF" title="استيراد ملفات">
-      <i class="fa-solid fa-download"></i>
-    </button>
-
-    <!-- PDF: نفس الزر بس بأيقونة أوضح -->
-    <button class="icon-btn" id="btnMergePDF" title="دمج (PDF مرتب)">
-      <i class="fa-regular fa-file-pdf"></i>
-    </button>
-
-    <!-- جديد: دمج وتصدير CSV -->
-    <button class="icon-btn" id="btnMergeCSV" title="دمج (CSV)">
-      <i class="fa-solid fa-file-csv"></i>
-    </button>
-  </div>
-</div>
-
-
-      <div id="importedPdfList" class="invoices-list"></div>
-     <input id="pdfFilePicker" type="file"
-  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.csv,text/csv"
-  multiple style="display:none;">
-
-    </aside>
-
-    
-    
-    
-    
-
-    <!-- ====== Content ====== -->
-    <section class="content">
-
-
-      <!-- بطاقة معلومات الفاتورة الحالية -->
-      <div class="card" style="display:flex; align-items:center; gap:12px;">
-        <i class="fa-regular fa-file-lines" style="font-size:28px; color:#21d4fd;"></i>
-        <div>
-          <div style="font-weight:800; letter-spacing:.2px;">فاتورة حالية</div>
-          <div style="color:var(--muted); font-size:12px;">رقم الفاتورة: <span id="invoiceId">-</span></div>
+      <div class="r-center">
+        <div class="brand">
+          <div class="dot">A</div>
+          <div class="name">فواتير ديون يومية مكتب عسل</div>
         </div>
       </div>
 
-      <!-- محرر الفاتورة -->
-      <div class="card">
-        <div class="title"><span><i class="fa-solid fa-pen-to-square"></i> إضافة مادة</span><span class="muted">Editor</span></div>
-
-       <div class="editor">
-
-  <!-- الصنف -->
-  <div class="category">
-    <!-- زر فتح القائمة -->
-    <div class="cat-select" id="catSelect">
-      <div class="cat-btn" id="catBtn">
-        <span id="catText"><i class="fa-solid fa-layer-group"></i> اختر الصنف</span>
-        <i class="fa-solid fa-chevron-down"></i>
+      <div class="r-right">
+        <button class="icon" id="btnRefresh" title="تحديث"><i class="fa-solid fa-rotate-right"></i></button>
+        <button class="icon" id="btnSearch" title="بحث"><i class="fa-solid fa-magnifying-glass"></i></button>
       </div>
-
-      <!-- قائمة الأصناف -->
-      <div class="cat-list" id="catList">
-  <div class="cat-item" data-val="LCD"><i class="fa-solid fa-tv"></i> شاشات</div>
-  <div class="cat-item" data-val="BATTERY"><i class="fa-solid fa-bolt"></i> بطاريات</div>
-  <div class="cat-item" data-val="CAMERA"><i class="fa-solid fa-camera"></i> كاميرات</div>
-  <div class="cat-item" data-val="CHARGING"><i class="fa-solid fa-plug"></i> شحن</div>
-  <div class="cat-item" data-val="SPEAKER"><i class="fa-solid fa-headphones"></i> سماعة</div>
-  <div class="cat-item" data-val="HOUSING"><i class="fa-solid fa-border-none"></i> شواصي</div>
-  <div class="cat-item" data-val="BACK"><i class="fa-solid fa-mobile-screen"></i> أظهر</div>
-  <div class="cat-item" data-val="BUZZER"><i class="fa-solid fa-bell"></i> جرس</div>
-  <div class="cat-item" data-val="FINGER"><i class="fa-solid fa-fingerprint"></i> بصمة</div>
-
-  <!-- الصنف الجديد المطلوب -->
-  <div class="cat-item" data-val="FLAT LCD"><i class="fa-solid fa-film"></i> فلات شاشة</div>
-  <div class="cat-item" data-val="POWER"><i class="fa-solid fa-charging-station"></i> فلات بور</div>
-  <div class="cat-item" data-val="VOLUME"><i class="fa-solid fa-sliders"></i> فلات صوت</div>
-
-  <div class="cat-item" data-val="LENS"><i class="fa-solid fa-bullseye"></i> عدسة كاميرا</div>
-
-
-  <div class="cat-item" data-val="NO-CATEGORY"><i class="fa-regular fa-square"></i> بدون صنف</div>
-</div>
-
-    </div>
-
-    <!-- الحقل المخفي -->
-    <input id="categorySelect" type="hidden" />
-  </div>
-
-  <!-- اسم القطعة -->
-  <div class="ginput">
-    <div style="position:relative;">
-      
-      
-   <input id="searchInput" class="gfield" type="text" placeholder="اكتب اسم القطعة..." 
-       lang="en" style="ime-mode:disabled;" oninput="showSuggestions()" />
-     
-     
-     
-      <ul id="autocompleteSuggestions"></ul>
     </div>
   </div>
 
-  <!-- العدد + الملاحظات بنفس الصف ومتساوي -->
-<div class="line-qty-note">
-  <div class="ginput">
-   <input id="itemQty" class="gfield" type="number" inputmode="numeric" pattern="\d*"
-       min="1" step="1" placeholder="عدد القطع" />
+  <!-- Layout -->
+  <main class="layout">
+    <!-- Rail -->
+    <aside class="rail">
+      <h3><i class="fa-regular fa-calendar-days"></i> الفواتير السابقة</h3>
+      <div class="search">
 
-  </div>
-  <div class="ginput">
-    <input id="itemNote" class="gfield" type="text" placeholder="ملاحظات" />
-  </div>
-</div>
+<input id="dayFilter" class="input" type="text" placeholder="فلترة (مثال: 02-10-2025 )"/>
 
 
-  <!-- زر الإضافة لوحده -->
-<div class="ginput">
-  <button id="btnAddItem" class="btn" type="button" onclick="addItem()">
-    <i class="fa-solid fa-plus"></i> إضافة
-  </button>
-</div>
-
-<!-- حفظ + PDF بنفس الصف ومتساوي -->
-<div class="line-actions">
-  <button class="btn green" onclick="saveInvoice()">
-    <i class="fa-regular fa-floppy-disk"></i> حفظ
-  </button>
-  <button class="btn blue" onclick="exportPDF()">
-    <i class="fa-regular fa-file-pdf"></i> PDF
-  </button>
-</div>
-
-
-      <!-- الجدول -->
-      <div class="card table-wrap">
-        <table id="itemsTable">
-          <thead>
-            <tr>
-              <th>الصنف</th>
-              <th>القطعة</th>
-              <th>العدد</th>
-              <th>ملاحظات</th>
-              <th>إزالة</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
       </div>
+      <div id="rail" class="timeline"></div>
+    </aside>
 
+    <!-- Board -->
+    <section class="board">
+      
+      
+     <div class="board-head">
+  <div class="chips">
+    <span class="chip"><i class="fa-solid fa-layer-group"></i> بطاقات اليوم</span>
+    <span id="cardsCount" class="chip">0 بطاقة</span>
+  </div>
+
+  <div class="board-search">
+    <input id="cardSearch" class="input" type="text" placeholder="بحث بالاسم (مثال: حسين)"/>
+    <label class="chip" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;flex:0 0 auto">
+      <input id="globalSearch" type="checkbox" style="accent-color:#7c3aed;width:16px;height:16px;cursor:pointer">
+      بحث كل الأيام
+    </label>
+  </div>
+
+  <div class="chips">
+    <button id="btnExportDay" class="btn ghost"><i class="fa-regular fa-file-pdf"></i> PDF اليوم</button>
+    <button id="btnClearDay" class="btn ghost"><i class="fa-regular fa-trash-can"></i> تفريغ اليوم</button>
+  </div>
+</div>
+
+
+
+
+      
+      
+      <div id="masonry" class="masonry"></div>
     </section>
+
+    <!-- Insights -->
+    <aside class="insights">
+      <h3><i class="fa-solid fa-chart-simple"></i> ملخص اليوم</h3>
+      <div class="stat"><span>عدد البطاقات</span><b id="statCards">0</b></div>
+      <div class="stat"><span>عدد المواد</span><b id="statItems">0</b></div>
+      <div class="stat"><span>آخر تحديث</span><b id="statTime">—</b></div>
+      <div style="margin-top:auto;color:#9aa4b2;font-size:12px">واجهة تجريبية — ربط Google Sheets/PDF لاحقاً</div>
+    </aside>
   </main>
 
-  <!-- زر عائم = فاتورة جديدة -->
-  <button class="fab" id="fab" title="فاتورة جديدة">
-    <i class="fa-solid fa-plus"></i>
-  </button>
+  <!-- Dock -->
+  
+  
+  <div class="dock">
+  <div class="dock-inner">
+    <!-- 1) اسم الزبون -->
+    <input id="cust" class="field" type="text" placeholder="اسم الزبون" list="custNames"/>
 
-  <!-- Toast -->
-  <div class="toast-container">
-    <div class="toast" id="appToast">
-      <i class="fa-solid fa-circle-check" style="color:#34d399;"></i>
-      <span>تمت العملية بنجاح.</span>
+    <!-- 2) نوع الفاتورة -->
+    <select id="type" class="field">
+      <option value="بيع" selected>بيع</option>
+      <option value="راجع">راجع</option>
+    </select>
+
+    <!-- 3) الصنف -->
+   <select id="cat" class="field">
+  <option value="">الصنف</option>
+  <option>LCD</option>
+  <option>BATTERY</option>
+  <option>CAMERA</option>
+  <option>CHARGING</option>
+  <option>SPEAKER</option>
+  <option>HOUSING</option>
+  <option>BACK</option>
+  <option>BUZZER</option>
+  <option>FINGER</option>
+  <option>FLAT LCD</option>
+  <option>POWER</option>
+  <option>VOLUME</option>
+  <option>LENS</option>
+  <option>NO-CATEGORY</option>
+</select>
+
+
+    <!-- 4) اسم المادة -->
+  <div style="position:relative; min-width:0;">
+  <input id="item" class="field" type="text" placeholder="اسم القطعة"/>
+  <ul id="itemSuggestions" style="
+    display:none; position:absolute; inset-inline:0; top:calc(100% + 6px);
+    z-index:1000; background:#0b1327; border:1px solid var(--stroke);
+    border-radius:10px; max-height:240px; overflow:auto; margin:0; padding:6px 0; list-style:none;
+  "></ul>
+</div>
+
+    
+    <!-- حاوية اقتراحات الأوتوكومبليت لاسم القطعة -->
+<ul id="itemSuggestions" style="
+  display:none; position:absolute; z-index:1000;
+  background:#0b1327; border:1px solid var(--stroke); border-radius:10px;
+  max-height:240px; overflow:auto; margin:6px 0 0; padding:6px 0; list-style:none;
+"></ul>
+
+    
+    
+    
+
+    <!-- 5) العدد -->
+    <input id="qty"  class="field" type="number" min="1" step="1" placeholder="العدد"/>
+
+    <!-- 6) الملاحظات + زر الإضافة داخل نفس الخانة -->
+    <div class="note-wrap">
+      <input id="note" class="field note-field" type="text" placeholder="ملاحظات (اختياري)"/>
+      <button id="btnAdd" class="btn primary note-add">
+        <i class="fa-solid fa-plus"></i> إضافة
+      </button>
     </div>
   </div>
+  <datalist id="custNames"></datalist>
+</div>
+
+
+  
+
+  <!-- Footer -->
+  <div class="footer">© ASSAL — واجهة تجريبية</div>
+
+  <!-- ===== Modal ===== -->
+  <div id="modal-backdrop" class="modal-backdrop"></div>
+  <div id="modal" class="modal" aria-modal="true" role="dialog">
+    <div class="modal-card" role="document">
+      <div class="modal-head" id="modal-title">تأكيد</div>
+      <div class="modal-body" id="modal-body">هل أنت متأكد؟</div>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="modal-btn ghost">إلغاء</button>
+        <button id="modal-confirm" class="modal-btn danger">تأكيد</button>
+      </div>
+    </div>
+  </div>
+  
+  
+  <!-- Toasts -->
+<div id="toasts" class="toasts" aria-live="polite" aria-atomic="true"></div>
+
 
   <script>
-    /* =========================
-       متغيرات عامة (نفس القديمة)
-       ========================= */
-    let currentInvoice = null;                                             // الفاتورة الحالية
-    let invoices = JSON.parse(localStorage.getItem("invoices") || "[]");   // كل الفواتير المخزنة
-    let selectedInvoiceIndex = null;                                       // مؤشر الفاتورة المختارة
-    let database = {};                                                     // قاعدة بيانات الأصناف من الإكسل
-    let currentCategory = "";                                              // الصنف الحالي المختار
-    let importedPdfFiles = [];                                             // ملفات PDF المستوردة مؤقتًا
-
-    // رابط ملف الإكسل (نفسك)
-  const dropboxMainFile = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSZww_ZDcqXnX6pUjlKccZdFUkRR9Z_JmfmdvNsnGVYT_rq_RTsSB1ydTy6QVrrS_o4s_ml1DNBTnaQ/pub?output=xlsx" + "&t=" + new Date().getTime();
-
-
-
-
-function attachBackdropGuards(modalEl, cardSelector){
-  const card = modalEl.querySelector(cardSelector);
-  if(!card) return;
-
-  const swallow = (e)=>{
-    if(!card.contains(e.target)){         // أي حدث على الخلفية فقط
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation?.();     // تأكيد كتم جميع الليسنرات
-    }
-  };
-
-  modalEl.__swallow = swallow;
-
-  modalEl.addEventListener('touchstart', swallow, { passive:false });
-  modalEl.addEventListener('touchmove',  swallow, { passive:false });
-  modalEl.addEventListener('pointerdown',swallow, { passive:false });
-  modalEl.addEventListener('wheel',      swallow, { passive:false });
-  // ✅ جديد: ابتلاع click أيضاً حتى ما يتعامل معه أي كود ثاني
-  modalEl.addEventListener('click',      swallow, { passive:false });
-}
-
-function detachBackdropGuards(modalEl){
-  const s = modalEl.__swallow;
-  if(!s) return;
-  modalEl.removeEventListener('touchstart', s, { passive:false });
-  modalEl.removeEventListener('touchmove',  s, { passive:false });
-  modalEl.removeEventListener('pointerdown',s, { passive:false });
-  modalEl.removeEventListener('wheel',      s, { passive:false });
-  // ✅ جديد: إزالة click
-  modalEl.removeEventListener('click',      s, { passive:false });
-  delete modalEl.__swallow;
-}
-
-
-
-/* ===== System Modal Controller (جديد) ===== */
-function createSystemController(){
-  const modal = document.getElementById("systemModal");
-  const title = document.getElementById("sysTitle");
-  const sub   = document.getElementById("sysSub");
-  const pctEl = document.getElementById("sysPct");
-  const check = document.getElementById("sysCheck");
-  const stepsHost = document.getElementById("sysSteps");
-  const ring  = modal.querySelector(".ring-svg .progress");
-  const CIRC  = 2 * Math.PI * 52;
-
-  let steps = [];
-  let activeIdx = -1;
-
-  function show(){
-    modal.classList.add("show");
-    modal.setAttribute("aria-hidden", "false");
-    document.body.classList.add("body-no-scroll");
-    attachBackdropGuards(modal, ".sys-window");
-  }
-  function hide(){
-    modal.classList.remove("show");
-    modal.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("body-no-scroll");
-    detachBackdropGuards(modal);
-  }
-
-  function renderSteps(){
-    stepsHost.innerHTML = "";
-    steps.forEach((s, i)=>{
-      const el = document.createElement("div");
-      el.className = "sys-step" + (i < activeIdx ? " done" : (i === activeIdx ? " active" : ""));
-      el.innerHTML = `
-        <div class="dot"></div>
-        <div>${s.label}${s.hint ? ` <small>• ${s.hint}</small>` : ""}</div>
-      `;
-      stepsHost.appendChild(el);
-    });
-  }
-
-  return {
-    // 🔄 بدون primaryText/primaryAction
-    open({titleText, subText, stepsList = []} = {}){
-      title.textContent = titleText || "جاري التحديث";
-      sub.textContent   = subText   || "";
-      check.classList.remove("show");
-
-      // رجّع النسبة ظاهرة
-      pctEl.classList.remove("is-hidden");
-      pctEl.textContent = "0%";
-
-      // صفر الحلقة
-      ring.style.strokeDasharray  = CIRC;
-      ring.style.strokeDashoffset = CIRC;
-
-      // رجّع الخطوات إن كانت مخفية
-      stepsHost.style.removeProperty("display");
-      stepsHost.style.opacity = "1";
-      stepsHost.style.transform = "translateY(0)";
-
-      steps = stepsList;
-      activeIdx = steps.length ? 0 : -1;
-      renderSteps();
-      show();
-    },
-
-    setStep(i){
-      activeIdx = Math.max(0, Math.min(i, steps.length - 1));
-      renderSteps();
-    },
-
-    setProgress(p){
-      const clamped = Math.max(0, Math.min(100, p|0));
-      pctEl.textContent = clamped + "%";
-      const off = CIRC * (1 - clamped/100);
-      ring.style.strokeDashoffset = off;
-    },
-
-    setText({titleText, subText}={}){
-      if(titleText != null) title.textContent = titleText;
-      if(subText   != null) sub.textContent   = subText;
-    },
-
-    // ✅ تسلسل أنيق عند 100%:
-    // 1) إخفاء الرقم  2) إظهار الصح  3) إخفاء الخطوات  4) تغيير العناوين
-    success({titleText="تم التحديث بنجاح ✅", subText="شكرًا لصبركم 💙"} = {}){
-      this.setProgress(100);
-
-      // (1) أخفِ الرقم
-      pctEl.classList.add("is-hidden");
-
-      // (2) بعد لمحة قصيرة، أظهر الصح
-      setTimeout(()=>{ check.classList.add("show"); }, 150);
-
-      // (3) اطمس الخطوات بسلاسة
-      stepsHost.style.transition = "opacity .28s ease, transform .28s ease";
-      requestAnimationFrame(()=>{
-        stepsHost.style.opacity = "0";
-        stepsHost.style.transform = "translateY(-4px)";
-      });
-
-      // (4) بعد طمس الخطوات، أخفها وحدّث النصوص
-      setTimeout(()=>{
-        stepsHost.style.display = "none";
-        this.setText({ titleText, subText });
-      }, 350);
-    },
-
-    close: hide
-  };
-}
-
-
-
-/* ===== تجربة إعادة التحميل الجديدة ===== */
-function reloadPage({
-  seconds = 4,
-  steps = [
-    {label:"تجهيز الواجهة", hint:"تهيئة المكوّنات والأنماط"},
-    {label:"قراءة البيانات", hint:"جلب الملفّات اللازمة"},
-    {label:"لمسات أخيرة",  hint:"تحسينات وتجميع"}
-  ],
-  preTitle = "جاري تحديث الصفحة",
-  preSub   = "نحدّث البيانات والواجهات…",
-  postTitle= "تم التحديث ✅",
-  postSub  = "نأخذك لآخر نسخة الآن…"
-} = {}){
-  const ctl = createSystemController();
-  let p = 0;
-  let idx = 0;
-
- ctl.open({
-  titleText: preTitle,
-  subText:  preSub,
-  stepsList: steps
-});
-
-
-  const totalMs = seconds * 1000;
-  const tick    = 80;
-  const perTick = 100 / (totalMs / tick);
-
-  const timer = setInterval(()=>{
-    p = Math.min(100, p + perTick);
-    ctl.setProgress(Math.round(p));
-
-    const stepSize = 100 / Math.max(steps.length, 1);
-    const newIdx = Math.min(steps.length - 1, Math.floor(p / stepSize));
-    if(newIdx !== idx){ idx = newIdx; ctl.setStep(idx); }
-
-   if(p >= 100){
-  clearInterval(timer);
-  ctl.success({ titleText: postTitle, subText: postSub });
-  setTimeout(()=> window.location.reload(), 1500);
-}
-  }, tick);
-}
-
-/* زر الهيدر */
-document.getElementById("btnReload")?.addEventListener("click", ()=>{
-  reloadPage({
-    seconds: 4,
-    preTitle: "جاري تحديث الصفحة",
-    preSub:   "نحدّث البيانات والواجهات…",
-    postTitle:"تم التحديث بنجاح ✅",
-    postSub:  "نأخذك لآخر نسخة الآن…"
-  });
-});
-
-
-
-
-
-
-
-
-
-
-    /* =========================
-       تحميل جداول الإكسل
-       ========================= */
-    async function loadExcelFiles(){
-      try{
-        const response = await fetch(dropboxMainFile, { cache: 'no-store' });
-        const buffer = await response.arrayBuffer();
-        const workbook = XLSX.read(buffer, { type:"array" });
-        database = {
-          LCD      : XLSX.utils.sheet_to_json(workbook.Sheets["LCD"]      || {}, {defval:null}),
-          BATTERY  : XLSX.utils.sheet_to_json(workbook.Sheets["BATTERY"]  || {}, {defval:null}),
-          HOUSING  : XLSX.utils.sheet_to_json(workbook.Sheets["HOUSING"]  || {}, {defval:null}),
-          BACK     : XLSX.utils.sheet_to_json(workbook.Sheets["BACK"]     || {}, {defval:null}),
-          CAMERA   : XLSX.utils.sheet_to_json(workbook.Sheets["CAMERA"]   || {}, {defval:null}),
-          CHARGING : XLSX.utils.sheet_to_json(workbook.Sheets["CHARGING"] || {}, {defval:null}),
-          BUZZER   : XLSX.utils.sheet_to_json(workbook.Sheets["BUZZER"]   || {}, {defval:null}),
-          SPEAKER : XLSX.utils.sheet_to_json(workbook.Sheets["SPEAKER"]|| {}, {defval:null}),
-          FINGER   : XLSX.utils.sheet_to_json(workbook.Sheets["FINGER"]   || {}, {defval:null}),
-          "FLAT LCD"   : XLSX.utils.sheet_to_json(workbook.Sheets["FLAT LCD"]   || {}, {defval:null}),
-          POWER   : XLSX.utils.sheet_to_json(workbook.Sheets["POWER"]   || {}, {defval:null}),
-          VOLUME   : XLSX.utils.sheet_to_json(workbook.Sheets["VOLUME"]   || {}, {defval:null}),
-          LENS   : XLSX.utils.sheet_to_json(workbook.Sheets["LENS"]   || {}, {defval:null})
-          
-        };
-      }catch(err){
-        console.error("❌ خطأ تحميل:", err);
-        showToast("تعذر تحميل البيانات ❌", true);
-      }
-    }
-
-    /* =========================
-       أدوات مساعدة
-       ========================= */
-       
-       
-       // ===== التحقق من الحقول =====
-function isPositiveInt(v){
-  // نقبل "001" بس نحوله رقم صحيح > 0
-  const s = String(v ?? "").trim();
-  if(!/^\d+$/.test(s)) return false;
-  return parseInt(s, 10) > 0;
-}
-
-// فوكس + تحديد محتوى
-function focusAndSelect(id){
-  const el = document.getElementById(id);
-  if(!el) return;
-  el.focus();
-  setTimeout(()=> el.select && el.select(), 0);
-}
-
-/**
- * يتحقق من اسم القطعة + العدد
- * @param {string} ctx سياق التحقق (add/save/enter) للتركيز المناسب
- * @returns {boolean} صالح/غير صالح
- */
-function validateItemFields(ctx="add"){
-  const name = document.getElementById("searchInput").value.trim();
-  const qty  = document.getElementById("itemQty").value.trim();
-
-  // اسم القطعة
-  if(!name){
-    showToast("يرجى إدخال اسم القطعة ❌", true);
-    focusAndSelect("searchInput");
-    return false;
-  }
-
-  // العدد
-  if(!qty){
-    showToast("يرجى إدخال العدد ❌", true);
-    focusAndSelect("itemQty");
-    return false;
-  }
-  if(!isPositiveInt(qty)){
-    showToast("إدخال خاطئ، يرجى اختيار رقم صحيح (1 فأعلى) ❌", true);
-    focusAndSelect("itemQty");
-    return false;
-  }
-
-  return true;
-}
-
-       
-       
-       
-       
-       
-    function normalizeString(str){ return (str||"").replace(/\s+/g,'').toLowerCase(); }
     
     
-    function escapeHtml(s){
-  return String(s ?? "")
-    .replace(/&/g,"&amp;")
-    .replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;")
-    .replace(/"/g,"&quot;")
-    .replace(/'/g,"&#39;");
+    // ===== Excel DB (تحميل جوجل شيت) =====
+let database = {};   // نخزّن بيه جداول الأصناف
+
+// نفس رابطك (استخدم Google Sheets published XLSX)
+const dropboxMainFile =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSZww_ZDcqXnX6pUjlKccZdFUkRR9Z_JmfmdvNsnGVYT_rq_RTsSB1ydTy6QVrrS_o4s_ml1DNBTnaQ/pub?output=xlsx"
+  + "&t=" + new Date().getTime();
+
+async function loadExcelFiles(){
+  try{
+    const resp   = await fetch(dropboxMainFile, { cache: 'no-store' });
+    const buffer = await resp.arrayBuffer();
+    const wb     = XLSX.read(buffer, { type:"array" });
+
+    database = {
+      LCD       : XLSX.utils.sheet_to_json(wb.Sheets["LCD"]       || {}, {defval:null}),
+      BATTERY   : XLSX.utils.sheet_to_json(wb.Sheets["BATTERY"]   || {}, {defval:null}),
+      HOUSING   : XLSX.utils.sheet_to_json(wb.Sheets["HOUSING"]   || {}, {defval:null}),
+      BACK      : XLSX.utils.sheet_to_json(wb.Sheets["BACK"]      || {}, {defval:null}),
+      CAMERA    : XLSX.utils.sheet_to_json(wb.Sheets["CAMERA"]    || {}, {defval:null}),
+      CHARGING  : XLSX.utils.sheet_to_json(wb.Sheets["CHARGING"]  || {}, {defval:null}),
+      BUZZER    : XLSX.utils.sheet_to_json(wb.Sheets["BUZZER"]    || {}, {defval:null}),
+      SPEAKER   : XLSX.utils.sheet_to_json(wb.Sheets["SPEAKER"]   || {}, {defval:null}),
+      FINGER    : XLSX.utils.sheet_to_json(wb.Sheets["FINGER"]    || {}, {defval:null}),
+      "FLAT LCD": XLSX.utils.sheet_to_json(wb.Sheets["FLAT LCD"]  || {}, {defval:null}),
+      POWER     : XLSX.utils.sheet_to_json(wb.Sheets["POWER"]     || {}, {defval:null}),
+      VOLUME    : XLSX.utils.sheet_to_json(wb.Sheets["VOLUME"]    || {}, {defval:null}),
+      LENS      : XLSX.utils.sheet_to_json(wb.Sheets["LENS"]      || {}, {defval:null})
+    };
+
+    // للتأكيد
+    // console.log("DB loaded:", Object.keys(database));
+  }catch(err){
+    console.error("❌ خطأ تحميل:", err);
+    showToast?.('error','تعذر تحميل بيانات الأصناف');
+  }
 }
 
 
-    function getDayNameAr(d){
-      return ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"][d.getDay()];
-    }
 
-    function formatInvoiceName(){
-      const d = new Date();
-      return `فاتورة ${getDayNameAr(d)} - ${d.toLocaleDateString("ar-EG")}`;
-    }
+// ===== أوتوكومبليت لاسم القطعة معتمد على الصنف المختار =====
+let __autoIdx = -1;
 
-    /* =========================
-       اقتراحات البحث حسب الصنف
-       ========================= */
-  function showSuggestions(){
-  const q = normalizeString(document.getElementById("searchInput").value.trim());
-  const suggestions = document.getElementById("autocompleteSuggestions");
-  suggestions.innerHTML = ""; 
-  suggestions.style.display = "none";
+function norm(s){ return String(s||'').replace(/\s+/g,'').toLowerCase(); }
 
-  if(!q || !document.getElementById("categorySelect").value) return;
-  currentCategory = document.getElementById("categorySelect").value;
-  if(currentCategory === "NO-CATEGORY") return;
+function getSelectedCat(){
+  const c = document.getElementById('cat')?.value || '';
+  return c.trim();
+}
 
-  const list = database[currentCategory] || [];
-  const filtered = list.filter(it=>{
-    const name = normalizeString(it["Item Name"] || it["Item"] || "");
+
+
+
+
+
+
+
+function renderItemSuggestions(){
+  const host = document.getElementById('itemSuggestions');
+  const qEl  = document.getElementById('item');
+  if(!host || !qEl) return;
+
+  const cat = getSelectedCat();
+  const q   = norm(qEl.value.trim());
+
+  host.innerHTML = '';
+  host.style.display = 'none';
+  __autoIdx = -1;
+
+  // إذا ما مختار صنف أو NO-CATEGORY، لا نعرض اقتراحات
+  if(!cat || cat === 'NO-CATEGORY') return;
+  // إذا قاعدة البيانات بعد ما انملت، انتظر (ما نعرض شي)
+  const list = database[cat] || [];
+  if(!q) return;
+
+  // نجرّب حقول اسم شائعة
+  const filtered = list.filter(row=>{
+    const name = norm(row["Item Name"] || row["Item"] || '');
     return name.includes(q);
-  });
-
-  if(filtered.length > 0){
-    suggestions.style.display = "block";
-    filtered.slice(0,20).forEach(it=>{
-      const li = document.createElement("li");
-      li.className = "list-group-item list-group-item-action";
-      li.textContent = it["Item Name"] || it["Item"];
-
-      // التعديل هنا 👇
-      li.addEventListener("click", ()=>{
-        document.getElementById("searchInput").value = li.textContent;
-        suggestions.style.display = "none";
-        document.getElementById("itemQty").focus(); // ينزل مباشرة على العدد
-      });
-
-      suggestions.appendChild(li);
-    });
-  }
-}
-
-
-    /* =========================
-       إضافة مادة للفاتورة
-       ========================= */
-  function addItem(){
- if(!currentInvoice){
-    showToast("أنشئ فاتورة جديدة أولاً ❌","danger");
-    return;
-  }
-
-  // ✅ تحقق صارم قبل أي شيء
-  if(!validateItemFields("add")) return;
-
-  const category = document.getElementById("categorySelect").value;
-  const name     = document.getElementById("searchInput").value.trim();
-  const qty      = document.getElementById("itemQty").value.trim() || "1";
-  const note     = document.getElementById("itemNote").value.trim() || "";
-
-  if(!category || !name){
-    showToast("أدخل الصنف واسم القطعة ❌","danger");
-    return;
-  }
-
-  
-// نعدّله ليصير: نفس الصنف + نفس الاسم + نفس الملاحظات
-const existingIndex = (currentInvoice.items || []).findIndex(
-  (it) =>
-    it.category === category &&
-    it.name === name &&
-    (String(it.note || "").trim() === String(note || "").trim())
-);
-
-
-  if(existingIndex !== -1){
-    // افتح نافذة التأكيد
-    const modal = document.getElementById("confirmModal");
-    modal.style.display = "flex";
-
-    // نعم = عدّل نفس السطر
-    document.getElementById("confirmYes").onclick = ()=>{
-      currentInvoice.items[existingIndex].qty  = qty;
-      currentInvoice.items[existingIndex].note = note;
-
-      renderItems();
-      autoSaveInvoice();
-
-      modal.style.display = "none";
-      showToast("✏️ تم تعديل المادة وحفظ الفاتورة","info");
-
-      // تفريغ + فوكس
-      document.getElementById("searchInput").value="";
-      document.getElementById("itemQty").value="";
-      document.getElementById("itemNote").value="";
-      document.getElementById("searchInput").focus();
-    };
-
-    // لا = إغلاق فقط
-    document.getElementById("confirmNo").onclick = ()=>{
-      modal.style.display = "none";
-    };
-
-  } else {
-    // مادة جديدة
-    if(!Array.isArray(currentInvoice.items)) currentInvoice.items = [];
-    currentInvoice.items.push({category,name,qty,note});
-
-    renderItems();
-    autoSaveInvoice();
-
-    showToast("تمت إضافة المادة وحفظ الفاتورة ✅","success");
-
-    // تفريغ + فوكس
-    document.getElementById("searchInput").value="";
-    document.getElementById("itemQty").value="";
-    document.getElementById("itemNote").value="";
-    document.getElementById("searchInput").focus();
-  }
-}
-
-    /* =========================
-       رسم جدول العناصر
-       ========================= */
-    function renderItems(){
-      const tbody = document.querySelector("#itemsTable tbody");
-      tbody.innerHTML = "";
-      if(!currentInvoice) return;
-
-      currentInvoice.items.forEach((it, i)=>{
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${it.category}</td>
-          <td>${it.name}</td>
-          <td>${it.qty}</td>
-          <td>${it.note}</td>
-          <td>
-            <button class="btn-danger-custom" title="حذف" onclick="removeItem(${i})">
-  <i class="fa-regular fa-trash-can"></i>
-</button>
-
-          </td>`;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function removeItem(i){
-  currentInvoice.items.splice(i,1);
-  renderItems();
-  autoSaveInvoice(); // ✅ إضافة
-  showToast("تم حذف المادة وحفظ الفاتورة 🗑️");
-}
-
-
-    /* =========================
-       إنشاء / حفظ / فتح / حذف فواتير
-       ========================= */
-       
-       
- function newInvoice(){
-  const today = new Date().toLocaleDateString("ar-EG");
-  const defaultName = formatInvoiceName(); // الاسم الافتراضي: "فاتورة <اليوم> - <التاريخ>"
-
-  // نبحث فقط عن فاتورة اليوم التي ما زالت تحمل الاسم الافتراضي (يعني غير مُعاد تسميتها)
-  const existingIndex = invoices.findIndex(inv => inv.date === today && inv.id === defaultName);
-
-  if(existingIndex !== -1){
-    currentInvoice = invoices[existingIndex];
-    selectedInvoiceIndex = existingIndex;
-    showToast("فاتورة اليوم موجودة، تم تحميلها ✅");
-  } else {
-    // ماكو فاتورة اليوم بالاسم الافتراضي ⇒ أنشئ واحدة جديدة
-    currentInvoice = { id: defaultName, date: today, items: [] };
-    invoices.push(currentInvoice);
-    selectedInvoiceIndex = invoices.length - 1;
-    showToast("تم إنشاء فاتورة جديدة ✅");
-  }
-
-  document.getElementById("invoiceId").textContent = currentInvoice.id;
-  renderItems();
-  renderInvoicesDropdown();
-}
-
-    
-    
-    
-    
-    
-    // ===== تأكيد حذف الفاتورة =====
-let __pendingDeleteInvoiceIndex = null;
-
-function openDeleteInvoiceModal(i, ev){
-  if(ev) ev.stopPropagation();
-  __pendingDeleteInvoiceIndex = i;
-  const modal = document.getElementById('deleteInvoiceModal');
-  modal.style.display = 'flex';
-  modal.setAttribute('aria-hidden','false');
-
-  // 🔒 قفل الصفحة بالكامل (html + body)
-  document.documentElement.classList.add('no-scroll');
-  document.body.classList.add('no-scroll');
-
-  // 🛡️ امنع لمس/سحب/نقر الخلفية، واسمح داخل الكارت
-  attachBackdropGuards(modal, '.auth-card');
-
-  // ربط الأزرار
-  document.getElementById('delInvYes').onclick = confirmDeleteInvoice;
-  document.getElementById('delInvNo').onclick  = closeDeleteInvoiceModal;
-
-  // ❌ احذف سطر الإغلاق بالنقر خارج الكارت
-  // modal.addEventListener('click', outsideClickClose);
-
-  // (اختياري) الإغلاق بـ ESC — اتركه أو احذفه حسب رغبتك
-  document.addEventListener('keydown', escClose);
-}
-
-
-
-
-
-
-
-
-
-function confirmDeleteInvoice(){
-  if(__pendingDeleteInvoiceIndex===null) return;
-  // الحذف الفعلي
-  invoices.splice(__pendingDeleteInvoiceIndex, 1);
-  localStorage.setItem("invoices", JSON.stringify(invoices));
-
-  // إعادة تهيئة الحالة
-  currentInvoice = null;
-  selectedInvoiceIndex = null;
-  document.getElementById("invoiceId").textContent = "-";
-  renderItems();
-  renderInvoicesDropdown();
-
-  closeDeleteInvoiceModal();
-  showToast("تم حذف الفاتورة 🗑️");
-}
-
-function closeDeleteInvoiceModal(){
-  const modal = document.getElementById('deleteInvoiceModal');
-  modal.style.display = 'none';
-  modal.setAttribute('aria-hidden','true');
-  __pendingDeleteInvoiceIndex = null;
-
-  // 🔓 فتح الصفحة بالكامل
-  document.documentElement.classList.remove('no-scroll');
-  document.body.classList.remove('no-scroll');
-
-  // 🧹 فكّ الحرس
-  detachBackdropGuards(modal);
-
-  // ❌ لا تزيل listener غير مربوط
-  // modal.removeEventListener('click', outsideClickClose);
-
-  // (اختياري) إذا أبقيت ESC مفعّل فوق، فكّه هنا:
-  document.removeEventListener('keydown', escClose);
-}
-
-
-
-function outsideClickClose(e){
-  const card = e.currentTarget.querySelector('.auth-card');
-  if(!card.contains(e.target)) closeDeleteInvoiceModal();
-}
-
-function escClose(e){
-  if(e.key === 'Escape') closeDeleteInvoiceModal();
-}
-
-    
-    
-    
-    
-    
-// ===== إعادة تسمية الفاتورة =====
-let __pendingRenameInvoiceIndex = null;
-
-function openRenameInvoiceModal(i, ev){
-  ev?.stopPropagation?.();
-  __pendingRenameInvoiceIndex = i;
-
-  const modal = document.getElementById('renameInvoiceModal');
-  const input = document.getElementById('renameInvInput');
-  const inv = invoices[i];
-
-  input.value = inv?.id || "";
-  modal.style.display = 'flex';
-  modal.setAttribute('aria-hidden', 'false');
-
-  // 🔒 قفل الصفحة بالكامل (مثل نافذة الحذف)
-  document.documentElement.classList.add('no-scroll');
-  document.body.classList.add('no-scroll');
-
-  // 🛡️ امنع لمس/سحب/نقر الخلفية — واسمح داخل الكارت فقط
-  attachBackdropGuards(modal, '.auth-card');
-
-  // ربط الأزرار
-  document.getElementById('renameInvYes').onclick = confirmRenameInvoice;
-  document.getElementById('renameInvNo').onclick  = closeRenameInvoiceModal;
-
-  // إدخال مريح
-  setTimeout(()=>{
-    input.focus();
-    input.select?.();
-  }, 10);
-
-  // دعم Enter/ESC
-  document.addEventListener('keydown', renameEscEnterHandler);
-}
-
-function confirmRenameInvoice(){
-  if(__pendingRenameInvoiceIndex === null) return;
-
-  const input = document.getElementById('renameInvInput');
-  const newName = String(input.value || "").trim();
-
-  if(!newName){
-    showToast("يرجى إدخال اسم صالح ❌", true);
-    input.focus(); return;
-  }
-
-  // حدّث الاسم داخل المصفوفة
-  invoices[__pendingRenameInvoiceIndex].id = newName;
-
-  // إذا هي الفاتورة المفتوحة حاليًا، حدّث العنوان أعلى الصفحة
-  if(selectedInvoiceIndex === __pendingRenameInvoiceIndex && currentInvoice){
-    currentInvoice.id = newName;
-    document.getElementById("invoiceId").textContent = newName;
-  }
-
-  // حفظ وتحديث القائمة
-  localStorage.setItem("invoices", JSON.stringify(invoices));
-  renderInvoicesDropdown();
-
-  closeRenameInvoiceModal();
-  showToast("تم تحديث اسم الفاتورة ✅");
-}
-
-function closeRenameInvoiceModal(){
-  const modal = document.getElementById('renameInvoiceModal');
-  modal.style.display = 'none';
-  modal.setAttribute('aria-hidden','true');
-
-  // 🔓 فتح الصفحة بالكامل
-  document.documentElement.classList.remove('no-scroll');
-  document.body.classList.remove('no-scroll');
-
-  // 🧹 فكّ الحرس
-  detachBackdropGuards(modal);
-
-  // فكّ اختصارات الكيبورد
-  document.removeEventListener('keydown', renameEscEnterHandler);
-
-  // تفريغ الحالة
-  __pendingRenameInvoiceIndex = null;
-}
-
-function renameEscEnterHandler(e){
-  if(e.key === 'Escape'){ e.preventDefault(); closeRenameInvoiceModal(); return; }
-  if(e.key === 'Enter'){
-    // نفّذ حفظ إذا النافذة مفتوحة
-    const within = document.getElementById('renameInvoiceModal');
-    if(within && within.style.display === 'flex'){
-      e.preventDefault();
-      confirmRenameInvoice();
-    }
-  }
-}
-    
-    
-    
-    
-    
-
-    function saveInvoice(){
-      if(!currentInvoice) return;
-      if(selectedInvoiceIndex !== null){
-        invoices[selectedInvoiceIndex] = currentInvoice;
-      } else {
-        invoices.push(currentInvoice);
-      }
-      localStorage.setItem("invoices", JSON.stringify(invoices));
-      renderInvoicesDropdown();
-      showToast("تم حفظ الفاتورة 💾");
-    }
-    
-    
-    
-    function autoSaveInvoice(){
-  if(!currentInvoice) return;
-  if(selectedInvoiceIndex!==null){
-    invoices[selectedInvoiceIndex] = currentInvoice;
-  } else {
-    invoices.push(currentInvoice);
-    selectedInvoiceIndex = invoices.length - 1;
-  }
-  localStorage.setItem("invoices", JSON.stringify(invoices));
-  renderInvoicesDropdown();
-}
-
-    
-    
-
-   function renderInvoicesDropdown(){
-  const wrap = document.getElementById("invoicesDropdown");
-  wrap.innerHTML = "";
-  invoices.forEach((inv, i)=>{
-    const row = document.createElement("div");
-    row.className = "invoice-chip";
-   row.innerHTML = `
-  <div class="chip-meta">
-    <strong>${inv.id}</strong>
-    <small>${inv.date} • ${inv.items.length} مادة</small>
-  </div>
-  <div style="display:flex; gap:8px;">
-    <button class="btn-rename-custom" title="إعادة تسمية" aria-label="إعادة تسمية"
-            onclick="openRenameInvoiceModal(${i}, event)">
-      <i class="fa-regular fa-pen-to-square"></i>
-    </button>
-    <button class="btn-danger-custom" title="حذف" aria-label="حذف"
-            onclick="openDeleteInvoiceModal(${i}, event)">
-      <i class="fa-regular fa-trash-can"></i>
-    </button>
-  </div>
-`;
-
-    row.onclick = ()=> loadInvoice(i);
-    wrap.appendChild(row);
-  });
-}
-
-
-    function loadInvoice(i){
-      selectedInvoiceIndex = i;
-      currentInvoice = invoices[i];
-      document.getElementById("invoiceId").textContent = currentInvoice.id;
-      renderItems();
-      showToast("تم تحميل الفاتورة 📄");
-    }
-    
-
-    function deleteInvoice(i){
-      invoices.splice(i,1);
-      localStorage.setItem("invoices", JSON.stringify(invoices));
-      currentInvoice = null;
-      document.getElementById("invoiceId").textContent = "-";
-      renderItems();
-      selectedInvoiceIndex = null;
-      renderInvoicesDropdown();
-      showToast("تم حذف الفاتورة 🗑️");
-    }
-    
-    
-    
-    
-   function openMergeConfirmModal(dupCount, onConfirm){
-  const modal = document.getElementById('mergeConfirmModal');
-  const msg   = document.getElementById('mergeDupMsg');
-  msg.innerHTML = `تم العثور على <b>${dupCount}</b> ايتمات متشابهة. هل تريد الدمج بأخذ <b>أكبر كمية</b>؟`;
-
-  // إظهار المودال
-  modal.style.display = 'flex';
-  modal.setAttribute('aria-hidden','false');
-
-  // 🔒 قفل الصفحة بالكامل (نفس نافذة الحذف)
-  document.documentElement.classList.add('no-scroll');
-  document.body.classList.add('no-scroll');
-
-  // 🛡️ منع لمس/سحب/نقر الخلفية — والسماح داخل الكارت فقط
-  attachBackdropGuards(modal, '.auth-card');
-
-  const yes = document.getElementById('mergeYes');
-  const no  = document.getElementById('mergeNo');
-
-  // إغلاق موحّد
-  function close(){
-    modal.style.display = 'none';
-    modal.setAttribute('aria-hidden','true');
-
-    // 🔓 فك القفل و الحارس
-    document.documentElement.classList.remove('no-scroll');
-    document.body.classList.remove('no-scroll');
-    detachBackdropGuards(modal);
-
-    document.removeEventListener('keydown', esc);
-    yes.onclick = null;
-    no.onclick  = null;
-  }
-
-  // أزرار الإجراء
-  yes.onclick = ()=>{ close(); onConfirm && onConfirm(); };
-  no.onclick  = close;
-
-  // (اختياري) إغلاق بـ ESC
-  const esc = (e)=>{ if(e.key === 'Escape') close(); };
-  document.addEventListener('keydown', esc);
-}
-
-
-    
-    
-    
-    
-    
-    
-        // ===== قائمة ملفات PDF المستوردة في الـ Aside المستقل =====
-   function renderImportedPdfList(){
-  const wrap = document.getElementById("importedPdfList");
-  wrap.innerHTML = "";
-  if(!importedPdfFiles.length){
-    const empty = document.createElement("div");
-    empty.className = "chip-meta";
-    empty.style.color = "var(--muted)";
-    empty.style.textAlign = "center";
-    empty.textContent = "لا توجد ملفات Excel/CSV مستوردة بعد";
-    wrap.appendChild(empty);
-    return;
-  }
-  importedPdfFiles.forEach((f, i)=>{
-    const ext = f.name.split(".").pop().toUpperCase();
-    const row = document.createElement("div");
-    row.className = "invoice-chip";
-    row.innerHTML = `
-      <div class="chip-meta">
-        <strong>${f.name}</strong>
-        <small>${Math.round(f.size/1024)}KB • ${ext}</small>
-      </div>
-      <button class="btn-danger-custom" title="إزالة" onclick="removeImportedPdf(${i})">
-        <i class="fa-regular fa-trash-can"></i>
-      </button>
+  }).slice(0, 20);
+
+  if(!filtered.length) return;
+
+  filtered.forEach(row=>{
+    const name = row["Item Name"] || row["Item"];
+    const li = document.createElement('li');
+    li.textContent = name || '';
+    li.style.cssText = `
+      padding:10px 12px; cursor:pointer; border-bottom:1px dashed rgba(255,255,255,.06);
     `;
-    wrap.appendChild(row);
-  });
-}
-
-
-    function removeImportedPdf(i){
-      importedPdfFiles.splice(i,1);
-      renderImportedPdfList();
-      showToast("تم حذف الملف المستورد 🗑️");
-    }
-    
-    
-    
-    
-    
-    
-   async function exportCSVOnly(){
-  if(!currentInvoice || !(currentInvoice.items||[]).length){
-    showToast("لا توجد بيانات للتصدير ❌", true);
-    return;
-  }
-
-  // اسم الملف مثل الباقي
-  const d = new Date();
-  const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
-  const csvName   = `Invoice_${invoiceId}.csv`;
-
-  // ترتيب مثل PDF/Excel: Category ثم Item
-  const sorted = [...(currentInvoice.items||[])].sort((a,b)=>{
-    const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
-    return c!==0 ? c : String(a.name||"").localeCompare(String(b.name||""), "en", {sensitivity:"base"});
-  });
-
-  // محوّل آمن لقيم CSV (يدعّم الفواصل، علامات اقتباس، والأسطر الجديدة)
-  const esc = (val)=>{
-    const s = String(val ?? "");
-    const needsQuotes = /[",\r\n]/.test(s);
-    const doubled = s.replace(/"/g, '""');
-    return needsQuotes ? `"${doubled}"` : doubled;
-  };
-
-  // الهيدر + الصفوف
-  const header = ["Category","Item","Quantity","Notes"];
-  const rows = [
-    header,
-    ...sorted.map(it=>[it.category, it.name, it.qty, it.note])
-  ];
-
-  // نص CSV مع BOM علشان العربية تفتح صح بالإكسل
-  const csv = "\uFEFF" + rows.map(r => r.map(esc).join(",")).join("\r\n");
-
-  // ننشئ Blob وننزّل بالـ fallback مالتك (بدون data:url)
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-downloadBlobDirect(csvName, blob);
-
-  showToast("✅ تم تصدير CSV");
-}
-
-
-
-
-
-// يحاول يرجّع أسماء أعمدة موحدة من أي ملف (عربي/إنكليزي/أحرف مختلفة)
-function pick(r, keys){
-  for(const k of keys){
-    if(r[k] != null && r[k] !== "") return String(r[k]);
-  }
-  return "";
-}
-
-// تحويل ورقة (Sheet) إلى آيتمات موحدة
-function sheetToItems(ws){
-  // defval:"" حتى ما تطلع undefined
-  const rows = XLSX.utils.sheet_to_json(ws, { defval: "", raw: false });
-  const out = [];
-  rows.forEach(r=>{
-    const category = pick(r, ["category","Category","CATEGORY","الصنف","صنف"]);
-    const item     = pick(r, ["item","Item","ITEM","القطعة","قطعة","Item Name","اسم","اسم القطعة"]);
-    const qty      = pick(r, ["qty","Qty","QTY","Quantity","العدد","عدد"]);
-    const note     = pick(r, ["note","Note","NOTES","Notes","ملاحظات"]);
-
-    if(String(item).trim().length){ // لازم على الأقل اسم القطعة
-      out.push({
-        category: String(category||"").trim(),
-        item    : String(item||"").trim(),
-        qty     : String(qty||"").trim(),
-        note    : String(note||"").trim()
-      });
-    }
-  });
-  return out;
-}
-
-// يقرأ ملف واحد (XLSX أو CSV) ويرجّع Array من الآيتمات
-async function extractItemsFromFile(file){
-  // نستخدم arrayBuffer حتى يشتغل مع كل الأنواع ويأخذ BOM للـ CSV
-  const buf = await file.arrayBuffer();
-  // SheetJS يميّز CSV/XLSX تلقائياً بالقراءة من الـ buffer
-  const wb  = XLSX.read(buf, { type: "array" });
-  const items = [];
-  (wb.SheetNames || []).forEach(name=>{
-    const ws = wb.Sheets[name];
-    if(ws) items.push(...sheetToItems(ws));
-  });
-  return items;
-}
-
-
-
-
-
-  
-
-    /* =========================
-       تصدير PDF بشكل أنيق بالإنكليزي
-       ========================= */
-  async function exportPDF() {
-  if (!currentInvoice || (currentInvoice.items || []).length === 0) {
-    showToast("No data to export ❌", true);
-    return;
-  }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
-
-  // ترتيب العناصر (Category ثم Item)
-  const sortedItems = [...(currentInvoice.items || [])].sort((a, b) => {
-    const catA = String(a.category || "");
-    const catB = String(b.category || "");
-    const nameA = String(a.name || "");
-    const nameB = String(b.name || "");
-    const catCompare = catA.localeCompare(catB, "en", { sensitivity: "base" });
-    return catCompare !== 0 ? catCompare : nameA.localeCompare(nameB, "en", { sensitivity: "base" });
-  });
-
-  const pageWidth  = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-
-  // Header
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.setTextColor(25, 25, 112);
-  doc.text("ASSAL OFFICE", pageWidth / 2, 65, { align: "center" });
-  doc.setFontSize(12);
-  doc.setTextColor(100);
-  doc.text("YOUR BEST CHOICE", pageWidth / 2, 85, { align: "center" });
-
-  // Meta
-  const today = new Date();
-  const invoiceDate = today.toLocaleDateString("en-GB");
-  const invoiceId = `INV-${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(12);
-  doc.setTextColor(0);
-  doc.text(`Invoice ID: ${invoiceId}`, pageWidth - 60, 120, { align: "right" });
-  doc.text(`Date: ${invoiceDate}`, 60, 120, { align: "left" });
-
-  // Table
-  doc.autoTable({
-    head: [["#", "Category", "Item", "Quantity", "Notes"]],
-    body: sortedItems.map((it, i) => [
-      i + 1,
-      String(it.category || ""),
-      String(it.name || ""),
-      String(it.qty || ""),
-      String(it.note || "")
-    ]),
-    startY: 160,
-    theme: "grid",
-    styles: { halign: "center", font: "helvetica", fontSize: 11 },
-    headStyles: { fillColor: [40, 90, 160], textColor: [255, 255, 255], fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [245, 245, 245] },
-    margin: { left: 50, right: 50 },
-    didDrawPage: () => {
-      doc.setDrawColor(80, 80, 80);
-      doc.setLineWidth(1.5);
-      doc.rect(30, 30, pageWidth - 60, pageHeight - 60, "S");
-      const pageCount   = doc.internal.getNumberOfPages();
-      const pageCurrent = doc.internal.getCurrentPageInfo().pageNumber;
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      doc.text(`Page ${pageCurrent} of ${pageCount}`, pageWidth / 2, pageHeight - 20, { align: "center" });
-    }
-  });
-
-  // ⬅️ حفظ PDF فقط (الطريقة القديمة)
-  doc.save(`Invoice_${invoiceId}.pdf`);
-  showToast("تم تصدير PDF فقط ✅");
-}
-
-
-
-
-
-async function exportExcelOnly(){
-  if(!currentInvoice || !(currentInvoice.items||[]).length){
-    showToast("لا توجد بيانات للتصدير ❌", true);
-    return;
-  }
-
-  // اسم الملف مثل الفاتورة
-  const d = new Date();
-  const invoiceId = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
-  const xlsxName  = `Invoice_${invoiceId}.xlsx`;
-
-  // ترتيب مثل PDF (Category ثم Item)
-  const sorted = [...(currentInvoice.items||[])].sort((a,b)=>{
-    const c = String(a.category||"").localeCompare(String(b.category||""), "en", {sensitivity:"base"});
-    return c!==0 ? c : String(a.name||"").localeCompare(String(b.name||""), "en", {sensitivity:"base"});
-  });
-
-  // صفوف الإكسل (هيدر + بيانات)
-  const rows = [
-    ["Category","Item","Quantity","Notes"],
-    ...sorted.map(it=>[
-      String(it.category||""),
-      String(it.name||""),
-      String(it.qty||""),
-      String(it.note||""),
-    ])
-  ];
-
-  // إنشاء ملف Excel عبر SheetJS وحفظ مباشر (نفس فكرة doc.save للـ PDF)
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  XLSX.utils.book_append_sheet(wb, ws, "Invoice");
-
-  XLSX.writeFile(wb, xlsxName, { compression: true }); // ⬅️ حفظ مباشر
-  showToast("تم تصدير Excel ✅");
-}
-
-
-// تحميل Blob يشتغل على موبايل/ويب فيو/ديسكتوب
-function downloadBlobFallback(filename, blob){
-  // 1) Web Share API (أفضل شي للموبايل إن كان مدعوم)
-  try{
-    const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: filename }).catch(()=>{});
-      return;
-    }
-  }catch(_e){ /* نتجاهل ونكمّل */ }
-
-  // 2) Edge القديم
-  if (window.navigator && window.navigator.msSaveOrOpenBlob){
-    window.navigator.msSaveOrOpenBlob(blob, filename);
-    return;
-  }
-
-  // 3) رابط تنزيل + fallback فتح في تبويب (للوِب فيو اللي يتجاهل download)
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-
-  // بعض الويب فيو ما ينزل بالرابط؛ جرّب نفتح التبويب
-  setTimeout(()=>{
-    // محاولة فتح في تبويب جديد
-    const win = window.open(url, "_blank");
-    if(!win){
-      // آخر حل: تحويل نفس الصفحة
-      window.location.href = url;
-    }
-    // تنظيف
-    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 2000);
-  }, 250);
-}
-
-  
-  
-  
-    /* =========================
-       Toast بسيط
-       ========================= */
-    function showToast(message, isError){
-      const toast = document.getElementById("appToast");
-      toast.querySelector("span").textContent = message || "Done";
-      toast.style.borderColor = isError ? "rgba(239,68,68,.6)" : "var(--stroke)";
-      toast.firstElementChild.style.color = isError ? "#ef4444" : "#34d399";
-      toast.classList.add("show");
-      clearTimeout(window.__t);
-      window.__t = setTimeout(()=> toast.classList.remove("show"), 2200);
-    }
-    
-    
-    
-    
-    
-    // زر استيراد فاتورة إلى "الفواتير السابقة"
-document.getElementById("btnImportPrev").addEventListener("click", ()=>{
-  const p = document.getElementById("prevImportPicker");
-  p.value = "";
-  p.click();
-});
-
-document.getElementById("prevImportPicker").addEventListener("change", async (e)=>{
-  const file = (e.target.files || [])[0];
-  if(!file) return;
-
-  try{
-    // نستخدم نفس الدوال الموجودة عندك: extractItemsFromFile -> sheetToItems
-    const raw = await extractItemsFromFile(file); // يُرجِع [{category,item,qty,note}, ...]
-    if(!raw.length){
-      showToast("الملف فارغ أو الأعمدة غير معروفة ❌", true);
-      e.target.value = "";
-      return;
-    }
-
-    // تحويل الأعمدة لشكل الفاتورة الداخلي: name بدل item
-    const mapped = raw
-      .map(r=>({
-        category: String(r.category||"NO-CATEGORY").trim(),
-        name    : String(r.item||"").trim(),
-        qty     : String(r.qty||"1").trim() || "1",
-        note    : String(r.note||"").trim()
-      }))
-      .filter(it=> it.name.length);
-
-    if(!mapped.length){
-      showToast("لم يتم العثور على مواد صالحة ❌", true);
-      e.target.value = "";
-      return;
-    }
-
-    // نصنع فاتورة جديدة من الملف المستورد
-   const today = new Date().toLocaleDateString("ar-EG");
-const inv   = {
-  id: formatInvoiceName(),   // نفس شكل "فاتورة الأحد - ٢٠٢٥/٠١/٠٣"
-  date: today,
-  items: mapped
-};
-
-
-    // نحفظها ضمن الفواتير ونعرضها فورًا قابلة للتعديل
-    invoices.push(inv);
-    selectedInvoiceIndex = invoices.length - 1;
-    currentInvoice = inv;
-
-    localStorage.setItem("invoices", JSON.stringify(invoices));
-    document.getElementById("invoiceId").textContent = inv.id;
-
-    renderInvoicesDropdown();
-    renderItems();
-
-    showToast("تم استيراد الفاتورة وجاهزة للتعديل ✅");
-  }catch(err){
-    console.error(err);
-    showToast("تعذر استيراد الملف ❌", true);
-  }finally{
-    e.target.value = "";
-  }
-});
-
-    
-    
-    
-    
-    
-    
-
-    /* =========================
-       ربط أزرار الهيدر والزر العائم
-       ========================= */
-       
- 
-    document.getElementById("btnExportJSON").addEventListener("click", exportExcelOnly);
-    document.getElementById("fab").addEventListener("click", newInvoice);
-    document.getElementById("btnExportCSV")?.addEventListener("click", exportCSVOnly);
-    
-    // فتح لوحة الأوامر من الهيدر والموبايل
-document.getElementById("btnCommand")?.addEventListener("click", palOpen);
-
-
-
-    
-    
-    
-    
-    
-    // ✅ ربط زر الاستيراد لفتح مُلتقط الملفات
-document.getElementById("btnImportPDF").addEventListener("click", ()=>{
-  const picker = document.getElementById("pdfFilePicker");
-  picker.value = "";           // ننظّف القيمة حتى يسمح باختيار نفس الملف مرة ثانية
-  picker.click();              // نفتح نافذة اختيار الملفات
-});
-    
-    
-    
-    
-        // ===== PDF Imported Sidebar: Import & Merge =====
-    // فتح مُلتقط PDF
-  document.getElementById("pdfFilePicker").addEventListener("change", async (e)=>{
-  const files = Array.from(e.target.files || []);
-  if(!files.length) return;
-
-  // نقبل XLSX أو CSV
-  const ok = files.filter(f => {
-    const name = f.name.toLowerCase();
-    const type = (f.type || "").toLowerCase();
-    return name.endsWith(".xlsx") ||
-           name.endsWith(".csv")  ||
-           type.includes("spreadsheet") ||
-           type.includes("csv");
-  });
-
-  if(!ok.length){
-    showToast("الملفات لازم تكون Excel أو CSV ❌", true);
-    e.target.value = "";
-    return;
-  }
-
-  // نخزّنها بالقائمة حتى تبين بالـ sidebar (نستخدم نفس المصفوفة الموجودة)
-  importedPdfFiles.push(...ok);
-  renderImportedPdfList();
-  e.target.value = "";
-  showToast("تم استيراد الملفات ✅");
-});
-
-
-    // الدمج + محاولة ترتيب الأيتمات أبجدياً
-document.getElementById("btnMergePDF").addEventListener("click", async ()=>{
-  if(importedPdfFiles.length < 2){
-    showToast("يرجى استيراد ملفين  (Excel/CSV) ❌", true);
-    return;
-  }
-
-  try{
-    const arrays = await Promise.all(importedPdfFiles.map(extractItemsFromFile));
-    let items = arrays.flat().filter(it => (it.item||"").trim().length);
-    if(!items.length){
-      showToast("ماكو عناصر صالحة بالملفات المستوردة ❌", true);
-      return;
-    }
-
-    // احسب التكرارات على أساس (Category+Item+Notes)
-    const group = new Map();
-    for(const it of items){
-      const k = `${(it.category||"").toLowerCase()}||${(it.item||"").toLowerCase()}||${(it.note||"").toLowerCase()}`;
-      group.set(k, (group.get(k)||0)+1);
-    }
-    const dupCount = Array.from(group.values()).filter(c=> c>1).length;
-
-    const proceed = async ()=>{
-      // دمج بأكبر كمية
-      const merged = mergeByMaxQuantity(items);
-      const doc = await buildItemsPdf(merged);
-      const fileName = autoMergedName("ASSAL_SORTED","pdf");
-      doc.save(fileName);
-      showToast("تم توليد PDF مدمج (أخذ أكبر كمية) ✅");
+    li.onmouseenter = ()=> li.style.background = '#0e1b36';
+    li.onmouseleave = ()=> li.style.background = 'transparent';
+    li.onclick = ()=>{
+      qEl.value = name || '';
+      host.style.display = 'none';
+      // انقل مباشرة للعدد
+      document.getElementById('qty')?.focus();
+      document.getElementById('qty')?.select?.();
     };
-
-    if(dupCount > 0){
-      openMergeConfirmModal(dupCount, proceed);
-      return;
-    }
-
-    await proceed();
-
-  } catch(err){
-    console.error(err);
-    showToast("فشل الدمج ❌", true);
-  }
-});
-
-
-
-document.getElementById("btnMergeCSV").addEventListener("click", async ()=>{
-  if(importedPdfFiles.length < 2){
-    showToast("يرجى استيراد ملفين  (Excel/CSV) ❌", true);
-    return;
-  }
-  try{
-    const arrays = await Promise.all(importedPdfFiles.map(extractItemsFromFile));
-    let items = arrays.flat().filter(it => (it.item||"").trim().length);
-    if(!items.length){ showToast("ماكو عناصر صالحة ❌", true); return; }
-
-    // احسب التكرارات
-    const group = new Map();
-    for(const it of items){
-      const k = `${(it.category||"").toLowerCase()}||${(it.item||"").toLowerCase()}||${(it.note||"").toLowerCase()}`;
-      group.set(k, (group.get(k)||0)+1);
-    }
-    const dupCount = Array.from(group.values()).filter(c=> c>1).length;
-
-    const proceed = ()=>{
-      // ✳️ دمج بأكبر كمية
-      const merged = mergeByMaxQuantity(items);
-
-      // CSV آمن + BOM
-      const esc = v=>{
-        const s = String(v ?? "");
-        const needs = /[",\r\n]/.test(s);
-        const dd = s.replace(/"/g,'""');
-        return needs ? `"${dd}"` : dd;
-      };
-      const rows = [
-        ["Category","Item","Quantity","Notes"],
-        ...merged.map(it=> [it.category||"", it.item||"", it.qty||"", it.note||""])
-      ];
-      const csv = "\uFEFF" + rows.map(r=>r.map(esc).join(",")).join("\r\n");
-
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-      const name = autoMergedName("ASSAL_SORTED","csv");
-      downloadBlobDirect(name, blob);
-
-      showToast("تم توليد CSV مدمج (أخذ أكبر كمية) ✅");
-    };
-
-    if(dupCount > 0){
-      openMergeConfirmModal(dupCount, proceed);
-      return;
-    }
-
-    proceed();
-  }catch(err){
-    console.error(err);
-    showToast("فشل إنشاء CSV ❌", true);
-  }
-});
-
-
-
-
-
-    /* =========================
-       منطق قائمة الأصناف المخصصة
-       ========================= */
-    const catBtn  = document.getElementById('catBtn');
-    const catList = document.getElementById('catList');
-    const catText = document.getElementById('catText');
-
-    catBtn.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      const visible = catList.style.display==='block';
-      document.querySelectorAll('.cat-list').forEach(el=> el.style.display='none');
-      catList.style.display = visible ? 'none' : 'block';
-    });
-
-   document.querySelectorAll('.cat-item').forEach(it=>{
-  it.addEventListener('click', ()=>{
-    const val = it.getAttribute('data-val');
-    document.getElementById('categorySelect').value = val;              // نحدّث قيمة الصنف (القديم)
-    catText.innerHTML = it.innerHTML;                                   // نحدّث نص زر القائمة
-    catList.style.display='none';
-    showToast('تم اختيار الصنف ✅');
-    document.getElementById("searchInput").focus(); // ينقلك مباشرة لاسم القطعة
+    host.appendChild(li);
   });
+
+  host.style.display = 'block';
+}
+
+function hideItemSuggestions(){
+  const host = document.getElementById('itemSuggestions');
+  if(host){ host.style.display = 'none'; __autoIdx = -1; }
+}
+
+// تريّغر العرض عند الكتابة وتغيير الصنف
+document.getElementById('item')?.addEventListener('input', renderItemSuggestions);
+document.getElementById('cat')?.addEventListener('change', ()=>{
+  hideItemSuggestions();
+  // إذا كان عندك نص داخل item، أعدّ توليد الاقتراحات للصنف الجديد
+  if((document.getElementById('item')?.value||'').trim()) renderItemSuggestions();
 });
 
-    // إغلاق القائمة بالنقر خارجها
-    document.addEventListener('click', ()=> { catList.style.display='none'; });
-
-    /* =========================
-       تشغيل أولي عند تحميل الصفحة
-       ========================= */
-       window.addEventListener("load", ()=>{
-      loadExcelFiles();
-      renderInvoicesDropdown();
-      renderImportedPdfList(); // ← يعرض قائمة PDF المستوردة 
-       setTimeout(()=> showToast("👋 أهلاً وسهلاً بك في تطبيقنا"), 300);
-    });
-
-    
-    
-     // ربط Enter بالتنقل بين الحقول
- let __autoSugIndex = -1;
-
-document.getElementById('searchInput').addEventListener('keydown', (e)=>{
-  const sug = document.getElementById('autocompleteSuggestions');
-  const visible = sug && sug.style.display === 'block';
-
-  // لو ماكو قائمة اقتراحات
+// تنقّل الكيبورد داخل قائمة الاقتراحات
+document.getElementById('item')?.addEventListener('keydown', (e)=>{
+  const host = document.getElementById('itemSuggestions');
+  const visible = host && host.style.display === 'block';
   if(!visible){
-    __autoSugIndex = -1;
-
+    // إنتر من item بدون اقتراحات → نزّل للـ qty
     if(e.key === 'Enter'){
       e.preventDefault();
-      const name = document.getElementById('searchInput').value.trim();
-      if(!name){
-        showToast("يرجى إدخال اسم القطعة ❌", true);
-        focusAndSelect('searchInput');
-        return;
-      }
-      // اسم مضبوط → ننتقل للعدد
-      document.getElementById('itemQty').focus();
+      document.getElementById('qty')?.focus();
+      document.getElementById('qty')?.select?.();
     }
     return;
   }
-  
-  
-  
-  const items = Array.from(sug.querySelectorAll('li'));
+
+  const items = Array.from(host.querySelectorAll('li'));
   if(!items.length) return;
 
   if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
     e.preventDefault();
-    const step = e.key === 'ArrowDown' ? 1 : -1;
-    if(__autoSugIndex < 0){
-      __autoSugIndex = (e.key === 'ArrowDown') ? 0 : items.length - 1;
+    const step = (e.key === 'ArrowDown') ? 1 : -1;
+    if(__autoIdx < 0){
+      __autoIdx = (e.key === 'ArrowDown') ? 0 : items.length - 1;
     }else{
-      __autoSugIndex = Math.max(0, Math.min(items.length - 1, __autoSugIndex + step));
+      __autoIdx = Math.max(0, Math.min(items.length - 1, __autoIdx + step));
     }
-    items.forEach((li, i)=> li.classList.toggle('active', i === __autoSugIndex));
-    items[__autoSugIndex].scrollIntoView({ block: 'nearest' });
+    items.forEach((li, i)=> li.style.background = (i===__autoIdx) ? '#0e1b36' : 'transparent');
+    items[__autoIdx].scrollIntoView({ block:'nearest' });
   }
 
-  if(e.key === 'Enter' && __autoSugIndex >= 0){
+  if(e.key === 'Enter' && __autoIdx >= 0){
     e.preventDefault();
-    const li = items[__autoSugIndex];
-    document.getElementById('searchInput').value = li.textContent;
-    sug.style.display = 'none';
-    __autoSugIndex = -1;
-    document.getElementById('itemQty').focus();
+    const li = items[__autoIdx];
+    document.getElementById('item').value = li.textContent;
+    hideItemSuggestions();
+    document.getElementById('qty')?.focus();
+    document.getElementById('qty')?.select?.();
   }
 
   if(e.key === 'Escape'){
-    sug.style.display = 'none';
-    __autoSugIndex = -1;
+    hideItemSuggestions();
   }
 });
-document.getElementById("itemQty").addEventListener("keydown", function(e) {
-  if (e.key === "Enter") {
+
+// إغلاق الاقتراحات إذا نقرّت برّه
+document.addEventListener('click', (ev)=>{
+  const host = document.getElementById('itemSuggestions');
+  const field= document.getElementById('item');
+  if(!host || !field) return;
+  const inside = host.contains(ev.target) || field.contains(ev.target);
+  if(!inside) hideItemSuggestions();
+});
+
+    
+    
+    
+    
+    
+    
+    
+    
+    /* ============ بيانات محلية ============ */
+    const STORAGE = 'assal:board:v3';
+    const NAMES   = 'assal:names:v3';
+    let globalLimit = 20;
+    
+    
+    /* ====== قائمة أسماء الزبائن اليدوية (عدّلها على راحتك) ====== */
+const CUSTOMERS = [
+  "حسين",
+  "علي",
+  "أحمد",
+  "عمر",
+  "زيد",
+  "حيدر",
+  "مصطفى",
+  "كرار",
+  "يوسف",
+  "محمد"
+];
+
+
+// مساعد: يرجّع ارتفاع شريط البورد اللاصق
+    const boardHeadH = ()=> (document.querySelector('.board-head')?.offsetHeight || 0);
+
+    const $  = (s)=> document.querySelector(s);
+    const CE = (t, c)=>{ const e = document.createElement(t); if(c) e.className=c; return e; };
+
+    const todayISO      = ()=> new Date().toISOString().slice(0,10);
+    const TODAY         = todayISO();              // ← ثابت لليوم الحالي
+
+    const arDateWithDay = (d)=> new Date(d).toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'2-digit',day:'2-digit'});
+    const arMonthName   = (d)=> new Date(d).toLocaleDateString('ar-EG',{year:'numeric',month:'long'});
+    const arTime        = (d)=> new Date(d).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
+
+    let days        = load(STORAGE, {});
+    let names       = load(NAMES, []);
+    let selectedDay = todayISO();
+
+    function load(k, d){ try{ return JSON.parse(localStorage.getItem(k)||JSON.stringify(d)); }catch{ return d; } }
+    function save(){ localStorage.setItem(STORAGE, JSON.stringify(days)); }
+    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+  /* ====== Enter Navigation (جديد) ====== */
+/* التسلسل المطلوب: cust -> type -> cat -> item -> qty -> note */
+const order = ['cust','type','cat','item','qty','note'];
+
+function openSelect(el){
+  try{
+    el.focus();
+    if(typeof el.showPicker === 'function'){ el.showPicker(); }
+    else{
+      // fallback: ركّز وخلّي المستخدم ينزل بالسهم (ماكو API موحّد لكل المتصفحات)
+      // نرسل ArrowDown كإشارة خفيفة (قد لا تعمل بكل المتصفحات)
+      const ev = new KeyboardEvent('keydown', { key:'ArrowDown', bubbles:true });
+      el.dispatchEvent(ev);
+    }
+  }catch(_){}
+}
+
+order.forEach((id, idx)=>{
+  const el = document.getElementById(id);
+  el.addEventListener('keydown', (e)=>{
+    if(e.key !== 'Enter') return;
     e.preventDefault();
 
-    const qty = document.getElementById("itemQty").value.trim();
-    if(!qty){
-      showToast("يرجى إدخال العدد ❌", true);
-      focusAndSelect("itemQty");
-      return;
-    }
-    if(!isPositiveInt(qty)){
-      showToast("إدخال خاطئ، يرجى اختيار رقم صحيح (1 فأعلى) ❌", true);
-      focusAndSelect("itemQty");
+    if(id === 'cust'){
+      // من اسم الزبون → افتح نوع الفاتورة
+      const target = document.getElementById('type');
+      openSelect(target);
       return;
     }
 
-    document.getElementById("itemNote").focus();
-  }
+    if(id === 'type'){
+      // من نوع الفاتورة → افتح الصنف
+      const target = document.getElementById('cat');
+      openSelect(target);
+      return;
+    }
+
+   if (id === 'note') {
+  // أضف السطر
+  document.getElementById('btnAdd').click();
+
+  // رجّع الفوكس إلى "اسم الزبون"
+  setTimeout(()=>{
+    const target = document.getElementById('cust');
+    target.focus();
+    target.select?.();
+  }, 0);
+
+  return;
+}
+
+    // باقي الحقول تتنقل للتالي بشكل طبيعي
+    const next = document.getElementById(order[idx+1]);
+    if(next){
+      next.focus();
+      next.select?.();
+      if(next.tagName === 'SELECT') openSelect(next);
+    }
+  });
 });
 
-    
-    
-  document.getElementById("itemNote").addEventListener("keydown", function(e) {
-  if (e.key === "Enter") {
-    e.preventDefault();
 
-    if (!currentInvoice) {
-      showToast("⚠️ أنشئ فاتورة جديدة أولاً", "danger");
-      return;
-    }
 
-    // ✅ تحقّق سريع قبل الإضافة:
-    if(!validateItemFields("enter")) return;
 
-    addItem(); 
-    autoSaveInvoice();
-    showToast("✅ تمت إضافة المادة وحفظ الفاتورة", "success");
-    document.getElementById("searchInput").focus();
+/* ===== Toast API (Top) ===== */
+function showToast(type, message, timeout=2200){
+  type = (type||'info').toLowerCase();
+  const ok = ['success','warn','error','info'].includes(type);
+  if(!ok) type = 'info';
+  const host = document.getElementById('toasts'); if(!host) return;
+
+  while(host.children.length >= 4){ host.removeChild(host.firstElementChild); }
+
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.setAttribute('role','status');
+
+  const icon = document.createElement('div');
+  icon.className='toast__icon';
+  icon.innerHTML = ({
+    success:'<i class="fa-solid fa-check"></i>',
+    warn   :'<i class="fa-solid fa-triangle-exclamation"></i>',
+    error  :'<i class="fa-solid fa-xmark"></i>',
+    info   :'<i class="fa-solid fa-circle-info"></i>'
+  })[type];
+
+  const msg = document.createElement('div');
+  msg.className='toast__msg';
+  msg.textContent = message || 'تم التنفيذ';
+
+  const btn = document.createElement('button');
+  btn.className='toast__close';
+  btn.title='إغلاق';
+  btn.innerHTML='<i class="fa-solid fa-xmark"></i>';
+
+  function dismiss(){
+    t.style.animation='toast-out-top .2s ease-in both';
+    clearTimeout(timer);
+    setTimeout(()=> t.remove(), 180);
   }
-});
+  btn.onclick = dismiss;
 
+  t.append(icon, msg, btn);
+  host.appendChild(t);
 
-
-
-
-
-
-// تنزيل Blob مباشرةً بدون Web Share — نفس إحساس doc.save
-function downloadBlobDirect(filename, blob){
-  // Edge القديم
-  if (window.navigator && window.navigator.msSaveOrOpenBlob){
-    window.navigator.msSaveOrOpenBlob(blob, filename);
-    return;
-  }
-  // رابط تنزيل مخفي
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500);
-}
-
-
-
-    // ===== أدوات الدمج والفرز وبناء PDF مرتب =====
-
-
-
-// يدمج العناصر المتشابهة بأخذ أكبر كمية (Category + Item + Notes)
-function mergeByMaxQuantity(items){
-  const map = new Map();
-  for(const it of (items||[])){
-    const category = String(it.category || "").trim();
-    const item     = String(it.item     || it.name || "").trim();
-    const note     = String(it.note     || "").trim();
-
-    // خلي العدد رقم صحيح، وإذا ماكو نخليه 1
-    let qty = parseInt(String(it.qty ?? "").trim(), 10);
-    if(isNaN(qty) || qty < 0) qty = 1;
-
-    const key = `${category.toLowerCase()}||${item.toLowerCase()}||${note.toLowerCase()}`;
-    if(!map.has(key)){
-      map.set(key, { category, item, qty, note });
-    }else{
-      const cur = map.get(key);
-      cur.qty = Math.max(cur.qty, qty); // أخذ أكبر كمية
-    }
-  }
-
-  // رجّع مصفوفة مرتّبة: Category ثم Item
-  return Array.from(map.values()).sort((a,b)=>{
-    const c = a.category.localeCompare(b.category, 'en', {sensitivity:'base'});
-    return c !== 0 ? c : a.item.localeCompare(b.item, 'en', {sensitivity:'base'});
-  });
+  const timer = setTimeout(dismiss, timeout);
 }
 
 
 
 
 
+    /* ====== Modal API ====== */
+    const $modal  = $('#modal');
+    const $back   = $('#modal-backdrop');
+    const $mtitle = $('#modal-title');
+    const $mbody  = $('#modal-body');
+    const $mok    = $('#modal-confirm');
+    const $mcancel= $('#modal-cancel');
 
-    // اسم تلقائي للملف الناتج
-   function autoMergedName(prefix="ASSAL_MERGED", ext="pdf"){
-  const d  = new Date();
-  const y  = d.getFullYear();
-  const mo = String(d.getMonth()+1).padStart(2,"0");
-  const da = String(d.getDate()).padStart(2,"0");
-  const hh = String(d.getHours()).padStart(2,"0");
-  const mm = String(d.getMinutes()).padStart(2,"0");
-  return `${prefix}_${y}${mo}${da}_${hh}${mm}.${ext}`;
-}
+    function showConfirm({title='تأكيد', message='هل أنت متأكد؟', okText='تأكيد', cancelText='إلغاء', danger=true}={}){
+      return new Promise((resolve)=>{
+        $mtitle.textContent = title;
+        $mbody.textContent  = message;
+        $mok.textContent    = okText;
+        $mcancel.textContent= cancelText;
+        $mok.classList.toggle('danger', !!danger);
 
-    // تنزيل Bytes كـ PDF
-    function downloadBytes(bytes, filename){
-      const blob = new Blob([bytes], {type:"application/pdf"});
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
-    }
-    
-    
-  
+        $back.classList.add('active');
+        $modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
 
+        const done = (val)=>{
+          $back.classList.remove('active');
+          $modal.classList.remove('active');
+          document.body.style.overflow = '';
+          $mok.onclick = null;
+          $mcancel.onclick = null;
+          resolve(val);
+        };
 
-
-
-
-    // ترتيب أبجدي (item ثم category) + وسم المكرر
-   function sortAndFlagDuplicates(items){
-  items.sort((a,b)=>{
-    const catA = String(a.category || "");
-    const catB = String(b.category || "");
-    const itemA = String(a.item || "");
-    const itemB = String(b.item || "");
-    const catCompare = catA.localeCompare(catB, "en", { sensitivity: "base" });
-    return catCompare !== 0 ? catCompare : itemA.localeCompare(itemB, "en", { sensitivity: "base" });
-  });
-
-  const map = new Map();
-  const out = items.map(it => ({...it, __dup:false}));
-  out.forEach((it, idx)=>{
-    const key = `${(it.category||"").toLowerCase()}||${(it.item||"").toLowerCase()}||${(it.note||"").toLowerCase()}`;
-    if(!map.has(key)) map.set(key, []);
-    map.get(key).push(idx);
-  });
-  for(const arr of map.values()){
-    if(arr.length > 1) arr.forEach(i => out[i].__dup = true);
-  }
-  return out;
-}
-
-
-    // توليد PDF جديد بجدول مرتب + تظليل مكرر (jsPDF + autoTable)
-    async function buildItemsPdf(sortedItems){
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation:"p", unit:"pt", format:"a4" });
-      const pageWidth  = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-
-      // Header
-      doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(25,25,112);
-      doc.text("ASSAL OFFICE", pageWidth/2, 65, { align:"center" });
-      doc.setFontSize(12); doc.setTextColor(100);
-      doc.text("YOUR BEST CHOICE", pageWidth/2, 85, { align:"center" });
-
-      // Meta
-      const today = new Date();
-      const invoiceDate = today.toLocaleDateString("en-GB");
-      const invoiceId = `MERGE-${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
-      doc.setFont("helvetica","normal"); doc.setFontSize(12); doc.setTextColor(0);
-      doc.text(`Merge ID: ${invoiceId}`, pageWidth - 60, 120, { align:"right" });
-      doc.text(`Date: ${invoiceDate}`, 60, 120, { align:"left" });
-
-      // جدول
-      doc.autoTable({
-        head: [["#", "Category", "Item", "Quantity", "Notes"]],
-        body: sortedItems.map((it, i)=>[
-          i+1,
-          String(it.category||""),
-          String(it.item||""),
-          String(it.qty||""),
-          String(it.note||"")
-        ]),
-        startY: 160,
-        theme: "grid",
-        styles: { halign:"center", font:"helvetica", fontSize:11 },
-        headStyles: { fillColor:[40,90,160], textColor:[255,255,255], fontStyle:"bold" },
-        alternateRowStyles: { fillColor:[245,245,245] },
-        margin: { left:50, right:50 },
-
-        didParseCell: function(data){
-          if(data.section==='body'){
-            const r = data.row.index;
-            if(sortedItems[r].__dup){
-              data.cell.styles.fillColor = [255,230,230]; // أحمر خفيف للمكرر
-            }
-          }
-        },
-
-        didDrawPage: ()=>{
-          doc.setDrawColor(80,80,80); doc.setLineWidth(1.5);
-          doc.rect(30, 30, pageWidth-60, pageHeight-60, "S");
-          const pageCount   = doc.internal.getNumberOfPages();
-          const pageCurrent = doc.internal.getCurrentPageInfo().pageNumber;
-          doc.setFontSize(10); doc.setTextColor(100);
-          doc.text(`Page ${pageCurrent} of ${pageCount}`, pageWidth/2, pageHeight-20, {align:"center"});
-        }
+        $mok.onclick     = ()=> done(true);
+        $mcancel.onclick = ()=> done(false);
+        document.onkeydown = (e)=>{ if(e.key === 'Escape'){ /* مقفلة */ } };
       });
-
-     return doc; // نرجّع كائن jsPDF نفسه
-
-
     }
-    
-    
-    
-    
-    
-    /* ===== Command Palette (Ctrl+K): open, render, inline edit, multi-select, delete ===== */
-let __palFilter = "";
-let __palMap = [];          // {orig, category, name, qty, note}
-let __palSel = new Set();   // selected original indexes
-let __palFocus = -1;        // focused row for arrows
-let __palDirty = false;     // ← صار تعديل داخل لوحة الأوامر؟
 
-function palOpen(){
-  const ov   = document.getElementById('paletteOverlay');
-  const list = document.getElementById('palList');
+    /* ====== إضافة سطر (نظيف) ====== */
+/* ====== إضافة سطر (نظيف) ====== */
+document.getElementById('btnAdd').onclick = () => {
+  const customer = (document.getElementById('cust').value || '').trim();
+  const item     = (document.getElementById('item').value || '').trim();
+  let   qty      = String(document.getElementById('qty').value || '1').trim();
+  const cat      = (document.getElementById('cat').value || '').trim();
+  const type     = (document.getElementById('type').value || 'بيع').trim(); // بيع / راجع
+  const note     = (document.getElementById('note').value || '').trim();
 
-  __palFilter = "";
-  __palSel.clear();
-  __palFocus = -1;
-  document.getElementById('palSearch').value = "";
-  
-  document.getElementById('palSearch').closest('.palette-search')?.classList.remove('has-text');
+  if (!customer || !item) return;
+  if (!/^\d+$/.test(qty)) qty = '1';
 
-  __palDirty = false; // ← صفّر العلم عند كل فتح
+  if (!days[selectedDay]) days[selectedDay] = [];
 
-  if(!currentInvoice){
-    // حالة: ماكو فاتورة
-    list.innerHTML = `
-      <div class="group-title">ماكو فاتورة حالياً</div>
-      <div class="item-row" style="grid-template-columns:1fr; text-align:center;">
-        <div>إضغط <b>فاتورة جديدة</b> من الزر العائم أو من الهيدر حتى تبدي.</div>
-      </div>`;
-    ov.classList.add('show'); 
-    ov.setAttribute('aria-hidden','false');
+  let createdNewCard = false;
 
-    // ⬅️ امنع سكرول وتفاعل الخلفية
-    document.body.classList.add('body-no-scroll');
+  // ابحث عن البطاقة وموقعها
+  let cardIndex = days[selectedDay].findIndex(c => c.customer === customer);
+  let card = days[selectedDay][cardIndex];
 
-    // ⬅️ كتم أي لمس/تمرير خارج نافذة الأوامر
-    const swallow = (e)=>{
-      if(!e.target.closest('.palette')){
-        e.preventDefault();
-        e.stopPropagation();
-      }
+  if (!card) {
+    // إنشاء بطاقة جديدة + updatedAt
+    card = {
+      id: Date.now(),
+      customer,
+      lines: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(), // NEW
+      paidAll: false,
+      billType: type
     };
-    ov.__swallow = swallow;
-    ov.addEventListener('wheel', swallow, { passive:false });
-    ov.addEventListener('touchmove', swallow, { passive:false });
-    ov.addEventListener('touchstart', swallow, { passive:false });
-    ov.addEventListener('pointerdown', swallow, { passive:false });
+    days[selectedDay].unshift(card);
+    createdNewCard = true;
+  } else {
+    // لو نوع مختلف يصير مختلط
+    if (card.billType && card.billType !== type) card.billType = 'مختلط';
+    if (!card.billType) card.billType = type;
 
-    setTimeout(()=> document.getElementById('palSearch').focus(), 10);
-    document.addEventListener('keydown', palKeyHandler);
-    return;
+    // حدّث آخر نشاط وارفع البطاقة للأعلى
+    card.updatedAt = new Date().toISOString();
+    days[selectedDay].splice(cardIndex, 1);
+    days[selectedDay].unshift(card);
   }
 
-  if(!(currentInvoice.items||[]).length){
-    // حالة: فاتورة موجودة بس بدون مواد
-    list.innerHTML = `
-      <div class="group-title">${escapeHtml(currentInvoice.id)}</div>
-      <div class="item-row" style="grid-template-columns:1fr; text-align:center;">
-        <div>الفاتورة فارغة. أضف مادة من فورم الإضافة وبعدين ارجع للوحة.</div>
-      </div>`;
-    ov.classList.add('show'); 
-    ov.setAttribute('aria-hidden','false');
+  const isReturn = (type === 'راجع');
 
-    // ⬅️ امنع سكرول وتفاعل الخلفية
-    document.body.classList.add('body-no-scroll');
-
-    // ⬅️ كتم أي لمس/تمرير خارج نافذة الأوامر
-    const swallow = (e)=>{
-      if(!e.target.closest('.palette')){
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-    ov.__swallow = swallow;
-    ov.addEventListener('wheel', swallow, { passive:false });
-    ov.addEventListener('touchmove', swallow, { passive:false });
-    ov.addEventListener('touchstart', swallow, { passive:false });
-    ov.addEventListener('pointerdown', swallow, { passive:false });
-
-    setTimeout(()=> document.getElementById('palSearch').focus(), 10);
-    document.addEventListener('keydown', palKeyHandler);
-    return;
-  }
-
-  // الحالة الطبيعية: مواد موجودة
-  palBuildMap();
-  palRender();
-
-  ov.classList.add('show'); 
-  ov.setAttribute('aria-hidden','false');
-
-  // ⬅️ امنع سكرول وتفاعل الخلفية
-  document.body.classList.add('body-no-scroll');
-
-  // ⬅️ كتم أي لمس/تمرير خارج نافذة الأوامر
-  const swallow = (e)=>{
-    if(!e.target.closest('.palette')){
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  };
-  ov.__swallow = swallow;
-  ov.addEventListener('wheel', swallow, { passive:false });
-  ov.addEventListener('touchmove', swallow, { passive:false });
-  ov.addEventListener('touchstart', swallow, { passive:false });
-  ov.addEventListener('pointerdown', swallow, { passive:false });
-
-  setTimeout(()=> document.getElementById('palSearch').focus(), 10);
-  document.addEventListener('keydown', palKeyHandler);
-}
-
-function palClose(){
-  const ov = document.getElementById('paletteOverlay');
-
-  ov.classList.remove('show'); 
-  ov.setAttribute('aria-hidden','true');
-  document.removeEventListener('keydown', palKeyHandler);
-
-  // ⬅️ رجّع سكرول الصفحة
-  document.body.classList.remove('body-no-scroll');
-
-  // ⬅️ فكّ لستّنرات الكتم
-  if(ov.__swallow){
-    ov.removeEventListener('wheel', ov.__swallow, { passive:false });
-    ov.removeEventListener('touchmove', ov.__swallow, { passive:false });
-    ov.removeEventListener('touchstart', ov.__swallow, { passive:false });
-    ov.removeEventListener('pointerdown', ov.__swallow, { passive:false });
-    delete ov.__swallow;
-  }
-
-  // تحديث الجدول الأساسي فور الإغلاق
-  renderItems();
-
-  if (__palDirty) {                    // ← إذا كان اكو تعديل
-    showToast("✅ تم الحفظ وتعديل الفاتورة");
-    __palDirty = false;                // ← صفّر العلم
-  }
-}
-
-function palBuildMap(){
-  __palMap = (currentInvoice.items||[]).map((it, idx)=> ({
-    orig: idx,
-    category: String(it.category||""),
-    name: String(it.name||""),
-    qty: String(it.qty||""),
-    note: String(it.note||"")
-  }));
-}
-
-function __norm2(s){ 
-  return String(s||"")
-    .toLowerCase()
-    .replace(/\s+/g,'')
-    .replace(/[-_.]/g,'');
-}
-
-
-function palFiltered(){
-  const q = __norm2(__palFilter);
-  if(!q) return __palMap;
-  return __palMap.filter(it=>
-    __norm2(it.category).includes(q) ||
-    __norm2(it.name).includes(q)     ||
-    __norm2(it.qty).includes(q)      ||
-    __norm2(it.note).includes(q));
-}
-
-function palRender(){
-  const host = document.getElementById('palList');
-  host.innerHTML = "";
-  const data = palFiltered();
-
-  // نجمع حسب الصنف
-  const groups = new Map();
-  data.forEach(it=>{
-    const k = it.category || "بدون صنف";
-    if(!groups.has(k)) groups.set(k, []);
-    groups.get(k).push(it);
+  card.lines.push({
+    item,
+    qty,
+    cat,
+    note,
+    type,
+    at: new Date().toISOString(),
+    returned: isReturn,
+    paid: false
   });
 
-  groups.forEach((items, cat)=>{
-    const gt = document.createElement('div');
-    gt.className = 'group-title';
-    gt.textContent = cat;
-    host.appendChild(gt);
+  save();
 
-    items.forEach((it, i)=>{
-      const row = document.createElement('div');
-      row.className = 'item-row';
-      row.setAttribute('data-orig', it.orig);
 
-      const checked = __palSel.has(it.orig) ? 'checked' : '';
-      row.innerHTML = `
-        <input type="checkbox" class="chk" ${checked} />
-        <div class="name">${escapeHtml(it.name)}</div>
-        <input class="qty" type="number" value="${escapeHtml(it.qty)}" />
-        <div class="note" title="${escapeHtml(it.note)}">${escapeHtml(it.note)}</div>
-        <button class="del" title="حذف"><i class="fa-regular fa-trash-can"></i></button>
-      `;
+  document.getElementById('item').value = '';
+  document.getElementById('qty').value  = '';
+  document.getElementById('note').value = '';
+  document.getElementById('item').focus();
 
-      // تحديد
-      row.querySelector('.chk').addEventListener('change', (e)=>{
-        if(e.currentTarget.checked) __palSel.add(it.orig);
-        else __palSel.delete(it.orig);
-      });
+  renderBoard();
+  renderRail();
+  refreshStats();
 
-      // بعد (استبدل الكود أعلاه بهذا)
-const qtyEl = row.querySelector('.qty');
-let prevVal = qtyEl.value;              // نخزّن القيمة قبل التحرير
+  // اسحب الكارت أسفل شريط البحث بمسافة أنيقة دائمًا
+  focusNewCard(card);
 
-// لما ياخذ فوكس، نحفظ القيمة الحالية للمقارنة لاحقاً
-qtyEl.addEventListener('focus', ()=>{
-  prevVal = qtyEl.value;
-});
+  showToast('success', createdNewCard ? 'تم إنشاء بطاقة وإضافة مادة' : 'تم إضافة مادة وتحريك البطاقة للأعلى');
+};
 
-// حفظ فعلي + رسالة عند انتهاء الإدخال (change)
-qtyEl.addEventListener('change', (e)=>{
-  const val = e.currentTarget.value.trim();
-  currentInvoice.items[it.orig].qty = val;
-  autoSaveInvoice();
-  renderItems();
-  __palDirty = true;
-  showToast("تم تغير عدد هذه المادة");   // ← النص المطلوب
-});
 
-// Enter = ثبّت التعديل ثم انقل فوكس لكمية السطر التالي
-qtyEl.addEventListener('keydown', (e)=>{
-  if(e.key === 'Enter'){
-    e.preventDefault();
 
-    // 1) ثبّت التعديل عبر blur (يشغّل change أعلاه)
-    qtyEl.blur();
 
-    // 2) بعد لحظة قصيرة، حرّك الفوكس لكمية العنصر التالي (يلف عند النهاية)
-    setTimeout(()=>{
-      const inputs = Array.from(document.querySelectorAll('#palList .item-row .qty'));
-      const idx = inputs.indexOf(qtyEl);
-      if(inputs.length){
-        const next = inputs[(idx + 1) % inputs.length]; // يلف للأول إذا آخر واحد
-        next?.focus();
-        next?.select?.();
-      }
-    }, 10);
+
+
+
+  function rebuildNames(){
+  const host = document.getElementById('custNames');
+  host.innerHTML = CUSTOMERS.map(n => `<option value="${esc(n)}">`).join('');
+}
+
+
+    /* ====== رسم اللوح ====== */
+    
+function renderBoard(){
+  const host = document.getElementById('masonry'); 
+  host.innerHTML = '';
+
+  const q = (document.getElementById('cardSearch')?.value || '').trim().toLowerCase();
+  const global = document.getElementById('globalSearch')?.checked;
+
+  // جهّز مصدر البطاقات
+  const collect = (d)=> (days[d]||[]).map(c => ({...c, __day: d}));
+  let pool = [];
+
+  if(global){
+    const allDaysKeys = Object.keys(days).sort().reverse(); // أحدث أولًا
+    allDaysKeys.forEach(d => { pool.push(...collect(d)); });
+  }else{
+    pool = collect(selectedDay);
   }
-});
 
+  // فلترة بالاسم (إن وجد)
+  let arr = q ? pool.filter(c => (c.customer||'').toLowerCase().includes(q)) : pool;
 
-// اختياري: لو تحب تظهر توست أيضاً عند الخروج إذا اختلفت القيمة
-qtyEl.addEventListener('blur', (e)=>{
-  const now = e.currentTarget.value.trim();
-  if(now !== prevVal){
-    // التوست صار بالفعل في change عادةً، هذا للتأكيد في حالات معيّنة
-    // showToast(`تم تحديث عدد "${it.name}" إلى ${now} ✅`);
+  // بالبحث الشامل: فرز من الأحدث للأقدم
+  
+  // بالبحث الشامل: فرز حسب آخر نشاط (updatedAt إن وجِد وإلا createdAt)
+if (global) {
+  arr.sort((a, b) =>
+    new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)
+  );
+}
+
+  
+  
+  // عدّاد وإظهار حدّ العرض
+  const totalCount = arr.length;
+  if(global){
+    arr = arr.slice(0, globalLimit); // قصّ على حسب الحد الحالي
+    document.getElementById('cardsCount').textContent = `${arr.length} / ${totalCount} بطاقة`;
+  }else{
+    document.getElementById('cardsCount').textContent = `${arr.length} بطاقة`;
   }
-});
+
+  // لا توجد نتائج
+  if(!arr.length){
+    host.innerHTML = `<div style="border:1px dashed var(--stroke);background:#0b1327;border-radius:14px;padding:16px;text-align:center;color:#9aa4b2">
+      لا توجد بطاقات${global ? ' مطابقة في كل الأيام' : ' اليوم'}
+    </div>`;
+    return;
+  }
+
+  // اطبع البطاقات
+  arr.forEach((card, ci)=>{
+    const box = CE('div','card');
+    box.id = 'card-' + card.id;
+
+    /* Head */
+    const head = CE('div','card-head');
+    const custWrap = CE('div','cust');
+    const custName = CE('span'); 
+    custName.textContent = card.customer;
+    custWrap.appendChild(custName);
+    
+    
+    // لو الاسم مو ضمن المصفوفة اليدوية نضيف "جديد"
+const isKnownCustomer = CUSTOMERS.includes(card.customer);
+if (!isKnownCustomer) {
+  const newBadge = CE('span','badge-new');
+ newBadge.textContent = 'زبون جديد';
+  custWrap.appendChild(newBadge);
+}
+
+    
+    
+
+    // نوع الفاتورة (بيع/راجع/مختلط)
+    let billType = card.billType;
+    if(!billType){
+      const types = Array.from(new Set((card.lines||[]).map(l=>l.type)));
+      billType = (types.length === 1) ? types[0] : 'مختلط';
+      card.billType = billType;
+    }
+   
+   const typeBadge = CE('span','badge-type ' + (billType==='راجع' ? 'return' : billType==='بيع' ? 'sell' : ''));
+const typeLabel = (billType === 'راجع')
+  ? 'فاتورة راجع'
+  : (billType === 'بيع')
+    ? 'فاتورة بيع'
+    : 'فاتورة مختلطة';
+typeBadge.textContent = typeLabel;
+custWrap.appendChild(typeBadge);
+
+   
+   
+    // بادج “تم التسديد” إن كل الفعال مدفوع
+    if(card.paidAll || (card.lines.length && card.lines.every(l=>l.paid))){
+      card.paidAll = true;
+      const paidBadge = CE('span','bill-badge'); 
+      paidBadge.textContent='تم تسديد مواد اليوم';
+      custWrap.appendChild(paidBadge);
+    }
+
+    // يمين الهيدر: التاريخ (من يوم البطاقة) + الوقت (من createdAt)
+    const rightWrap = CE('div'); 
+    rightWrap.style.display = 'flex';
+    rightWrap.style.gap = '6px';
+
+    const dateTag = CE('span','tag'); 
+    dateTag.textContent = fmtDMY(card.__day || selectedDay);  // DD-MM-YYYY
+
+    const timeTag = CE('span','tag'); 
+    timeTag.textContent = arTime(card.createdAt);
+
+    rightWrap.append(dateTag, timeTag);
+    head.append(custWrap, rightWrap);
+    box.appendChild(head);
+
+    /* Items */
+    const itemsWrap = CE('div','items');
+    card.lines.forEach((ln, li)=>{
+      const it = CE('div','item');
+      if(ln.returned) it.classList.add('returned');
+      if(ln.paid)     it.classList.add('paid');
+
+      const btnReturn = CE('button','btn-mini btn-return'); 
+      btnReturn.innerHTML='<i class="fa-solid fa-rotate-left"></i>'; 
+      btnReturn.title='راجع';
+
+      const btnPay    = CE('button','btn-mini btn-pay');    
+      btnPay.innerHTML   ='<i class="fa-solid fa-check"></i>';      
+      btnPay.title='تسديد';
+
+      const name  = CE('div','iname'); name.textContent = ln.item;
+      const cat   = CE('div','ichip'); cat.textContent  = ln.cat || '—';
+      const qty   = CE('div','iqty');  qty.textContent  = `× ${ln.qty}`;
+      const note  = CE('div','inote'); note.textContent = (ln.note && ln.note.trim()) ? ln.note : '—';
+      const time  = CE('div','itime'); time.textContent = arTime(ln.at);
+      const del   = CE('button','btn-mini btn-del'); 
+      del.innerHTML='<i class="fa-regular fa-trash-can"></i>'; 
+      del.title='حذف';
+
+      const badge = CE('span','badge'); 
+      setBadge(badge, ln);
+      if (badge.textContent) name.appendChild(badge);
+
+      it.append(btnReturn, btnPay, name, cat, qty, note, time, del);
+
+      btnReturn.onclick = ()=>{
+        ln.returned = !ln.returned;
+        if(ln.returned) ln.paid = false;
+        card.paidAll = false;
+        save(); renderBoard(); renderRail(); refreshStats();
+        showToast(ln.returned ? 'warn' : 'info', ln.returned ? 'تم تعليمها راجع' : 'تم إلغاء الراجع');
+      };
+
+      btnPay.onclick = ()=>{
+        ln.paid = !ln.paid;
+        if(ln.paid) ln.returned = false;
+        save(); renderBoard(); renderRail(); refreshStats();
+        showToast(ln.paid ? 'success' : 'info', ln.paid ? 'تم تسديد المادة' : 'تم إلغاء التسديد');
+      };
+
+      del.onclick = async ()=>{
+        const ok = await showConfirm({
+          title:'تأكيد حذف السطر',
+          message:`هل تريد حذف "${ln.item}"؟`,
+          okText:'حذف',
+          cancelText:'إلغاء',
+          danger:true
+        });
+        if(!ok) return;
+        card.lines.splice(li,1); save();
+        renderBoard(); renderRail(); refreshStats();
+        showToast('error', 'تم حذف المادة');
+      };
+
+      itemsWrap.appendChild(it);
+    });
+    box.appendChild(itemsWrap);
+
+    /* Foot */
+    const foot = CE('div','card-foot');
+    const left = CE('div'); 
+    left.innerHTML = `<span class="tag">${card.lines.length} مادة</span>`;
+    const right = CE('div','foot-actions');
+
+    const btnPdf   = CE('button','i-btn'); 
+    btnPdf.innerHTML  = '<i class="fa-regular fa-file-pdf"></i><span>PDF</span>'; 
+    btnPdf.title='PDF (لاحقاً)';
+
+    const btnPayAll = CE('button','i-btn');
+    card.paidAll = allActivePaid(card);
+    stylePayAll(btnPayAll, card);
+
+    btnPayAll.onclick = ()=>{
+      if (!card.lines.length) return;
+      const active = activeLines(card);
+      if (active.length === 0) return;
+
+      const allPaidBefore = active.every(l => l.paid);
+      const makePaid = !allPaidBefore;
+
+      active.forEach(l => { l.paid = makePaid; });
+      card.paidAll = allActivePaid(card);
+
+      save(); renderBoard(); renderRail(); refreshStats();
+      showToast(makePaid ? 'success' : 'info', makePaid ? 'تم تسديد كل المواد' : 'تم إلغاء تسديد الكل');
+    };
+
+    const btnDel = CE('button','i-btn'); 
+    btnDel.innerHTML  = '<i class="fa-regular fa-trash-can"></i><span>حذف البطاقة</span>'; 
+    btnDel.title='حذف البطاقة';
+    btnDel.onclick = async ()=>{
+      const ok = await showConfirm({
+        title:'تأكيد حذف البطاقة',
+        message:`سيتم حذف بطاقة "${card.customer}" بكافة موادها.`,
+        okText:'حذف البطاقة',
+        cancelText:'إلغاء',
+        danger:true
+      });
+      if(!ok) return;
+
+      // عند البحث الشامل: احذف من يوم البطاقة الحقيقي
+      const dayKey = card.__day || selectedDay;
+      const arrRef = (days[dayKey]||[]);
+      const idx = arrRef.findIndex(c => c.id === card.id);
+      if(idx > -1){ arrRef.splice(idx,1); save(); }
+
+      renderBoard(); renderRail(); refreshStats();
+      showToast('error', 'تم حذف البطاقة');
+    };
+
+    right.append(btnPdf, btnPayAll, btnDel);
+    foot.append(left,right);
+    box.appendChild(foot);
+
+    host.appendChild(box);
+  });
+
+  // زر عرض المزيد للبحث الشامل
+  if(global && totalCount > arr.length){
+    const more = CE('button','i-btn');
+    more.style.margin = '8px auto 0';
+    more.innerHTML = '<i class="fa-solid fa-angles-down"></i><span>عرض المزيد</span>';
+    more.onclick = ()=>{ globalLimit += 20; renderBoard(); };
+    host.appendChild(more);
+  }
+}
+
+    
+    
+    
+    function activeLines(card){ return card.lines.filter(l => !l.returned); }
+function allActivePaid(card){
+  const a = activeLines(card);
+  return a.length>0 && a.every(l => l.paid);
+}
 
 
-      // حذف فوري
-      row.querySelector('.del').addEventListener('click', ()=>{
-        palDeleteOne(it.orig);
+
+/* سكرول مضمونة للكارت الجديد بعد الريندر */
+/* سكرول مضمونة للكارت الجديد بعد الريندر */
+
+
+/* سكرول مضمونة للكارت الجديد بعد الريندر (أسفل شريط البحث بمسافة صغيرة) */
+function focusNewCard(card){
+  const el = document.getElementById('card-' + card.id);
+  if(!el) return;
+
+  requestAnimationFrame(()=>{
+    const header  = document.querySelector('.ribbon');
+    const headerH = header ? header.offsetHeight : 0;
+    const bh      = boardHeadH();   // ارتفاع .board-head اللاصق
+    const gap     = 16;             // المسافة الأنيقة المطلوبة أسفل الشريط
+
+    // خَلّي أعلى البطاقة يبتعد بمقدار gap تحت أسفل الشريط
+    const absTop = el.getBoundingClientRect().top + window.pageYOffset;
+    const y = Math.max(0, absTop - (headerH + bh + gap));
+
+    window.scrollTo({ top: y, behavior: 'smooth' });
+
+    el.classList.add('flash-card');
+    setTimeout(()=> el.classList.remove('flash-card'), 1600);
+  });
+}
+
+
+
+    
+    
+    
+
+    /* ===== Helpers ===== */
+ 
+ 
+ 
+ function stylePayAll(btn, cardRef){
+  const allPaidNow = allActivePaid(cardRef);
+  if(allPaidNow || cardRef.paidAll){
+    btn.classList.remove('primary'); btn.classList.add('ghost');
+    btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i><span>إلغاء التسديد</span>';
+    btn.title = 'إلغاء تسديد المواد غير الراجعة';
+  }else{
+    btn.classList.remove('ghost'); btn.classList.add('primary');
+    btn.innerHTML = '<i class="fa-solid fa-check-double"></i><span>تسديد الكل</span>';
+    btn.title = 'تسديد كل المواد غير الراجعة';
+  }
+}
+
+ 
+ 
+ 
+    function wrapName(name, cat, badge){
+      const box = CE('div');
+      box.style.display='flex'; box.style.alignItems='center'; box.style.gap='6px';
+      box.append(name, cat); if(badge.textContent) box.appendChild(badge);
+      return box;
+    }
+    function setBadge(el, ln){
+      el.textContent = ln.returned ? 'راجع' : (ln.paid ? 'تم التسديد' : '');
+      el.style.display = el.textContent ? 'inline-flex' : 'none';
+    }
+    
+    
+    
+    
+    
+    /* ===== تنسيقات مساعدة للفلترة ===== */
+function pad2(n){ n = String(n); return n.length===1 ? '0'+n : n; }
+function fmtDMY(iso){ // 'YYYY-MM-DD' -> 'DD-MM-YYYY'
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const [y,m,d] = iso.split('-'); return `${d}-${m}-${y}`;
+}
+function fmtMY(iso){ // 'YYYY-MM-DD' -> 'MM-YYYY'
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const [y,m] = iso.split('-'); return `${m}-${y}`;
+}
+function getYear(iso){ return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.slice(0,4) : iso; }
+
+/* تحضير مُرشِّح حسب إدخال المستخدم */
+function makeFilterPredicate(fraw){
+  const f = (fraw||'').trim();
+  if(!f) return ()=>true;
+
+  // أنماط مدعومة:
+  // 1) DD-MM-YYYY  2) MM-YYYY  3) YYYY
+  const dmy = /^(\d{2})-(\d{2})-(\d{4})$/;
+  const my  = /^(\d{2})-(\d{4})$/;
+  const y   = /^(\d{4})$/;
+
+  if(dmy.test(f)){
+    const [_, dd, mm, yyyy] = f.match(dmy);
+    const want = `${dd}-${mm}-${yyyy}`;
+    return (iso)=> fmtDMY(iso) === want;
+  }
+  if(my.test(f)){
+    const [_, mm, yyyy] = f.match(my);
+    const want = `${mm}-${yyyy}`;
+    return (iso)=> fmtMY(iso) === want;
+  }
+  if(y.test(f)){
+    const [_, yyyy] = f.match(y);
+    return (iso)=> getYear(iso) === yyyy;
+  }
+
+  // لو نص حر، نجرّب contains على صيغتنا
+  const s = f.toLowerCase();
+  return (iso)=> (fmtDMY(iso).toLowerCase().includes(s) ||
+                  fmtMY(iso).toLowerCase().includes(s)  ||
+                  getYear(iso).toLowerCase().includes(s));
+}
+
+    
+    
+    
+    
+
+    /* ===== Rail (تجميع شهري) ===== */
+
+
+function renderRail(){
+  const host = document.getElementById('rail'); host.innerHTML='';
+
+  const allDays = Object.keys(days).sort().reverse();
+  if(!allDays.includes(selectedDay)) allDays.unshift(selectedDay);
+
+  const fraw = (document.getElementById('dayFilter').value||'').trim();
+  const match = makeFilterPredicate(fraw);
+  const isFiltering = !!fraw;
+
+  // لو فلترة: نختار الأيام المطابقة فقط
+  // لو لا: نطبق سياسة "آخر يومين لكل شهر" و"آخر شهرين لكل سنة"
+  let daysToShow = [];
+
+  if(isFiltering){
+    daysToShow = allDays.filter(k => match(k));
+  }else{
+    // نبني شجرة: year -> month -> [days...]
+    const tree = {};
+    allDays.forEach(k=>{
+      const [y,m] = [k.slice(0,4), k.slice(5,7)];
+      (tree[y] ||= {});
+      (tree[y][m] ||= []);
+      tree[y][m].push(k);
+    });
+
+    // لكل سنة: أخذ آخر شهرين فقط
+    const years = Object.keys(tree).sort().reverse();
+    years.forEach(y=>{
+      const months = Object.keys(tree[y]).sort().reverse(); // '12','11',...
+      const lastTwoMonths = months.slice(0,2);
+      lastTwoMonths.forEach(m=>{
+        const daysList = tree[y][m].sort().reverse();       // 'YYYY-MM-DD' نزولياً
+        const lastTwoDays = daysList.slice(0,2);
+        daysToShow.push(...lastTwoDays);
+      });
+    });
+
+    // تأكد نظل محافظين على الترتيب العام نزولياً
+    daysToShow.sort().reverse();
+  }
+
+  if(!daysToShow.length){
+    host.innerHTML = '<div style="color:#9aa4b2">لا يوجد أيام لعرضها</div>';
+    return;
+  }
+
+  // نجمع بالشهور (YYYY-MM)
+  const groups = {};
+  daysToShow.forEach(d=>{
+    const key = d.slice(0,7); // YYYY-MM
+    (groups[key] ||= []).push(d);
+  });
+
+  // نحتاج أيضاً تجميع بالسنة لفرز الأشهر صح
+  const monthKeys = Object.keys(groups).sort().reverse(); // '2025-10', '2025-09', ...
+  const yearsSet = new Set(monthKeys.map(mk=> mk.slice(0,4)));
+  const yearsOrdered = Array.from(yearsSet).sort().reverse();
+
+  yearsOrdered.forEach(yyyy=>{
+    // الأشهر التابعة لهذه السنة، بالأحدث أولاً
+    const monthsOfYear = monthKeys.filter(mk => mk.startsWith(yyyy+'-')).sort().reverse();
+
+    monthsOfYear.forEach(monthKey=>{
+      const monthBox = CE('div','month');
+
+      const mTitle = CE('div','month-title');
+      const niceMonth = arMonthName(monthKey+'-01');
+      const mCount = groups[monthKey].reduce((n,k)=> n + (days[k]?.length||0), 0);
+      mTitle.innerHTML = `<span>${niceMonth}</span><span class="mchip">${mCount} بطاقة</span>`;
+      monthBox.appendChild(mTitle);
+
+      // الأيام داخل هذا الشهر
+      const daysInMonth = groups[monthKey].sort().reverse();
+      daysInMonth.forEach(k=>{
+        const row = CE('div','day'+(k===selectedDay?' active':'')); 
+        row.innerHTML = `
+          <div class="title">${arDateWithDay(k)}</div>
+          <div class="meta">${(days[k]||[]).length} بطاقة</div>
+        `;
+       
+       row.onclick = ()=>{
+  selectedDay = k;
+  renderBoard();
+  refreshStats();
+  // لا تحدّث الهيدر هنا حتى يبقى ثابت على TODAY
+  // document.getElementById('dateBadge').textContent = arDateWithDay(selectedDay);
+};
+
+       
+       
+        monthBox.appendChild(row);
       });
 
-      // فوكس للتنقّل بالأسهم
-      row.addEventListener('click', ()=>{
-        __palFocus = it.orig;
-        // فوكس على qty
-        row.querySelector('.qty').focus();
-      });
-
-      host.appendChild(row);
+      host.appendChild(monthBox);
     });
   });
 }
 
-function palDeleteOne(orig){
-  if(!currentInvoice || !currentInvoice.items) return;
-  if(!currentInvoice.items[orig]) return;
-  currentInvoice.items.splice(orig, 1);
-  autoSaveInvoice();
-  showToast("تم حذف المادة ✅");
-  __palDirty = true; // ← صار تعديل
 
-  // أعد بناء الخريطة لأن الفهارس تغيّرت
-  palBuildMap();
-  palRender();
-  renderItems();
-}
 
-function palBulkDelete(){
-  if(!__palSel.size){ showToast("ما محدد شي للحذف ❌", true); return; }
-  const arr = Array.from(__palSel).sort((a,b)=> b-a);
-  arr.forEach(i=>{
-    if(currentInvoice.items[i]) currentInvoice.items.splice(i,1);
+    document.getElementById('dayFilter').addEventListener('input', renderRail);
+    document.getElementById('cardSearch').addEventListener('input', renderBoard);
+  
+  
+   document.getElementById('globalSearch')?.addEventListener('change', ()=>{
+  globalLimit = 20;     // رجّع الحد للبداية كل ما تبدّل وضع البحث الشامل
+  renderBoard();
+});
+
+
+
+    /* ===== Stats ===== */
+    function refreshStats(){
+      const arr = (days[selectedDay]||[]);
+      const items = arr.reduce((n,c)=> n + c.lines.length, 0);
+      document.getElementById('statCards').textContent = arr.length;
+      document.getElementById('statItems').textContent = items;
+      document.getElementById('statTime').textContent = new Date().toLocaleTimeString('ar-EG');
+    }
+
+    /* ===== Actions ===== */
+   
+   document.getElementById('btnClearDay').onclick  = async ()=>{
+  const ok = await showConfirm({
+    title:'تفريغ اليوم',
+    message:`سيتم حذف جميع بطاقات يوم ${arDateWithDay(selectedDay)}.`,
+    okText:'تفريغ اليوم',
+    cancelText:'إلغاء',
+    danger:true
   });
-  __palSel.clear();
-  autoSaveInvoice();
-  showToast("تم حذف العناصر المحددة ✅");
-  __palDirty = true; // ← صار تعديل
+  if(!ok) return;
+  days[selectedDay] = [];
+  save(); renderBoard(); refreshStats();
+  showToast('error', 'تم تفريغ اليوم');
+};
 
-  palBuildMap(); palRender(); renderItems();
-}
+   
+   
+   
+  document.getElementById('btnRefresh').onclick = ()=>{
+  renderBoard(); refreshStats();
+  showToast('info','تم التحديث');
+};
 
-/* اختصارات لوحة المفاتيح داخل اللوحة */
-function palKeyHandler(e){
-  const isOpen = document.getElementById('paletteOverlay').classList.contains('show');
-  if(!isOpen) return;
+    /* ===== Init ===== */
 
-  // Esc = إغلاق
-  if(e.key === 'Escape'){ e.preventDefault(); palClose(); return; }
 
-  // ↑↓ للتنقل بين الصفوف (يركّز على الكمية)
-  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
-    e.preventDefault();
-    const data = palFiltered().map(it=> it.orig);
-    if(!data.length) return;
-    if(__palFocus === -1) { __palFocus = data[0]; }
-    else{
-      const pos = data.indexOf(__palFocus);
-      if(pos === -1) __palFocus = data[0];
-      else{
-        if(e.key === 'ArrowDown') __palFocus = data[Math.min(pos+1, data.length-1)];
-        else                      __palFocus = data[Math.max(pos-1, 0)];
-      }
-    }
-    // سكول + فوكس
-    const row = document.querySelector(`.item-row[data-orig="${__palFocus}"]`);
-    if(row){
-      row.scrollIntoView({block:'nearest'});
-      row.querySelector('.qty')?.focus();
-    }
-    return;
-  }
-
-  // Delete = حذف المحدد جماعي
-  if(e.key === 'Delete'){
-    e.preventDefault();
-    palBulkDelete(); return;
-  }
-
- 
-  // + / - لتعديل الكمية سريعاً (على الصف المتركز)
-  if(e.key === '+' || e.key === '-' ){
-    if(__palFocus === -1) return;
-    const el = document.querySelector(`.item-row[data-orig="${__palFocus}"] .qty`);
-    if(!el) return;
-    const cur = Number(el.value || "0");
-    const next = e.key==='+' ? cur+1 : Math.max(0, cur-1);
-    el.value = next;
-    currentInvoice.items[__palFocus].qty = String(next);
-    autoSaveInvoice();
-    renderItems();
-    e.preventDefault();
-  }
- 
- 
-}
-
-/* فتح اللوحة: Ctrl+K / ⌘K */
-document.addEventListener('keydown', (e)=>{
-  const isMac = navigator.platform.toLowerCase().includes('mac');
-  if((isMac && e.metaKey && e.key.toLowerCase()==='k') ||
-     (!isMac && e.ctrlKey && e.key.toLowerCase()==='k')){
-    e.preventDefault(); palOpen();
-  }
-});
-
-/* واجهة اللوحة (أزرار وأحداث) */
-document.getElementById('palClose').addEventListener('click', palClose);
-document.getElementById('palBulkDel').addEventListener('click', palBulkDelete);
-const palSearchEl = document.getElementById('palSearch');
-const palSearchWrap = palSearchEl.closest('.palette-search');
-
-palSearchEl.addEventListener('input', (e)=>{
-  __palFilter = e.target.value;
-  // أظهر/أخفِ زر المسح حسب وجود نص
-  if(palSearchEl.value.trim()){
-    palSearchWrap.classList.add('has-text');
-  }else{
-    palSearchWrap.classList.remove('has-text');
-  }
-  palRender();
-});
-
-// زر المسح
-document.getElementById('palClear').addEventListener('click', ()=>{
-  palSearchEl.value = "";
-  palSearchWrap.classList.remove('has-text');
-  __palFilter = "";
-  palRender();
-  palSearchEl.focus();
-});
+(function init(){
+  document.getElementById('dateBadge').textContent = arDateWithDay(TODAY);
+  // --- سطر جديد: حمّل قاعدة الأصناف من الشيت ---
+  loadExcelFiles();
+  // ----------------------------------------------
+  rebuildNames(); renderBoard(); renderRail(); refreshStats();
+})();
 
 
 
 
 
-
-
-// ===== Keyboard Scrolling (Desktop) =====
-// ===== Keyboard Scrolling (Desktop) — safer =====
-// ===== Keyboard Scrolling (Desktop) — robust =====
-function isTypingContext(e){
-  const tag = (e.target.tagName||'').toLowerCase();
-  return ['input','textarea','select'].includes(tag) || e.target.isContentEditable;
-}
-
-// نحفظ آخر موقع للماوس (للعثور على حاوية تحت المؤشر)
-let __lastPointer = { x: 0, y: 0 };
-document.addEventListener('mousemove', e => { __lastPointer = { x: e.clientX, y: e.clientY }; });
-
-function isScrollable(el){
-  if(!el) return false;
-  const st = getComputedStyle(el);
-  const canY = /(auto|scroll)/.test(st.overflowY);
-  return canY && (el.scrollHeight - el.clientHeight) > 1;
-}
-
-// نصعد للأب القابل للتمرير
-function climbToScrollable(start){
-  let el = start;
-  while(el && el !== document && el !== document.documentElement){
-    if(isScrollable(el)) return el;
-    el = el.parentElement;
-  }
-  return null;
-}
-
-// نختار أفضل هدف للتمرير
-function findScrollableTarget(){
-  // 1) بحسب الفوكس
-  const byFocus = climbToScrollable(document.activeElement);
-  if(byFocus) return byFocus;
-
-  // 2) تحت الماوس
-  const under = document.elementFromPoint(__lastPointer.x, __lastPointer.y);
-  const byPointer = climbToScrollable(under);
-  if(byPointer) return byPointer;
-
-  // 3) fallback: صفحة الوثيقة
-  return document.scrollingElement || document.documentElement || document.body;
-}
-
-// دالة تمرير عامة (تتعامل مع window والـ elements)
-function doScroll(el, amount){
-  // لو الهدف هو وثيقة الصفحة، استعمل window.scrollBy
-  const isDoc = (el === document.scrollingElement) ||
-                (el === document.documentElement) ||
-                (el === document.body);
-
-  if(isDoc){
-    window.scrollBy({ top: amount, behavior: 'smooth' });
-  }else{
-    // بعض العناصر تحتاج إزالة behavior للسلاسة في متصفحات قديمة
-    el.scrollBy({ top: amount, behavior: 'smooth' });
-  }
-}
-
-document.addEventListener('keydown', (e)=>{
-  // ديسكتوب فقط
-  if(window.innerWidth < 992) return;
-  // لا نتدخل إذا المستخدم يكتب
-  if(isTypingContext(e)) return;
-
-  const key = e.key;
-  if(!['ArrowDown','ArrowUp','PageDown','PageUp','Home','End'].includes(key)) return;
-
-  const el = findScrollableTarget();
-  if(!el) return;
-
-  // احسب مقدار التمرير
-  let amount = 0;
-  if(key === 'ArrowDown') amount =  60;
-  if(key === 'ArrowUp')   amount = -60;
-  if(key === 'PageDown')  amount =  Math.floor((el.clientHeight || window.innerHeight) * 0.9);
-  if(key === 'PageUp')    amount = -Math.floor((el.clientHeight || window.innerHeight) * 0.9);
-  if(key === 'Home')      amount = -el.scrollTop;
-  if(key === 'End')       amount =  (el.scrollHeight - el.clientHeight - el.scrollTop);
-
-  // إذا فعلاً يوجد مجال للتمرير، امنع الافتراضي ونفّذ التمرير
-  const canScrollY = (el.scrollHeight - el.clientHeight) > 1 || ['Home','End'].includes(key);
-  if(canScrollY){
-    e.preventDefault();
-    doScroll(el, amount);
-  }
-});
-
-    
-    
-    
-    /* ===== Maintenance Mode ===== */
-// غيّرها إلى true لما تريد تظهر نافذة الصيانة
-const MAINTENANCE_MODE = false;
-
-/**
- * إظهار/إخفاء نافذة الصيانة
- * يوقف تمرير الصفحة ويتجاهل كل التفاعلات بالخلفية
- */
-function toggleMaintenance(show){
-  const ov = document.getElementById('maintenanceOverlay');
-  if(!ov) return;
-  ov.style.display = show ? 'flex' : 'none';
-  // قفل/فتح سكرول الصفحة
-  document.documentElement.style.overflow = show ? 'hidden' : '';
-  document.body.style.overflow = show ? 'hidden' : '';
-}
-
-/* تفعيل عبر باراميتر الرابط (اختياري): ?maintenance=1 */
-function getQueryFlag(name){
-  return new URLSearchParams(location.search).get(name);
-}
-
-/* فعّل الوضع عند تحميل الصفحة إذا الفلاغ يطلب ذلك */
-window.addEventListener('load', ()=>{
-  const viaQuery = getQueryFlag('maintenance') === '1';
-  toggleMaintenance( MAINTENANCE_MODE || viaQuery );
-});
-
-    
-  
-    
   </script>
-  
-  
-  <!-- ====== Footer ====== -->
-  <footer class="app-footer">
-    <div class="foot-wrap">
-      <span>جميع الحقوق محفوظة © مكتب عسل 2025</span>
-    </div>
-  </footer>
-  
-  
-  
 </body>
 </html>
