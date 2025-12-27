@@ -1386,11 +1386,17 @@ input[type="number"]{
   min-width: 0; /* يمنع التمدد الزايد */
 }
 
+/* ✅ اجبار كل الأزرار على خط Cairo */
+button,
+.btn,
+[class*="btn"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"]{
+  font-family: "Cairo", system-ui, -apple-system, "Segoe UI", sans-serif !important;
+}
 
-
-
-
-  </style>
+</style>
 </head>
 <body>
   
@@ -2072,11 +2078,10 @@ document.getElementById("btnReload")?.addEventListener("click", ()=>{
        
        // ===== التحقق من الحقول =====
 function isPositiveInt(v){
-  // نقبل "001" بس نحوله رقم صحيح > 0
+  // نقبل "001" بس نحوله رقم صحيح >= 0
   const s = String(v ?? "").trim();
   if(!/^\d+$/.test(s)) return false;
   return parseInt(s, 10) >= 0;
-
 }
 
 // فوكس + تحديد محتوى
@@ -2110,7 +2115,7 @@ function validateItemFields(ctx="add"){
     return false;
   }
   if(!isPositiveInt(qty)){
-    showToast("إدخال خاطئ، يرجى اختيار رقم صحيح (1 فأعلى) ❌", true);
+    showToast("إدخال خاطئ، يرجى اختيار رقم صحيح (0 فأعلى) ❌", true);
     focusAndSelect("itemQty");
     return false;
   }
@@ -4171,7 +4176,7 @@ document.getElementById("itemQty").addEventListener("keydown", function(e) {
       return;
     }
     if(!isPositiveInt(qty)){
-      showToast("إدخال خاطئ، يرجى اختيار رقم صحيح (1 فأعلى) ❌", true);
+      showToast("إدخال خاطئ، يرجى اختيار رقم صحيح (0 فأعلى) ❌", true);
       focusAndSelect("itemQty");
       return;
     }
