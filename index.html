@@ -663,6 +663,7 @@ body{
 }
 .cat-item:last-child{ border-bottom:none; }
 .cat-item:hover{ background: rgba(255,255,255,.06); transform: translateY(-1px); }
+.cat-item.active{ background: rgba(255,255,255,.10); outline: 1px solid var(--stroke); }
 .cat-item i{ color: var(--brand-2); }
 
 /* Invoices list */
@@ -1681,18 +1682,19 @@ input[type="number"]{
   <div class="category">
     <!-- زر فتح القائمة -->
     <div class="cat-select" id="catSelect">
-      <div class="cat-btn" id="catBtn">
+      <div class="cat-btn" id="catBtn" tabindex="0" role="button" aria-haspopup="listbox" aria-expanded="false">
         <span id="catText"><i class="fa-solid fa-layer-group"></i> اختر الصنف</span>
         <i class="fa-solid fa-chevron-down"></i>
       </div>
 
       <!-- قائمة الأصناف -->
-      <div class="cat-list" id="catList">
+      <div class="cat-list" id="catList" tabindex="-1" role="listbox">
   <div class="cat-item" data-val="LCD"><i class="fa-solid fa-tv"></i> شاشات</div>
   <div class="cat-item" data-val="BATTERY"><i class="fa-solid fa-bolt"></i> بطاريات</div>
   <div class="cat-item" data-val="CAMERA"><i class="fa-solid fa-camera"></i> كاميرات</div>
   <div class="cat-item" data-val="CHARGING"><i class="fa-solid fa-plug"></i> شحن</div>
   <div class="cat-item" data-val="SPEAKER"><i class="fa-solid fa-headphones"></i> سماعة</div>
+  <div class="cat-item" data-val="FLAT SPEAKER"><i class="fa-solid fa-volume-high"></i> فلات سماعة</div>
   <div class="cat-item" data-val="HOUSING"><i class="fa-solid fa-border-none"></i> شواصي</div>
   <div class="cat-item" data-val="BACK"><i class="fa-solid fa-mobile-screen"></i> أظهر</div>
   <div class="cat-item" data-val="BUZZER"><i class="fa-solid fa-bell"></i> جرس</div>
@@ -1733,7 +1735,7 @@ input[type="number"]{
 <div class="line-qty-note">
   <div class="ginput">
    <input id="itemQty" class="gfield" type="number" inputmode="numeric" pattern="\d*"
-       min="1" step="1" placeholder="عدد القطع" />
+       min="0" step="1" placeholder="عدد القطع" />
 
   </div>
   <div class="ginput">
@@ -2049,6 +2051,7 @@ document.getElementById("btnReload")?.addEventListener("click", ()=>{
           CHARGING : XLSX.utils.sheet_to_json(workbook.Sheets["CHARGING"] || {}, {defval:null}),
           BUZZER   : XLSX.utils.sheet_to_json(workbook.Sheets["BUZZER"]   || {}, {defval:null}),
           SPEAKER : XLSX.utils.sheet_to_json(workbook.Sheets["SPEAKER"]|| {}, {defval:null}),
+          "FLAT SPEAKER" : XLSX.utils.sheet_to_json(workbook.Sheets["FLAT SPEAKER"] || {}, {defval:null}),
           FINGER   : XLSX.utils.sheet_to_json(workbook.Sheets["FINGER"]   || {}, {defval:null}),
           "FLAT LCD"   : XLSX.utils.sheet_to_json(workbook.Sheets["FLAT LCD"]   || {}, {defval:null}),
           POWER   : XLSX.utils.sheet_to_json(workbook.Sheets["POWER"]   || {}, {defval:null}),
@@ -2072,7 +2075,8 @@ function isPositiveInt(v){
   // نقبل "001" بس نحوله رقم صحيح > 0
   const s = String(v ?? "").trim();
   if(!/^\d+$/.test(s)) return false;
-  return parseInt(s, 10) > 0;
+  return parseInt(s, 10) >= 0;
+
 }
 
 // فوكس + تحديد محتوى
@@ -3897,32 +3901,196 @@ document.getElementById("btnMergeCSV").addEventListener("click", async ()=>{
 
 
     /* =========================
-       منطق قائمة الأصناف المخصصة
+       منطق قائمة الأصناف المخصصة (مع دعم كيبورد)
        ========================= */
     const catBtn  = document.getElementById('catBtn');
     const catList = document.getElementById('catList');
     const catText = document.getElementById('catText');
 
+    let __catIdx = -1;
+
+    function getCatItems(){
+      return Array.from(catList.querySelectorAll('.cat-item'));
+    }
+
+    function ensureCatItemVisible(container, item){
+      // ✅ يخلي العنصر "المحدد" يظل ظاهر داخل اللستة نفسها (بدون ما يسكرول الصفحة)
+      if(!container || !item) return;
+
+      // نستخدم القياسات الحقيقية حتى لو offsetTop ماكان مضبوط بسبب تموضع/بادنغ
+      const cRect = container.getBoundingClientRect();
+      const iRect = item.getBoundingClientRect();
+
+      const pad = 6; // هامش بسيط حتى ما يلتصق بالحافة
+
+      // العنصر طالع لفوك داخل اللستة
+      if(iRect.top < cRect.top + pad){
+        container.scrollTop -= (cRect.top + pad - iRect.top);
+      }
+      // العنصر نازل لجوه داخل اللستة
+      else if(iRect.bottom > cRect.bottom - pad){
+        container.scrollTop += (iRect.bottom - (cRect.bottom - pad));
+      }
+    }
+
+    function highlightCatItem(){
+      const items = getCatItems();
+      items.forEach((el, i)=> el.classList.toggle('active', i === __catIdx));
+
+      const active = items[__catIdx];
+      if(active){
+        // ✅ سكّرول داخل قائمة الأصناف نفسها (بدون ما يحرك الصفحة)
+        ensureCatItemVisible(catList, active);
+      }
+    }
+
+    function showCatList(){
+      // أغلق أي قوائم أخرى عندك (لو موجودة)
+      document.querySelectorAll('.cat-list').forEach(el=>{
+        if(el !== catList) el.style.display = 'none';
+      });
+
+      catList.style.display = 'block';
+      catBtn.setAttribute('aria-expanded','true');
+
+      const items = getCatItems();
+      if(!items.length) return;
+
+      // خليه يحدد الصنف المختار حالياً إن وُجد، وإلا أول عنصر
+      const currentVal = document.getElementById('categorySelect')?.value || '';
+      const found = items.findIndex(li => (li.getAttribute('data-val')||'') === currentVal);
+      __catIdx = (found >= 0) ? found : 0;
+
+      highlightCatItem();
+      // خلي الفوكس بالقائمة حتى الأسهم تشتغل
+      catList.focus?.();
+    }
+
+    function hideCatList(){
+      catList.style.display = 'none';
+      catBtn.setAttribute('aria-expanded','false');
+
+      // شيل التحديد
+      getCatItems().forEach(el => el.classList.remove('active'));
+      __catIdx = -1;
+    }
+
+    function toggleCatList(){
+      const visible = catList.style.display === 'block';
+      if(visible) hideCatList(); else showCatList();
+    }
+
+    function moveCat(delta){
+      const items = getCatItems();
+      if(!items.length) return;
+
+      if(__catIdx < 0) __catIdx = 0;
+      __catIdx = Math.max(0, Math.min(items.length - 1, __catIdx + delta));
+      highlightCatItem();
+    }
+
+    function selectCatByIndex(i){
+      const items = getCatItems();
+      if(!items[i]) return;
+      items[i].click();
+    }
+
+    // فتح/إغلاق بالنقر
     catBtn.addEventListener('click', (e)=>{
       e.stopPropagation();
-      const visible = catList.style.display==='block';
-      document.querySelectorAll('.cat-list').forEach(el=> el.style.display='none');
-      catList.style.display = visible ? 'none' : 'block';
+      toggleCatList();
     });
 
-   document.querySelectorAll('.cat-item').forEach(it=>{
-  it.addEventListener('click', ()=>{
-    const val = it.getAttribute('data-val');
-    document.getElementById('categorySelect').value = val;              // نحدّث قيمة الصنف (القديم)
-    catText.innerHTML = it.innerHTML;                                   // نحدّث نص زر القائمة
-    catList.style.display='none';
-    showToast('تم اختيار الصنف ✅');
-    document.getElementById("searchInput").focus(); // ينقلك مباشرة لاسم القطعة
-  });
-});
+    // اختيار بالماوس
+    catList.addEventListener('click', (e)=>{
+      const li = e.target.closest('.cat-item');
+      if(!li) return;
+      const items = getCatItems();
+      __catIdx = items.indexOf(li);
+      selectCatByIndex(__catIdx);
+    });
 
-    // إغلاق القائمة بالنقر خارجها
-    document.addEventListener('click', ()=> { catList.style.display='none'; });
+    // هايلايت مع حركة الماوس (اختياري)
+    catList.addEventListener('mousemove', (e)=>{
+      const li = e.target.closest('.cat-item');
+      if(!li) return;
+      const items = getCatItems();
+      const idx = items.indexOf(li);
+      if(idx !== -1 && idx !== __catIdx){
+        __catIdx = idx;
+        highlightCatItem();
+      }
+    });
+
+    // دعم كيبورد على زر الصنف
+    catBtn.addEventListener('keydown', (e)=>{
+      const visible = catList.style.display === 'block';
+
+      // اعتبر Left مثل Up و Right مثل Down (مفيد مع RTL)
+      const isDown = (e.key === 'ArrowDown' || e.key === 'ArrowRight');
+      const isUp   = (e.key === 'ArrowUp'   || e.key === 'ArrowLeft');
+
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        toggleCatList();
+        return;
+      }
+
+      if(isDown){
+        e.preventDefault();
+        if(!visible) showCatList();
+        else moveCat(+1);
+      }else if(isUp){
+        e.preventDefault();
+        if(!visible) showCatList();
+        else moveCat(-1);
+      }else if(e.key === 'Escape' && visible){
+        e.preventDefault();
+        hideCatList();
+      }
+    });
+
+    // دعم كيبورد داخل القائمة نفسها
+    catList.addEventListener('keydown', (e)=>{
+      const visible = catList.style.display === 'block';
+      if(!visible) return;
+
+      const isDown = (e.key === 'ArrowDown' || e.key === 'ArrowRight');
+      const isUp   = (e.key === 'ArrowUp'   || e.key === 'ArrowLeft');
+
+      if(isDown){
+        e.preventDefault();
+        moveCat(+1);
+      }else if(isUp){
+        e.preventDefault();
+        moveCat(-1);
+      }else if(e.key === 'Enter'){
+        e.preventDefault();
+        if(__catIdx >= 0) selectCatByIndex(__catIdx);
+      }else if(e.key === 'Escape'){
+        e.preventDefault();
+        hideCatList();
+        catBtn.focus?.();
+      }
+    });
+
+    // إغلاق إذا نقرّت برّه
+    document.addEventListener('click', (ev)=>{
+      const inside = catList.contains(ev.target) || catBtn.contains(ev.target);
+      if(!inside) hideCatList();
+    });
+
+    // لما تختار صنف (نفس منطقك السابق)
+    document.querySelectorAll('.cat-item').forEach(it=>{
+      it.addEventListener('click', ()=>{
+        const val = it.getAttribute('data-val');
+        document.getElementById('categorySelect').value = val; // نحدّث قيمة الصنف (القديم)
+        catText.innerHTML = it.innerHTML;                      // نحدّث نص زر القائمة
+        hideCatList();
+        showToast('تم اختيار الصنف ✅');
+        document.getElementById("searchInput")?.focus();       // ينقلك مباشرة لاسم القطعة
+      });
+    });
 
     /* =========================
        تشغيل أولي عند تحميل الصفحة
