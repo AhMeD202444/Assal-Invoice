@@ -1712,6 +1712,8 @@ input[type="reset"]{
   <div class="cat-item" data-val="VOLUME"><i class="fa-solid fa-sliders"></i> فلات صوت</div>
 
   <div class="cat-item" data-val="LENS"><i class="fa-solid fa-bullseye"></i> عدسة كاميرا</div>
+  <div class="cat-item" data-val="HOLLDER"><i class="fa-solid fa-sim-card"></i> هولدر سيم</div>
+
 
 
   <div class="cat-item" data-val="NO-CATEGORY"><i class="fa-regular fa-square"></i> بدون صنف</div>
@@ -2062,7 +2064,8 @@ document.getElementById("btnReload")?.addEventListener("click", ()=>{
           "FLAT LCD"   : XLSX.utils.sheet_to_json(workbook.Sheets["FLAT LCD"]   || {}, {defval:null}),
           POWER   : XLSX.utils.sheet_to_json(workbook.Sheets["POWER"]   || {}, {defval:null}),
           VOLUME   : XLSX.utils.sheet_to_json(workbook.Sheets["VOLUME"]   || {}, {defval:null}),
-          LENS   : XLSX.utils.sheet_to_json(workbook.Sheets["LENS"]   || {}, {defval:null})
+          LENS   : XLSX.utils.sheet_to_json(workbook.Sheets["LENS"]   || {}, {defval:null}),
+          HOLLDER   : XLSX.utils.sheet_to_json(workbook.Sheets["HOLLDER"]   || {}, {defval:null})
           
         };
       }catch(err){
