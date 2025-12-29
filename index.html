@@ -1713,6 +1713,9 @@ input[type="reset"]{
 
   <div class="cat-item" data-val="LENS"><i class="fa-solid fa-bullseye"></i> عدسة كاميرا</div>
   <div class="cat-item" data-val="HOLLDER"><i class="fa-solid fa-sim-card"></i> هولدر سيم</div>
+  <div class="cat-item" data-val="IC"><i class="fas fa-microchip"></i>IC</div>
+  <div class="cat-item" data-val="CC"><i class="fas fa-bolt"></i>قاعدة شحن</div>
+  <div class="cat-item" data-val="VIBRATION"><i class="fa-solid fa-wave-square"></i>هزاز</div>
 
 
 
@@ -2065,7 +2068,10 @@ document.getElementById("btnReload")?.addEventListener("click", ()=>{
           POWER   : XLSX.utils.sheet_to_json(workbook.Sheets["POWER"]   || {}, {defval:null}),
           VOLUME   : XLSX.utils.sheet_to_json(workbook.Sheets["VOLUME"]   || {}, {defval:null}),
           LENS   : XLSX.utils.sheet_to_json(workbook.Sheets["LENS"]   || {}, {defval:null}),
-          HOLLDER   : XLSX.utils.sheet_to_json(workbook.Sheets["HOLLDER"]   || {}, {defval:null})
+          HOLLDER   : XLSX.utils.sheet_to_json(workbook.Sheets["HOLLDER"]   || {}, {defval:null}),
+          IC   : XLSX.utils.sheet_to_json(workbook.Sheets["IC"]   || {}, {defval:null}),
+          CC   : XLSX.utils.sheet_to_json(workbook.Sheets["CC"]   || {}, {defval:null}),
+          VIBRATION   : XLSX.utils.sheet_to_json(workbook.Sheets["VIBRATION"]   || {}, {defval:null})
           
         };
       }catch(err){
