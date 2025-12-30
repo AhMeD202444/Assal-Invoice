@@ -1396,6 +1396,72 @@ input[type="reset"]{
   font-family: "Cairo", system-ui, -apple-system, "Segoe UI", sans-serif !important;
 }
 
+
+
+
+
+/* ===== Global: منع هايلايت/ضغط الموبايل + منع أي تأثير يطلع برّا الزر ===== */
+
+/* يشيل لمعة/هايلايت اللمس بالموبايل */
+*{
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* ينطبق على كل الأزرار/الروابط/الأزرار الأيقونية */
+button,
+a,
+[role="button"],
+.btn,
+.icon-btn,
+input[type="button"],
+input[type="submit"],
+input[type="reset"]{
+  -webkit-tap-highlight-color: transparent !important;
+  outline: none !important;
+  -webkit-appearance: none;
+  appearance: none;
+
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+
+  touch-action: manipulation;         /* يقلل سلوك الضغط/اللمس الغريب */
+  position: relative;                  /* حتى القص يشتغل مضبوط */
+  overflow: hidden !important;         /* يمنع أي glow/ripple يطلع برا */
+}
+
+/* قص صارم يطابق حواف أزرارك الأساسية */
+.btn,
+button.btn{
+  clip-path: inset(0 0 0 0 round 14px) !important;  /* نفس radius مال .btn */
+}
+
+/* قص صارم لأزرار الأيقونات بالهيدر */
+.icon-btn{
+  clip-path: inset(0 0 0 0 round 12px) !important;  /* نفس radius مال .icon-btn */
+}
+
+/* شيل أي فوكس افتراضي يسبب لمعة/وميض */
+button:focus, button:focus-visible,
+a:focus, a:focus-visible,
+.btn:focus, .btn:focus-visible,
+.icon-btn:focus, .icon-btn:focus-visible{
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* فايرفوكس: يشيل الحافة الداخلية */
+button::-moz-focus-inner{
+  border: 0 !important;
+}
+
+
+select{
+  -webkit-tap-highlight-color: transparent !important;
+  outline: none !important;
+}
+
+
 </style>
 </head>
 <body>
