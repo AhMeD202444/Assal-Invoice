@@ -1782,9 +1782,8 @@ select{
   <div class="cat-item" data-val="IC"><i class="fas fa-microchip"></i>IC</div>
   <div class="cat-item" data-val="CC"><i class="fas fa-bolt"></i>قاعدة شحن</div>
   <div class="cat-item" data-val="VIBRATION"><i class="fa-solid fa-wave-square"></i>هزاز</div>
-
-
-
+ <div class="cat-item" data-val="TOUCH"><i class="fa-solid fa-hand-pointer"></i>بلازمات</div>
+  <div class="cat-item" data-val="SIGNAL CABLE"><i class="fa-solid fa-signal"></i>كيبل إشارة</div>
   <div class="cat-item" data-val="NO-CATEGORY"><i class="fa-regular fa-square"></i> بدون صنف</div>
 </div>
 
@@ -2137,7 +2136,10 @@ document.getElementById("btnReload")?.addEventListener("click", ()=>{
           HOLLDER   : XLSX.utils.sheet_to_json(workbook.Sheets["HOLLDER"]   || {}, {defval:null}),
           IC   : XLSX.utils.sheet_to_json(workbook.Sheets["IC"]   || {}, {defval:null}),
           CC   : XLSX.utils.sheet_to_json(workbook.Sheets["CC"]   || {}, {defval:null}),
-          VIBRATION   : XLSX.utils.sheet_to_json(workbook.Sheets["VIBRATION"]   || {}, {defval:null})
+          VIBRATION   : XLSX.utils.sheet_to_json(workbook.Sheets["VIBRATION"]   || {}, {defval:null}),
+          TOUCH   : XLSX.utils.sheet_to_json(workbook.Sheets["TOUCH"]   || {}, {defval:null}),
+          "SIGNAL CABLE" : XLSX.utils.sheet_to_json(workbook.Sheets["SIGNAL CABLE"] || {}, {defval:null})
+
           
         };
       }catch(err){
