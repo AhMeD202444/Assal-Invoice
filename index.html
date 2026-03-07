@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <title>ASSAL OFFICE • Invoices</title>
+  <title>ASSAL • فواتير ديون يومية مكتب عسل</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- أيقونات -->
@@ -4984,8 +4984,9 @@ window.addEventListener('load', ()=>{
     
   
     
+  
 
-/* ===== Keyboard language tags (AHK-friendly, same pattern as source app) ===== */
+/* ===== تبديل لغة الكيبورد بأسلوب التطبيق الأصلي حرفياً ===== */
 (function(){
   const clean = s => String(s||"").replace(/\s*\[(cust|item|note|filter|c-note)\]\s*/gi, "").trim();
   const baseTitle = clean(document.title);
@@ -4993,11 +4994,11 @@ window.addEventListener('load', ()=>{
   function markTag(tag){
     document.title = `${baseTitle} ${tag}`;
   }
-
   function clearTag(){
     document.title = baseTitle;
   }
 
+  // حقول هذا التطبيق
   const item = document.getElementById('searchInput'); // اسم القطعة → إنكليزي
   const note = document.getElementById('itemNote');    // الملاحظات → عربي
 
@@ -5007,35 +5008,42 @@ window.addEventListener('load', ()=>{
   note && note.addEventListener('focus', ()=> markTag('[note]'));
   note && note.addEventListener('blur',  ()=> clearTag());
 
-  // دعم إضافي حتى لو صار التركيز بطرق ديناميكية أو عبر AHK نفسه
+  // دعم إضافي للتركيز إذا انتقل تلقائياً بين الحقول
   document.addEventListener('focusin', (e)=>{
-    if(e.target?.id === 'searchInput') markTag('[item]');
-    if(e.target?.id === 'itemNote')   markTag('[note]');
+    if(e.target?.id === 'searchInput'){
+      markTag('[item]');
+    }
   });
-
   document.addEventListener('focusout', (e)=>{
-    if(e.target?.id === 'searchInput' || e.target?.id === 'itemNote'){
-      setTimeout(()=>{
-        const ae = document.activeElement;
-        if(ae?.id === 'searchInput') return markTag('[item]');
-        if(ae?.id === 'itemNote')   return markTag('[note]');
-        clearTag();
-      }, 0);
+    if(e.target?.id === 'searchInput'){
+      const ae = document.activeElement;
+      if(ae?.id !== 'searchInput') clearTag();
     }
   });
 
-  // تثبيت دوري مثل الملف الأصلي حتى يبقى العنوان مضبوط
-  setInterval(()=>{
-    const ae = document.activeElement;
-    if(ae?.id === 'searchInput') return markTag('[item]');
-    if(ae?.id === 'itemNote')   return markTag('[note]');
+  document.addEventListener('focusin', (e)=>{
+    if(e.target?.id === 'itemNote'){
+      markTag('[note]');
+    }
+  });
+  document.addEventListener('focusout', (e)=>{
+    if(e.target?.id === 'itemNote'){
+      const ae = document.activeElement;
+      if(ae?.id !== 'itemNote') clearTag();
+    }
+  });
 
-    const current = String(document.title || '');
-    if(/\[(item|note)\]/i.test(current)) clearTag();
+  // حماية مثل التطبيق الأول
+  setInterval(()=>{
+    const t = document.title;
+    const cleaned = clean(t);
+    if (t !== cleaned && !/\[(cust|item|note|filter|c-note)\]/i.test(t)) {
+      document.title = cleaned;
+    }
   }, 3000);
 })();
 
-  </script>
+</script>
   
   
   <!-- ====== Footer ====== -->
