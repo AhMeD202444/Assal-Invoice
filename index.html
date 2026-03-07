@@ -5001,6 +5001,7 @@ window.addEventListener('load', ()=>{
   // حقول هذا التطبيق
   const item = document.getElementById('searchInput'); // اسم القطعة → إنكليزي
   const note = document.getElementById('itemNote');    // الملاحظات → عربي
+  const palSearch = document.getElementById('palSearch'); // بحث لوحة الأوامر → إنكليزي
 
   item && item.addEventListener('focus', ()=> markTag('[item]'));
   item && item.addEventListener('blur',  ()=> clearTag());
@@ -5008,16 +5009,19 @@ window.addEventListener('load', ()=>{
   note && note.addEventListener('focus', ()=> markTag('[note]'));
   note && note.addEventListener('blur',  ()=> clearTag());
 
+  palSearch && palSearch.addEventListener('focus', ()=> markTag('[item]'));
+  palSearch && palSearch.addEventListener('blur',  ()=> clearTag());
+
   // دعم إضافي للتركيز إذا انتقل تلقائياً بين الحقول
   document.addEventListener('focusin', (e)=>{
-    if(e.target?.id === 'searchInput'){
+    if(e.target?.id === 'searchInput' || e.target?.id === 'palSearch'){
       markTag('[item]');
     }
   });
   document.addEventListener('focusout', (e)=>{
-    if(e.target?.id === 'searchInput'){
+    if(e.target?.id === 'searchInput' || e.target?.id === 'palSearch'){
       const ae = document.activeElement;
-      if(ae?.id !== 'searchInput') clearTag();
+      if(ae?.id !== 'searchInput' && ae?.id !== 'palSearch') clearTag();
     }
   });
 
