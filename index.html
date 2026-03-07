@@ -4985,71 +4985,53 @@ window.addEventListener('load', ()=>{
   
     
 
-/* ===== Keyboard language tags (like source app) ===== */
+/* ===== Keyboard language tags (AHK-friendly, same pattern as source app) ===== */
 (function(){
-  const baseTitle = (document.title || '').trim();
-  let activeTag = '';
-
-  function setExactTitle(tag){
-    const next = tag ? `${baseTitle} ${tag}` : baseTitle;
-    if(document.title !== next) document.title = next;
-    activeTag = tag || '';
-  }
+  const clean = s => String(s||"").replace(/\s*\[(cust|item|note|filter|c-note)\]\s*/gi, "").trim();
+  const baseTitle = clean(document.title);
 
   function markTag(tag){
-    setExactTitle(tag);
+    document.title = `${baseTitle} ${tag}`;
   }
 
   function clearTag(){
-    const ae = document.activeElement;
-    if(ae && ae.id === 'searchInput'){
-      setExactTitle('[item]');
-      return;
-    }
-    if(ae && ae.id === 'itemNote'){
-      setExactTitle('[note]');
-      return;
-    }
-    setExactTitle('');
+    document.title = baseTitle;
   }
 
-  function bindKeyboardTag(id, tag){
-    const el = document.getElementById(id);
-    if(!el) return;
-    el.addEventListener('focus', ()=> markTag(tag));
-    el.addEventListener('blur', ()=> {
-      setTimeout(clearTag, 0);
-    });
-  }
+  const item = document.getElementById('searchInput'); // اسم القطعة → إنكليزي
+  const note = document.getElementById('itemNote');    // الملاحظات → عربي
 
-  window.__invoiceKeyboardTags = { markTag, clearTag, bindKeyboardTag };
+  item && item.addEventListener('focus', ()=> markTag('[item]'));
+  item && item.addEventListener('blur',  ()=> clearTag());
 
-  window.addEventListener('load', ()=>{
-    bindKeyboardTag('searchInput', '[item]'); // اسم القطعة = إنكليزي
-    bindKeyboardTag('itemNote', '[note]');   // الملاحظات = عربي
-    clearTag();
+  note && note.addEventListener('focus', ()=> markTag('[note]'));
+  note && note.addEventListener('blur',  ()=> clearTag());
+
+  // دعم إضافي حتى لو صار التركيز بطرق ديناميكية أو عبر AHK نفسه
+  document.addEventListener('focusin', (e)=>{
+    if(e.target?.id === 'searchInput') markTag('[item]');
+    if(e.target?.id === 'itemNote')   markTag('[note]');
   });
 
-  document.addEventListener('visibilitychange', ()=>{
-    if(document.hidden) return;
-    clearTag();
+  document.addEventListener('focusout', (e)=>{
+    if(e.target?.id === 'searchInput' || e.target?.id === 'itemNote'){
+      setTimeout(()=>{
+        const ae = document.activeElement;
+        if(ae?.id === 'searchInput') return markTag('[item]');
+        if(ae?.id === 'itemNote')   return markTag('[note]');
+        clearTag();
+      }, 0);
+    }
   });
 
-  window.addEventListener('pageshow', clearTag);
-
+  // تثبيت دوري مثل الملف الأصلي حتى يبقى العنوان مضبوط
   setInterval(()=>{
     const ae = document.activeElement;
-    const wanted = ae && ae.id === 'searchInput' ? '[item]'
-                 : ae && ae.id === 'itemNote'   ? '[note]'
-                 : '';
-    if(wanted !== activeTag){
-      setExactTitle(wanted);
-      return;
-    }
-    const expected = wanted ? `${baseTitle} ${wanted}` : baseTitle;
-    if(document.title !== expected){
-      document.title = expected;
-    }
+    if(ae?.id === 'searchInput') return markTag('[item]');
+    if(ae?.id === 'itemNote')   return markTag('[note]');
+
+    const current = String(document.title || '');
+    if(/\[(item|note)\]/i.test(current)) clearTag();
   }, 3000);
 })();
 
