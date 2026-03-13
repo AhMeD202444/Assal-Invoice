@@ -2119,7 +2119,7 @@ document.getElementById("btnReload")?.addEventListener("click", ()=>{
         const buffer = await response.arrayBuffer();
         const workbook = XLSX.read(buffer, { type:"array" });
         database = {
-          LCD      : XLSX.utils.sheet_to_json(workbook.Sheets["LCD"]      || {}, {defval:null}),
+          LCD      : XLSX.utils.sheet_to_json(workbook.Sheets["LCD2"]      || {}, {defval:null}),
           BATTERY  : XLSX.utils.sheet_to_json(workbook.Sheets["BATTERY"]  || {}, {defval:null}),
           HOUSING  : XLSX.utils.sheet_to_json(workbook.Sheets["HOUSING"]  || {}, {defval:null}),
           BACK     : XLSX.utils.sheet_to_json(workbook.Sheets["BACK"]     || {}, {defval:null}),
@@ -3308,7 +3308,7 @@ function printInvoiceHTML() {
                   </div>
                 </div>
                 <div class="inv-note">
-                  تم توليد هذه الفاتورة آلياً من نظام مكتب عسل، وتُستخدم لأغراض الجرد والمتابعة المحاسبية للمرتجعات.
+                  تم توليد هذه الفاتورة آلياً من نظام مكتب عسل، وتُستخدم لأغراض فواتير النقص او الجرد والمتابعة المحاسبية للمرتجعات.
                 </div>
               </div>
 
