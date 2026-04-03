@@ -1702,6 +1702,259 @@ select{
   border: 1px dashed rgba(96,165,250,.32);
 }
 
+
+
+/* ===== منع النسخ والتحديد ===== */
+body.no-copy-ui,
+body.no-copy-ui *{
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+body.no-copy-ui input,
+body.no-copy-ui textarea,
+body.no-copy-ui [contenteditable="true"]{
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+.brand,
+.brand .badge,
+.brand span{
+  cursor: pointer;
+}
+
+/* ===== إحصائيات المستخدم ===== */
+.stats-card{
+  width: min(560px, 92%);
+  max-height: min(84vh, 760px);
+  padding: 24px 20px 18px;
+  overflow: hidden;
+  display:flex;
+  flex-direction:column;
+  background:
+    radial-gradient(120% 120% at 50% -10%, rgba(33,212,253,.12), transparent 55%),
+    linear-gradient(180deg, rgba(20,24,33,.96), rgba(13,16,22,.96));
+}
+.stats-head{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  margin-bottom:14px;
+  text-align:right;
+  flex:0 0 auto;
+}
+.stats-badge{
+  width:64px;
+  height:64px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  font-size:24px;
+  color:#fff;
+  background: linear-gradient(135deg, var(--brand-2), var(--brand-1));
+  box-shadow: 0 16px 30px rgba(109,94,252,.30);
+}
+.stats-badge.role-main{
+  background: linear-gradient(135deg,#fff1b8 0%, #facc15 35%, #f59e0b 72%, #b45309 100%);
+  color:#241508;
+}
+.stats-badge.role-secondary{
+  background: linear-gradient(135deg,#60a5fa,#2563eb);
+}
+.stats-badge.role-user{
+  background: linear-gradient(135deg,#34d399,#10b981);
+}
+.stats-title{
+  margin:0;
+  font-size:22px;
+  font-weight:900;
+}
+.stats-subtitle{
+  margin:4px 0 0;
+  color:var(--muted);
+  font-size:13px;
+}
+.stats-scroll{
+  flex:1 1 auto;
+  min-height:0;
+  overflow:auto;
+  padding-inline-end:4px;
+}
+.stats-grid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:12px;
+  margin-top:12px;
+}
+.stats-item{
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.05);
+  border-radius:16px;
+  padding:14px 12px;
+  text-align:center;
+}
+.stats-item strong{
+  display:block;
+  font-size:22px;
+  font-weight:900;
+  color:#f8fbff;
+  margin-bottom:4px;
+}
+.stats-item span{
+  display:block;
+  color:var(--muted);
+  font-size:12px;
+}
+.stats-charts{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:10px;
+  margin-top:14px;
+}
+.stats-chart{
+  padding:12px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.045);
+}
+.stats-chart-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:8px;
+}
+.stats-chart-top span{
+  color:#dbe7ff;
+  font-size:12px;
+  font-weight:700;
+}
+.stats-chart-top b{
+  color:#fff;
+  font-size:13px;
+  font-weight:900;
+}
+.stats-bar-track{
+  width:100%;
+  height:10px;
+  border-radius:999px;
+  overflow:hidden;
+  background: rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.08);
+}
+.stats-bar-fill{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background: linear-gradient(135deg,#21d4fd,#6d5efc);
+  box-shadow: 0 6px 16px rgba(109,94,252,.22);
+}
+.stats-bar-fill.chart-cyan{ background: linear-gradient(135deg,#22d3ee,#3b82f6); }
+.stats-bar-fill.chart-green{ background: linear-gradient(135deg,#34d399,#10b981); }
+.stats-bar-fill.chart-gold{ background: linear-gradient(135deg,#facc15,#f59e0b); }
+.stats-bar-fill.chart-violet{ background: linear-gradient(135deg,#818cf8,#8b5cf6); }
+.stats-meta{
+  margin-top:14px;
+  padding:12px 14px;
+  border-radius:14px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.10);
+  color:#dbe7ff;
+  font-size:13px;
+  line-height:1.9;
+}
+.stats-meta b{
+  color:#fff;
+}
+.stats-actions{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:10px;
+  margin-top:14px;
+  flex:0 0 auto;
+}
+.server-upload-btn.is-sent{
+  background: linear-gradient(135deg,#34d399,#059669) !important;
+  box-shadow: 0 8px 20px rgba(16,185,129,.28);
+}
+.server-import-btn{
+  background: linear-gradient(135deg,#93c5fd,#2563eb) !important;
+}
+@media (max-width: 560px){
+  .stats-card{
+    width: min(96vw, 440px);
+    max-height: 88vh;
+    padding: 18px 14px 14px;
+    border-radius: 20px;
+  }
+  .stats-head{
+    align-items:flex-start;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .stats-badge{
+    width:54px;
+    height:54px;
+    border-radius:16px;
+    font-size:20px;
+  }
+  .stats-title{
+    font-size:18px;
+  }
+  .stats-subtitle{
+    font-size:12px;
+    line-height:1.7;
+  }
+  .stats-grid{
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap:8px;
+    margin-top:10px;
+  }
+  .stats-item{
+    padding:10px 8px;
+    border-radius:14px;
+  }
+  .stats-item strong{
+    font-size:18px;
+    margin-bottom:2px;
+  }
+  .stats-item span{
+    font-size:11px;
+    line-height:1.5;
+  }
+  .stats-charts{
+    grid-template-columns: 1fr;
+    gap:8px;
+    margin-top:10px;
+  }
+  .stats-chart{
+    padding:10px;
+    border-radius:14px;
+  }
+  .stats-chart-top span{
+    font-size:11px;
+  }
+  .stats-chart-top b{
+    font-size:12px;
+  }
+  .stats-bar-track{
+    height:8px;
+  }
+  .stats-meta{
+    margin-top:10px;
+    padding:10px 12px;
+    font-size:12px;
+    line-height:1.8;
+  }
+  .stats-actions{
+    gap:8px;
+    margin-top:12px;
+  }
+  .stats-actions .btn{
+    padding:11px 10px;
+    font-size:13px;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -1789,6 +2042,29 @@ select{
   </div>
 </div>
 
+<!-- ===== نافذة إحصائيات المستخدم ===== -->
+<div id="userStatsModal" class="auth-overlay" aria-hidden="true">
+  <div class="auth-card stats-card" role="dialog" aria-modal="true">
+    <div class="stats-head">
+      <div class="stats-badge" id="statsRoleBadge"><i class="fa-solid fa-building"></i></div>
+      <div>
+        <h3 class="stats-title" id="statsUserTitle">تفاصيل الحساب</h3>
+        <p class="stats-subtitle" id="statsUserSubtitle">إحصائيات سريعة للحساب الحالي</p>
+      </div>
+    </div>
+
+    <div class="stats-scroll">
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="stats-charts" id="statsCharts"></div>
+      <div class="stats-meta" id="statsMeta"></div>
+    </div>
+
+    <div class="stats-actions">
+      <button id="statsLogoutBtn" class="btn amber"><i class="fa-solid fa-right-from-bracket"></i> خروج</button>
+      <button id="statsCloseBtn" class="btn blue"><i class="fa-solid fa-xmark"></i> إغلاق</button>
+    </div>
+  </div>
+</div>
 
   <!-- ====== Header ====== -->
   <header class="app-header">
@@ -1975,6 +2251,9 @@ select{
   <div style="display:flex; gap:8px;">
     <button class="icon-btn instant-merge-btn" id="btnMergeInstant" title="دمج فوري من فواتير السيرفر المحددة">
       <i class="fa-solid fa-bolt"></i>
+    </button>
+    <button class="icon-btn server-import-btn" id="btnImportMergeServer" title="استيراد سيرفر">
+      <i class="fa-solid fa-cloud-arrow-down"></i>
     </button>
     <button class="icon-btn" id="btnImportPDF" title="استيراد ملفات">
       <i class="fa-solid fa-download"></i>
@@ -2166,6 +2445,8 @@ select{
     let selectedSidebarInvoiceKeys = new Set();                            // الفواتير المحددة بضغط مطول
     let serverInvoicesCache = [];                                          // فواتير السيرفر
     let serverInvoicesLoaded = false;                                      // هل تم تحميل فواتير السيرفر؟
+    let serverMergedFilesCache = [];                                       // ملفات الدمج المرفوعة للسيرفر
+    let serverMergedFilesLoaded = false;                                   // هل تم تحميل ملفات الدمج من السيرفر؟
     let mergeProgressState = { active:false, percent:0, text:"", done:false };
     let firebaseDb = null;                                                 // Firebase Realtime Database
     let firebaseReady = false;                                             // حالة الربط
@@ -2196,6 +2477,7 @@ const LOCAL_INVOICES_PREFIX = "assal_user_invoices_";
 const LOCAL_MERGEBOX_PREFIX = "assal_merge_box_";
 const LEGACY_INVOICES_KEY   = "invoices";
 const SERVER_INVOICES_PATH  = "assal_server_invoices";
+const SERVER_MERGED_FILES_PATH = "assal_server_merged_files";
 
 function hasValidFirebaseConfig(){
   return !!(
@@ -2230,6 +2512,11 @@ function initFirebaseServices(){
 function getServerInvoicesRef(){
   if(!initFirebaseServices()) return null;
   return firebaseDb.ref(SERVER_INVOICES_PATH);
+}
+
+function getServerMergedFilesRef(){
+  if(!initFirebaseServices()) return null;
+  return firebaseDb.ref(SERVER_MERGED_FILES_PATH);
 }
 
 function isMainAdmin(){
@@ -2287,13 +2574,24 @@ function getMergeBoxStorageKey(){
   return `${LOCAL_MERGEBOX_PREFIX}${currentUser.code}`;
 }
 
-function normalizeMergedEntry(entry = {}){
-  const normalizedItems = (entry.items || []).map(it => ({
+function normalizeMergedItemsList(items = []){
+  return (Array.isArray(items) ? items : []).map(it => ({
     category: String(it.category || '').trim(),
     name: String(it.name || it.item || '').trim(),
     qty: String(it.qty || '').trim(),
     note: String(it.note || '').trim()
   })).filter(it => it.name.length);
+}
+
+function buildMergedEntrySignatureFromItems(items = []){
+  return normalizeMergedItemsList(items)
+    .map(it => `${normalizeInvoiceMatchText(it.category)}|${normalizeInvoiceMatchText(it.name)}|${normalizeInvoiceMatchText(it.note)}|${String(it.qty || '').trim()}`)
+    .sort((a,b)=> a.localeCompare(b, 'ar'))
+    .join('||');
+}
+
+function normalizeMergedEntry(entry = {}){
+  const normalizedItems = normalizeMergedItemsList(entry.items || []);
 
   return {
     kind: 'merged_invoice',
@@ -2301,8 +2599,20 @@ function normalizeMergedEntry(entry = {}){
     name: String(entry.name || autoMainMergeBoxName()).trim(),
     createdAt: Number(entry.createdAt || Date.now()),
     items: normalizedItems,
-    size: Number(entry.size || new Blob([JSON.stringify(normalizedItems)]).size || 0)
+    size: Number(entry.size || new Blob([JSON.stringify(normalizedItems)]).size || 0),
+    signature: String(entry.signature || buildMergedEntrySignatureFromItems(normalizedItems)),
+    mergeServerKey: String(entry.mergeServerKey || ''),
+    serverUploadedAt: Number(entry.serverUploadedAt || 0)
   };
+}
+
+function findLocalMergedDuplicateByItems(items, excludeIndex = -1){
+  const signature = buildMergedEntrySignatureFromItems(items);
+  if(!signature) return null;
+  return importedPdfFiles.find((entry, index)=>{
+    if(index === excludeIndex) return false;
+    return isMergedImportEntry(entry) && String(entry.signature || buildMergedEntrySignatureFromItems(entry.items || [])) === signature;
+  }) || null;
 }
 
 function persistMergeBoxEntries(){
@@ -2602,6 +2912,311 @@ function buildInvoiceItemsSignature(items){
     .join("~~");
 }
 
+
+function buildMergedServerPayload(entry){
+  const normalized = normalizeMergedEntry(entry);
+  return {
+    id: normalized.name,
+    name: normalized.name,
+    items: normalized.items,
+    signature: normalized.signature || buildMergedEntrySignatureFromItems(normalized.items),
+    uploadedAt: Date.now(),
+    uploaderCode: currentUser?.code || '',
+    uploaderName: currentUser?.name || '',
+    uploaderRole: currentUser?.role || ''
+  };
+}
+
+async function refreshServerMergedFiles(options = {}){
+  if(!isMainAdmin()){
+    serverMergedFilesCache = [];
+    serverMergedFilesLoaded = true;
+    if(typeof renderImportedPdfList === 'function') renderImportedPdfList();
+    return [];
+  }
+
+  const ref = getServerMergedFilesRef();
+  if(!ref){
+    serverMergedFilesCache = [];
+    serverMergedFilesLoaded = true;
+    if(typeof renderImportedPdfList === 'function') renderImportedPdfList();
+    if(!options.silent && typeof showToast === 'function'){
+      showToast('أضف إعدادات Firebase الحقيقية أولاً ❌', true);
+    }
+    return [];
+  }
+
+  try{
+    const snap = await ref.once('value');
+    const list = [];
+    snap.forEach(child => {
+      const val = child.val() || {};
+      list.push({ serverKey: child.key, ...val });
+    });
+    list.sort((a,b)=> Number(b.uploadedAt || 0) - Number(a.uploadedAt || 0));
+    serverMergedFilesCache = list;
+    serverMergedFilesLoaded = true;
+    if(typeof renderImportedPdfList === 'function') renderImportedPdfList();
+    return list;
+  }catch(err){
+    console.error('Server merged files load error:', err);
+    serverMergedFilesCache = [];
+    serverMergedFilesLoaded = true;
+    if(typeof renderImportedPdfList === 'function') renderImportedPdfList();
+    if(!options.silent && typeof showToast === 'function'){
+      showToast('فشل تحميل ملفات السيرفر ❌', true);
+    }
+    return [];
+  }
+}
+
+async function uploadMergedEntryToServer(index, ev){
+  ev?.stopPropagation?.();
+  if(!isMainAdmin()){
+    showToast('رفع ملفات الدمج متاح للأدمن الرئيسي فقط ❌', true);
+    return;
+  }
+
+  const entry = importedPdfFiles[index];
+  if(!isMergedImportEntry(entry)) return;
+
+  const ref = getServerMergedFilesRef();
+  if(!ref){
+    showToast('أضف إعدادات Firebase الحقيقية أولاً ❌', true);
+    return;
+  }
+
+  const normalized = normalizeMergedEntry(entry);
+  const payload = buildMergedServerPayload(normalized);
+  const sig = payload.signature;
+
+  try{
+    await refreshServerMergedFiles({ silent:true });
+    const sameExact = serverMergedFilesCache.find(file =>
+      normalizeInvoiceMatchText(file.id || file.name) === normalizeInvoiceMatchText(payload.name) &&
+      String(file.signature || '') === sig
+    );
+
+    if(sameExact){
+      showToast('هذا الملف تم ارساله مسبقاً إلى السيرفر');
+      importedPdfFiles[index] = normalizeMergedEntry({
+        ...normalized,
+        mergeServerKey: sameExact.serverKey,
+        serverUploadedAt: Number(sameExact.uploadedAt || normalized.serverUploadedAt || Date.now())
+      });
+      persistMergeBoxEntries();
+      renderImportedPdfList();
+      return;
+    }
+
+    const sameName = serverMergedFilesCache.find(file => normalizeInvoiceMatchText(file.id || file.name) === normalizeInvoiceMatchText(payload.name));
+
+    if(sameName){
+      await ref.child(sameName.serverKey).set({
+        ...sameName,
+        ...payload,
+        updatedAt: Date.now()
+      });
+      importedPdfFiles[index] = normalizeMergedEntry({
+        ...normalized,
+        mergeServerKey: sameName.serverKey,
+        serverUploadedAt: Date.now(),
+        signature: sig
+      });
+      persistMergeBoxEntries();
+      await refreshServerMergedFiles({ silent:true });
+      renderImportedPdfList();
+      showToast('تم تحديث الملف في السيرفر ✅');
+      return;
+    }
+
+    const newRef = ref.push();
+    await newRef.set(payload);
+    importedPdfFiles[index] = normalizeMergedEntry({
+      ...normalized,
+      mergeServerKey: newRef.key,
+      serverUploadedAt: payload.uploadedAt,
+      signature: sig
+    });
+    persistMergeBoxEntries();
+    await refreshServerMergedFiles({ silent:true });
+    renderImportedPdfList();
+    showToast('تم رفع ملف الدمج إلى السيرفر ✅');
+  }catch(err){
+    console.error('upload merged entry error:', err);
+    showToast('فشل رفع ملف الدمج إلى السيرفر ❌', true);
+  }
+}
+
+async function importMergedEntriesFromServer(){
+  if(!isMainAdmin()){
+    showToast('استيراد ملفات السيرفر متاح للأدمن الرئيسي فقط ❌', true);
+    return;
+  }
+
+  const ref = getServerMergedFilesRef();
+  if(!ref){
+    showToast('أضف إعدادات Firebase الحقيقية أولاً ❌', true);
+    return;
+  }
+
+  const list = await refreshServerMergedFiles({ silent:false });
+  if(!list.length){
+    showToast('لا توجد ملفات دمج على السيرفر');
+    return;
+  }
+
+  const localKeys = new Set(importedPdfFiles.filter(isMergedImportEntry).map(entry => String(entry.mergeServerKey || '')));
+  const localSigs = new Set(importedPdfFiles.filter(isMergedImportEntry).map(entry => String(entry.signature || buildMergedEntrySignatureFromItems(entry.items || []))));
+
+  const fresh = list.filter(file => !localKeys.has(String(file.serverKey || '')) && !localSigs.has(String(file.signature || '')));
+
+  if(!fresh.length){
+    showToast('ملفات السيرفر مستوردة مسبقاً');
+    return;
+  }
+
+  fresh.reverse().forEach(file => {
+    importedPdfFiles.unshift(normalizeMergedEntry({
+      mergeEntryId: `srv_${String(file.serverKey || Date.now())}`,
+      mergeServerKey: String(file.serverKey || ''),
+      name: String(file.id || file.name || autoMainMergeBoxName()).trim(),
+      createdAt: Number(file.updatedAt || file.uploadedAt || Date.now()),
+      items: file.items || [],
+      signature: String(file.signature || buildMergedEntrySignatureFromItems(file.items || [])),
+      serverUploadedAt: Number(file.uploadedAt || 0)
+    }));
+  });
+
+  persistMergeBoxEntries();
+  renderImportedPdfList();
+  showToast(`تم استيراد ${fresh.length} ملف من السيرفر ✅`);
+}
+
+function roleLabelAr(role){
+  if(role === 'main_admin') return 'أدمن رئيسي';
+  if(role === 'secondary_admin') return 'أدمن ثانوي';
+  if(role === 'user') return 'مستخدم';
+  return 'غير معروف';
+}
+
+function formatDurationAr(ms){
+  const total = Math.max(0, Math.floor(Number(ms || 0) / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if(h > 0) return `${h} س ${m} د`;
+  if(m > 0) return `${m} د ${s} ث`;
+  return `${s} ث`;
+}
+
+async function openUserStatsModal(ev){
+  ev?.preventDefault?.();
+  ev?.stopPropagation?.();
+  if(!currentUser) return;
+
+  await Promise.all([
+    refreshServerInvoicesForRole({ silent:true }),
+    refreshServerMergedFiles({ silent:true })
+  ]);
+
+  const modal = document.getElementById('userStatsModal');
+  const grid = document.getElementById('statsGrid');
+  const charts = document.getElementById('statsCharts');
+  const meta = document.getElementById('statsMeta');
+  const title = document.getElementById('statsUserTitle');
+  const subtitle = document.getElementById('statsUserSubtitle');
+  const badge = document.getElementById('statsRoleBadge');
+
+  const localCount = Array.isArray(invoices) ? invoices.length : 0;
+  const mergeLocalCount = importedPdfFiles.filter(isMergedImportEntry).length;
+  const sentInvoicesCount = isMainAdmin()
+    ? serverMergedFilesCache.filter(file => String(file.uploaderCode || '') === String(currentUser.code || '')).length
+    : invoices.filter(inv => inv?.serverStatus === 'sent').length;
+  const visibleServerInvoices = isMainAdmin()
+    ? serverInvoicesCache.length
+    : (isSecondaryAdmin() ? serverInvoicesCache.filter(inv => inv.senderRole === 'user').length : 0);
+  const openedFor = formatDurationAr(Date.now() - Number(currentUser.sessionStartedAt || Date.now()));
+  const sentLabel = isMainAdmin() ? 'ملفات الدمج المرفوعة' : 'الفواتير المرسلة';
+
+  title.textContent = currentUser.name || 'مكتب عسل';
+  subtitle.textContent = `${roleLabelAr(currentUser.role)} • الكود: ${String(currentUser.code || '').toUpperCase()}`;
+
+  badge.className = 'stats-badge';
+  if(isMainAdmin()){
+    badge.classList.add('role-main');
+    badge.innerHTML = '<i class="fa-solid fa-gem"></i>';
+  }else if(isSecondaryAdmin()){
+    badge.classList.add('role-secondary');
+    badge.innerHTML = '<i class="fa-solid fa-user-shield"></i>';
+  }else{
+    badge.classList.add('role-user');
+    badge.innerHTML = '<i class="fa-solid fa-shop"></i>';
+  }
+
+  grid.innerHTML = `
+    <div class="stats-item"><strong>${localCount}</strong><span>الفواتير المحلية</span></div>
+    <div class="stats-item"><strong>${sentInvoicesCount}</strong><span>${sentLabel}</span></div>
+    <div class="stats-item"><strong>${mergeLocalCount}</strong><span>ملفات الدمج المحلية</span></div>
+    <div class="stats-item"><strong>${visibleServerInvoices}</strong><span>${isMainAdmin() ? 'فواتير السيرفر الظاهرة' : 'فواتير الفروع الظاهرة'}</span></div>
+  `;
+
+  const chartItems = [
+    { label: 'الفواتير المحلية', value: localCount, cls: 'chart-cyan' },
+    { label: sentLabel, value: sentInvoicesCount, cls: 'chart-green' },
+    { label: 'ملفات الدمج المحلية', value: mergeLocalCount, cls: 'chart-gold' },
+    { label: isMainAdmin() ? 'فواتير السيرفر الظاهرة' : 'فواتير الفروع الظاهرة', value: visibleServerInvoices, cls: 'chart-violet' }
+  ];
+  const maxChartValue = Math.max(1, ...chartItems.map(item => Number(item.value || 0)));
+  charts.innerHTML = chartItems.map(item => {
+    const width = Math.max(8, Math.round((Number(item.value || 0) / maxChartValue) * 100));
+    return `
+      <div class="stats-chart">
+        <div class="stats-chart-top">
+          <span>${escapeHtml(item.label)}</span>
+          <b>${escapeHtml(String(item.value || 0))}</b>
+        </div>
+        <div class="stats-bar-track">
+          <div class="stats-bar-fill ${escapeHtml(item.cls)}" style="width:${width}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  meta.innerHTML = `
+    <div>الاسم: <b>${escapeHtml(currentUser.name || 'مكتب عسل')}</b></div>
+    <div>الدور: <b>${escapeHtml(roleLabelAr(currentUser.role))}</b></div>
+    <div>مدة الجلسة الحالية: <b>${escapeHtml(openedFor)}</b></div>
+    <div>آخر تحديث للسيرفر: <b>${escapeHtml(new Date().toLocaleString('ar-EG'))}</b></div>
+  `;
+
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+  document.documentElement.classList.add('no-scroll');
+  document.body.classList.add('no-scroll');
+  attachBackdropGuards(modal, '.auth-card');
+}
+
+function closeUserStatsModal(){
+  const modal = document.getElementById('userStatsModal');
+  if(!modal) return;
+  modal.style.display = 'none';
+  modal.setAttribute('aria-hidden', 'true');
+  document.documentElement.classList.remove('no-scroll');
+  document.body.classList.remove('no-scroll');
+  detachBackdropGuards(modal);
+}
+
+function handleLogoutFromStats(){
+  closeUserStatsModal();
+  clearSession();
+  try{ showToast('تم تسجيل الخروج'); }catch{}
+  setTimeout(()=>{
+    window.location.reload();
+  }, 120);
+}
+
+
 function markInvoiceAsSentLocally(localIndex, serverKey, uploadedAt){
   const safeNow = uploadedAt || Date.now();
 
@@ -2825,6 +3440,7 @@ function applyRoleUI(){
   const importBtn = document.getElementById("btnImportPrev");
   const importBtnWrap = importBtn?.parentElement;
   const importedSidebar = document.getElementById("importedSidebar");
+  const importMergeServerBtn = document.getElementById('btnImportMergeServer');
 
   if(sidebarTitleEl){
     if(isMainAdmin()){
@@ -2852,6 +3468,10 @@ function applyRoleUI(){
 
   if(importedSidebar){
     importedSidebar.style.display = isMainAdmin() ? "" : "none";
+  }
+
+  if(importMergeServerBtn){
+    importMergeServerBtn.style.display = isMainAdmin() ? 'grid' : 'none';
   }
 }
 /* ===== الخطوة 1: نظام الدخول المحلي ===== */
@@ -2887,6 +3507,7 @@ function getSavedSession(){
 
     return {
       code: safeCode,
+      sessionStartedAt: Number(parsed.startedAt || Date.now()),
       ...ACCESS_CODES[safeCode]
     };
   }catch{
@@ -2894,9 +3515,9 @@ function getSavedSession(){
   }
 }
 
-function saveSession(code){
+function saveSession(code, startedAt = Date.now()){
   const safeCode = normalizeAccessCode(code);
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ code: safeCode }));
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ code: safeCode, startedAt: Number(startedAt || Date.now()) }));
 }
 
 function clearSession(){
@@ -2995,6 +3616,10 @@ function updateBodyRoleClasses(){
 
 function applyLoggedUserUI(){
   if(!currentUser) return;
+  if(!currentUser.sessionStartedAt){
+    currentUser.sessionStartedAt = Date.now();
+    saveSession(currentUser.code, currentUser.sessionStartedAt);
+  }
 
   updateBrandRoleBadge();
   updateBodyRoleClasses();
@@ -3006,6 +3631,7 @@ function applyLoggedUserUI(){
     renderImportedPdfList();
   }
   refreshServerInvoicesForRole({ silent:true });
+  refreshServerMergedFiles({ silent:true });
 }
 
 function submitLogin(){
@@ -3021,8 +3647,8 @@ function submitLogin(){
     return;
   }
 
-  currentUser = user;
-  saveSession(user.code);
+  currentUser = { ...user, sessionStartedAt: Date.now() };
+  saveSession(user.code, currentUser.sessionStartedAt);
   applyLoggedUserUI();
   closeLoginModal();
 
@@ -3068,6 +3694,47 @@ function bindAuthEvents(){
 
 bindAuthEvents();
 initAuth();
+
+function bindCopyGuards(){
+  document.body.classList.add('no-copy-ui');
+
+  const blocker = (e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  ['copy','cut','contextmenu','selectstart','dragstart'].forEach(evt=>{
+    document.addEventListener(evt, blocker, true);
+  });
+
+  document.addEventListener('keydown', (e)=>{
+    const key = String(e.key || '').toLowerCase();
+    if((e.ctrlKey || e.metaKey) && ['c','x','a','u'].includes(key)){
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+}
+
+function bindProfileEvents(){
+  const brand = document.querySelector('.brand');
+  const badge = document.getElementById('brandRoleBadge');
+  const closeBtn = document.getElementById('statsCloseBtn');
+  const logoutBtn = document.getElementById('statsLogoutBtn');
+
+  brand?.addEventListener('click', openUserStatsModal);
+  badge?.addEventListener('click', openUserStatsModal);
+  closeBtn?.addEventListener('click', closeUserStatsModal);
+  logoutBtn?.addEventListener('click', handleLogoutFromStats);
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape'){
+      closeUserStatsModal();
+    }
+  });
+}
+
+bindCopyGuards();
+bindProfileEvents();
 
 function attachBackdropGuards(modalEl, cardSelector){
   const card = modalEl.querySelector(cardSelector);
@@ -4142,15 +4809,22 @@ function renameEscEnterHandler(e){
     row.className = "invoice-chip";
 
     if(isMergedImportEntry(entry)){
+      const uploadedState = isMainAdmin() && String(entry.mergeServerKey || '').trim().length
+        ? 'مرفوع للسيرفر'
+        : 'ملف مدموج محفوظ محليًا';
+      const uploadBtn = isMainAdmin() ? `
+          <button class="btn-rename-custom server-upload-btn ${String(entry.mergeServerKey || '').trim() ? "is-sent" : ""}" title="رفع للسيرفر" onclick="uploadMergedEntryToServer(${i}, event)">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+          </button>
+      ` : '';
+
       row.innerHTML = `
         <div class="chip-meta">
           <strong>${escapeHtml(entry.name || `ملف مدموج ${i+1}`)}</strong>
-          <small>ملف مدموج محفوظ محليًا • ${Array.isArray(entry.items) ? entry.items.length : 0} مادة</small>
+          <small>${escapeHtml(uploadedState)} • ${Array.isArray(entry.items) ? entry.items.length : 0} مادة</small>
         </div>
         <div class="chip-actions">
-          <button class="btn-rename-custom server-open-btn" title="فتح" onclick="openImportedMergedEntry(${i}, event)">
-            <i class="fa-solid fa-folder-open"></i>
-          </button>
+          ${uploadBtn}
           <button class="btn-rename-custom" title="تعديل الاسم" onclick="openRenameImportedEntryModal(${i}, event)">
             <i class="fa-solid fa-pen"></i>
           </button>
@@ -5292,8 +5966,23 @@ document.getElementById("btnCommand")?.addEventListener("click", palOpen);
       qty: String(it.qty || '').trim(),
       note: String(it.note || '').trim()
     }));
+
+    const exists = findLocalMergedDuplicateByItems(merged);
+    if(exists){
+      showToast('هذا الملف مدمج مسبقاً');
+      selectedSidebarInvoiceKeys.clear();
+      renderInvoicesDropdown();
+      return;
+    }
+
     await runFakeMergeProgress('جاري دمج فواتير السيرفر...');
-    pushMergedEntryToMergeBox(merged, autoMainMergeBoxName());
+    const pushed = pushMergedEntryToMergeBox(merged, autoMainMergeBoxName());
+    if(pushed?.duplicate){
+      showToast('هذا الملف مدمج مسبقاً');
+      selectedSidebarInvoiceKeys.clear();
+      renderInvoicesDropdown();
+      return;
+    }
     selectedSidebarInvoiceKeys.clear();
     renderInvoicesDropdown();
     showToast('تم الدمج وظهر الملف داخل خانة دمج ✅');
@@ -5312,6 +6001,10 @@ document.getElementById("btnImportPDF").addEventListener("click", ()=>{
   const picker = document.getElementById("pdfFilePicker");
   picker.value = "";           // ننظّف القيمة حتى يسمح باختيار نفس الملف مرة ثانية
   picker.click();              // نفتح نافذة اختيار الملفات
+});
+
+document.getElementById('btnImportMergeServer')?.addEventListener('click', ()=>{
+  importMergedEntriesFromServer();
 });
     
     
@@ -5372,13 +6065,23 @@ document.getElementById("btnMergePDF").addEventListener("click", async ()=>{
 
     const proceed = async ()=>{
       const mergedRaw = mergeByMaxQuantity(items);
-      await runFakeMergeProgress('جاري دمج الملفات...');
-      const mergedEntry = pushMergedEntryToMergeBox(mergedRaw.map(it => ({
+      const normalizedMerged = mergedRaw.map(it => ({
         category: it.category,
         name: it.item,
         qty: it.qty,
         note: it.note
-      })), autoMainMergeBoxName());
+      }));
+      if(findLocalMergedDuplicateByItems(normalizedMerged)){
+        showToast('هذا الملف مدمج مسبقاً');
+        return;
+      }
+      await runFakeMergeProgress('جاري دمج الملفات...');
+      const pushed = pushMergedEntryToMergeBox(normalizedMerged, autoMainMergeBoxName());
+      if(pushed?.duplicate){
+        showToast('هذا الملف مدمج مسبقاً');
+        return;
+      }
+      const mergedEntry = pushed.entry;
       const doc = await buildItemsPdf(mergedRaw);
       doc.save(`${mergedEntry.name}.pdf`);
       showToast("تم الدمج وإنشاء PDF ✅");
@@ -5418,13 +6121,23 @@ document.getElementById("btnMergeCSV").addEventListener("click", async ()=>{
 
     const proceed = async ()=>{
       const mergedRaw = mergeByMaxQuantity(items);
-      await runFakeMergeProgress('جاري تجهيز ملف الدمج...');
-      const mergedEntry = pushMergedEntryToMergeBox(mergedRaw.map(it => ({
+      const normalizedMerged = mergedRaw.map(it => ({
         category: it.category,
         name: it.item,
         qty: it.qty,
         note: it.note
-      })), autoMainMergeBoxName());
+      }));
+      if(findLocalMergedDuplicateByItems(normalizedMerged)){
+        showToast('هذا الملف مدمج مسبقاً');
+        return;
+      }
+      await runFakeMergeProgress('جاري تجهيز ملف الدمج...');
+      const pushed = pushMergedEntryToMergeBox(normalizedMerged, autoMainMergeBoxName());
+      if(pushed?.duplicate){
+        showToast('هذا الملف مدمج مسبقاً');
+        return;
+      }
+      const mergedEntry = pushed.entry;
 
       const esc = v=>{
         const s = String(v ?? "");
@@ -6533,7 +7246,7 @@ window.addEventListener('load', ()=>{
   <!-- ====== Footer ====== -->
   <footer class="app-footer">
     <div class="foot-wrap">
-      <span>جميع الحقوق محفوظة © مكتب عسل 2025</span>
+      <span>جميع الحقوق محفوظة © مكتب عسل 2026</span>
     </div>
   </footer>
   
