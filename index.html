@@ -2169,8 +2169,8 @@ body.no-copy-ui [contenteditable="true"]{
 <!-- نافذة تأكيد حذف الفاتورة -->
 <div id="deleteInvoiceModal" class="auth-overlay" aria-hidden="true">
   <div class="auth-card" role="dialog" aria-modal="true" style="text-align:center;">
-    <h3 style="margin:0 0 6px 0;">حذف الفاتورة؟</h3>
-    <p style="margin:0 0 14px 0; color:#aab0c0;">سيتم حذف الفاتورة نهائياً من الجهاز.</p>
+    <h3 id="deleteInvTitle" style="margin:0 0 6px 0;">حذف الفاتورة؟</h3>
+    <p id="deleteInvDesc" style="margin:0 0 14px 0; color:#aab0c0;">سيتم حذف الفاتورة نهائياً من الجهاز.</p>
     <div style="display:flex; gap:10px; justify-content:center;">
       <button id="delInvYes" class="btn green"><i class="fa-solid fa-check"></i> نعم</button>
       <button id="delInvNo"  class="btn amber"><i class="fa-solid fa-xmark"></i> لا</button>
@@ -3303,6 +3303,55 @@ function openDeleteServerInvoiceModal(serverKey, ev){
   ev?.stopPropagation?.();
   __pendingDeleteInvoiceIndex = null;
   __pendingDeleteServerKey = serverKey;
+  __pendingDeleteImportedIndex = null;
+  __pendingDeleteImportedServerKey = null;
+  setDeleteModalContent('حذف الفاتورة؟', 'سيتم حذف الفاتورة نهائياً من الجهاز ومن السيرفر.');
+  const modal = document.getElementById('deleteInvoiceModal');
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden','false');
+  document.documentElement.classList.add('no-scroll');
+  document.body.classList.add('no-scroll');
+  attachBackdropGuards(modal, '.auth-card');
+  document.getElementById('delInvYes').onclick = confirmDeleteInvoice;
+  document.getElementById('delInvNo').onclick  = closeDeleteInvoiceModal;
+  document.addEventListener('keydown', escClose);
+}
+
+function setDeleteModalContent(title, desc){
+  const titleEl = document.getElementById('deleteInvTitle');
+  const descEl = document.getElementById('deleteInvDesc');
+  if(titleEl) titleEl.textContent = title || 'حذف الفاتورة؟';
+  if(descEl) descEl.textContent = desc || 'سيتم حذف الفاتورة نهائياً من الجهاز.';
+}
+
+async function deleteMergedServerFile(serverKey){
+  const ref = getServerMergedFilesRef();
+  if(!ref || !serverKey) throw new Error('invalid-merged-ref');
+  await ref.child(serverKey).remove();
+  serverMergedFilesCache = (Array.isArray(serverMergedFilesCache) ? serverMergedFilesCache : []).filter(x => x.serverKey !== serverKey);
+}
+
+function openDeleteMergeEntryModal(i, ev){
+  ev?.stopPropagation?.();
+  const entry = importedPdfFiles[i];
+  if(!isMergedImportEntry(entry)){
+    removeImportedPdf(i, true);
+    return;
+  }
+
+  __pendingDeleteInvoiceIndex = null;
+  __pendingDeleteServerKey = null;
+  __pendingDeleteImportedIndex = i;
+  __pendingDeleteImportedServerKey = String(entry?.mergeServerKey || '').trim();
+
+  const isServerLinked = isMainAdmin() && __pendingDeleteImportedServerKey.length > 0;
+  setDeleteModalContent(
+    'حذف ملف الدمج؟',
+    isServerLinked
+      ? 'سيتم حذف الملف نهائياً من الجهاز ومن السيرفر.'
+      : 'سيتم حذف الملف نهائياً من الجهاز.'
+  );
+
   const modal = document.getElementById('deleteInvoiceModal');
   modal.style.display = 'flex';
   modal.setAttribute('aria-hidden','false');
@@ -4254,10 +4303,16 @@ const existingIndex = (currentInvoice.items || []).findIndex(
     // ===== تأكيد حذف الفاتورة =====
 let __pendingDeleteInvoiceIndex = null;
 let __pendingDeleteServerKey = null;
+let __pendingDeleteImportedIndex = null;
+let __pendingDeleteImportedServerKey = null;
 
 function openDeleteInvoiceModal(i, ev){
   if(ev) ev.stopPropagation();
   __pendingDeleteInvoiceIndex = i;
+  __pendingDeleteServerKey = null;
+  __pendingDeleteImportedIndex = null;
+  __pendingDeleteImportedServerKey = null;
+  setDeleteModalContent('حذف الفاتورة؟', 'سيتم حذف الفاتورة نهائياً من الجهاز.');
   const modal = document.getElementById('deleteInvoiceModal');
   modal.style.display = 'flex';
   modal.setAttribute('aria-hidden','false');
@@ -4291,6 +4346,30 @@ function openDeleteInvoiceModal(i, ev){
 
 async function confirmDeleteInvoice(){
   try{
+    if(__pendingDeleteImportedIndex !== null){
+      const entry = importedPdfFiles[__pendingDeleteImportedIndex];
+      const mergedServerKey = String(__pendingDeleteImportedServerKey || entry?.mergeServerKey || '').trim();
+      if(mergedServerKey){
+        await deleteMergedServerFile(mergedServerKey);
+      }
+
+      const mergedEntryId = String(entry?.mergeEntryId || '');
+      importedPdfFiles.splice(__pendingDeleteImportedIndex, 1);
+      persistMergeBoxEntries();
+
+      if(currentInvoice?.__mergedEntryId && mergedEntryId && String(currentInvoice.__mergedEntryId) === mergedEntryId){
+        currentInvoice = null;
+        selectedInvoiceIndex = null;
+        document.getElementById('invoiceId').textContent = '-';
+        renderItems();
+      }
+
+      renderImportedPdfList();
+      closeDeleteInvoiceModal();
+      showToast(mergedServerKey ? 'تم حذف الملف من الجهاز ومن السيرفر 🗑️' : 'تم حذف الملف من الجهاز 🗑️');
+      return;
+    }
+
     if(__pendingDeleteServerKey){
       await deleteServerInvoice(__pendingDeleteServerKey);
       clearSidebarSelections();
@@ -4322,6 +4401,9 @@ function closeDeleteInvoiceModal(){
   modal.setAttribute('aria-hidden','true');
   __pendingDeleteInvoiceIndex = null;
   __pendingDeleteServerKey = null;
+  __pendingDeleteImportedIndex = null;
+  __pendingDeleteImportedServerKey = null;
+  setDeleteModalContent('حذف الفاتورة؟', 'سيتم حذف الفاتورة نهائياً من الجهاز.');
 
   // 🔓 فتح الصفحة بالكامل
   document.documentElement.classList.remove('no-scroll');
@@ -4828,7 +4910,7 @@ function renameEscEnterHandler(e){
           <button class="btn-rename-custom" title="تعديل الاسم" onclick="openRenameImportedEntryModal(${i}, event)">
             <i class="fa-solid fa-pen"></i>
           </button>
-          <button class="btn-danger-custom" title="إزالة" onclick="removeImportedPdf(${i})">
+          <button class="btn-danger-custom" title="إزالة" onclick="openDeleteMergeEntryModal(${i}, event)">
             <i class="fa-regular fa-trash-can"></i>
           </button>
         </div>
@@ -4855,11 +4937,21 @@ function renameEscEnterHandler(e){
 
 
 
-    function removeImportedPdf(i){
+    async function removeImportedPdf(i, silent = false){
+      const entry = importedPdfFiles[i];
+      if(!entry) return;
       importedPdfFiles.splice(i,1);
       persistMergeBoxEntries();
+
+      if(currentInvoice?.__mergedEntryId && isMergedImportEntry(entry) && String(currentInvoice.__mergedEntryId) === String(entry.mergeEntryId || '')){
+        currentInvoice = null;
+        selectedInvoiceIndex = null;
+        document.getElementById('invoiceId').textContent = '-';
+        renderItems();
+      }
+
       renderImportedPdfList();
-      showToast("تم حذف الملف من خانة الدمج 🗑️");
+      if(!silent) showToast("تم حذف الملف من خانة الدمج 🗑️");
     }
     
     
