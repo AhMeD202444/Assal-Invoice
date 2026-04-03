@@ -15,6 +15,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   
 
 
@@ -289,6 +291,63 @@
 }
 
 
+/* ===== Login Modal ===== */
+.login-card{
+  width: min(460px, 92%);
+  padding: 26px 20px;
+  background:
+    radial-gradient(120% 120% at 50% -10%, rgba(33,212,253,.12), transparent 55%),
+    linear-gradient(180deg, rgba(20,24,33,.96), rgba(13,16,22,.96));
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow:
+    0 24px 70px rgba(0,0,0,.48),
+    0 0 0 1px rgba(255,255,255,.03) inset;
+}
+
+.login-badge{
+  width: 66px;
+  height: 66px;
+  margin: 0 auto 12px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  color: #fff;
+  font-size: 24px;
+  background: linear-gradient(135deg, var(--brand-2), var(--brand-1));
+  box-shadow: 0 16px 30px rgba(109,94,252,.30);
+}
+
+.login-title{
+  margin: 0;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: .2px;
+}
+
+.login-subtitle{
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+#loginCodeInput{
+  text-align: center;
+  font-size: 18px;
+  letter-spacing: 1px;
+  font-weight: 800;
+}
+#loginCodeInput::placeholder{
+  color: rgba(234,240,255,.58);
+  font-weight: 600;
+  letter-spacing: .2px;
+}
+
+body.login-locked{
+  overflow: hidden !important;
+}
+
+
+
 
 
 
@@ -491,7 +550,7 @@
   --radius: 18px;
   --blur: 14px;
   --speed: .32s;
-   --side: 340px;   /* ← عرض العمود الأيسر (السايدبارين) على الديسكتوب */
+   --side: 380px;   /* ← عرض العمود الأيسر (السايدبارين) على الديسكتوب - زيادة خفيفة لراحة الأسماء */
 }
 
 *{ box-sizing: border-box; }
@@ -528,6 +587,21 @@ body{
   background: radial-gradient(120% 120% at 20% 20%, var(--brand-2), var(--brand-1));
   border-radius:12px; color:#0b0d13; font-weight:900;
   box-shadow: var(--shadow);
+}
+.brand .badge i{ font-size:16px; }
+.brand .badge.role-main{
+  background: linear-gradient(135deg,#fff1b8 0%, #facc15 35%, #f59e0b 72%, #b45309 100%);
+  color:#241508;
+  box-shadow: 0 10px 24px rgba(245,158,11,.35), inset 0 1px 0 rgba(255,255,255,.40);
+  border: 1px solid rgba(255,230,160,.55);
+}
+.brand .badge.role-secondary{
+  background: linear-gradient(135deg,#60a5fa,#2563eb);
+  color:#eef6ff;
+}
+.brand .badge.role-user{
+  background: linear-gradient(135deg,#34d399,#10b981);
+  color:#ecfdf5;
 }
 .brand small{ color: var(--muted); font-weight:600; display:block; margin-top:-2px; font-size:12px; }
 .head-actions{ display:flex; align-items:center; gap:10px; }
@@ -682,6 +756,33 @@ body{
 
 /* ====== Content ====== */
 .content{ display:flex; flex-direction:column; gap:18px; }
+
+
+/* تمديد خانة الفواتير على الديسكتوب فقط للمستخدم والأدمن الثانوي */
+@media (min-width: 993px){
+  body.role-secondary #sidebar,
+  body.role-user #sidebar{
+    grid-row: 1 / span 2;
+    align-self: stretch;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+  }
+
+  body.role-secondary #sidebar .invoices-list,
+  body.role-user #sidebar .invoices-list{
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding-inline-end: 2px;
+  }
+
+  body.role-secondary .content,
+  body.role-user .content{
+    min-height: 100%;
+  }
+}
 
 /* Grid cards */
 .grid{
@@ -1462,6 +1563,145 @@ select{
 }
 
 
+
+/* ===== Server / Firebase UI ===== */
+.server-send-btn.is-sent{
+  background: linear-gradient(135deg,#34d399,#059669) !important;
+  box-shadow: 0 8px 20px rgba(16,185,129,.28);
+}
+.server-open-btn{
+  background: linear-gradient(135deg,#60a5fa,#2563eb) !important;
+}
+.server-empty{
+  text-align:center;
+  color: var(--muted);
+  padding: 14px 10px;
+  border: 1px dashed var(--stroke);
+  border-radius: 14px;
+  background: rgba(255,255,255,.04);
+}
+.server-section-title{
+  margin: 10px 0 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  color: #dbe7ff;
+  font-weight: 800;
+  font-size: 12px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+}
+.invoice-chip.server-chip{
+  border-style: dashed;
+}
+.invoice-chip .status-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-top:4px;
+  font-size: 11px;
+  color: #bbf7d0;
+}
+.invoice-title-line{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+.invoice-title-line .sent-dot{
+  width:18px;
+  height:18px;
+  flex:0 0 18px;
+  display:grid;
+  place-items:center;
+  border-radius:999px;
+  color:#ecfdf5;
+  background: linear-gradient(135deg,#34d399,#059669);
+  box-shadow: 0 6px 14px rgba(16,185,129,.25);
+  font-size:10px;
+}
+.invoice-title-line .sent-dot i{
+  transform: translateY(.2px);
+}
+
+
+/* ===== Server sections + merge progress ===== */
+.server-section-title.section-shortage{
+  color:#fee2e2;
+  background: linear-gradient(135deg, rgba(127,29,29,.34), rgba(153,27,27,.14));
+  border-color: rgba(248,113,113,.26);
+}
+.server-section-title.section-branches{
+  color:#dbeafe;
+  background: linear-gradient(135deg, rgba(30,64,175,.30), rgba(37,99,235,.12));
+  border-color: rgba(96,165,250,.26);
+}
+.invoice-chip.is-selected{
+  background: rgba(33,212,253,.16) !important;
+  border-color: rgba(33,212,253,.55) !important;
+  box-shadow: 0 0 0 1px rgba(33,212,253,.20), 0 10px 24px rgba(0,0,0,.18);
+}
+.invoice-chip .chip-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.merge-box-title i{ color:#fbbf24; }
+.instant-merge-btn{
+  background: linear-gradient(135deg,#f59e0b,#ea580c) !important;
+}
+.instant-merge-btn:hover{ filter: brightness(1.05); }
+.merge-progress-card{
+  padding: 12px 12px 10px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(20,24,33,.94), rgba(13,16,22,.94));
+  border: 1px solid rgba(255,255,255,.10);
+  box-shadow: 0 10px 24px rgba(0,0,0,.18);
+}
+.merge-progress-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+  font-size:12px;
+  color:#e5edff;
+  font-weight:800;
+}
+.merge-progress-head small{
+  color:#93c5fd;
+  font-size:11px;
+}
+.merge-progress-bar{
+  width:100%;
+  height:10px;
+  overflow:hidden;
+  border-radius:999px;
+  background: rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.08);
+}
+.merge-progress-fill{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background: linear-gradient(135deg,#21d4fd,#6d5efc);
+  box-shadow: 0 6px 16px rgba(109,94,252,.32);
+  transition: width .18s linear;
+}
+.merge-progress-card.is-done .merge-progress-fill{
+  background: linear-gradient(135deg,#34d399,#10b981);
+  box-shadow: 0 6px 16px rgba(16,185,129,.26);
+}
+.merge-selected-note{
+  margin: 8px 0 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  text-align:center;
+  font-size: 12px;
+  color: #dbeafe;
+  background: rgba(59,130,246,.12);
+  border: 1px dashed rgba(96,165,250,.32);
+}
+
 </style>
 </head>
 <body>
@@ -1519,12 +1759,43 @@ select{
 </div>
 
 
+
+<!-- ===== نافذة تسجيل الدخول ===== -->
+<div id="loginOverlay" class="auth-overlay" style="display:none;" aria-hidden="true">
+  <div class="auth-card login-card" role="dialog" aria-modal="true" style="text-align:center;">
+    <div class="login-badge">
+      <i class="fa-solid fa-shield-halved"></i>
+    </div>
+
+    <h2 class="login-title">تسجيل الدخول</h2>
+    <p class="login-subtitle">أدخل كود الدخول للمتابعة إلى التطبيق</p>
+
+    <div class="ginput" style="margin-top:14px;">
+      <input id="loginCodeInput" class="gfield" type="password" placeholder="أدخل الكود" autocomplete="off" />
+    </div>
+
+    <div id="loginUserPreview" style="display:none;"></div>
+
+    <div style="display:flex; gap:10px; justify-content:center; margin-top:14px;">
+      <button id="loginSubmitBtn" class="btn">
+        <i class="fa-solid fa-right-to-bracket"></i>
+        دخول
+      </button>
+    </div>
+
+    <div id="loginError" style="display:none; margin-top:12px; color:#fca5a5; font-size:13px; font-weight:700;">
+      الكود غير صحيح
+    </div>
+  </div>
+</div>
+
+
   <!-- ====== Header ====== -->
   <header class="app-header">
     <div class="head-wrap">
       <div class="brand">
-  <div class="badge">A</div>
-  <span style="font-weight:700; font-size:18px;">ASSAL OFFICE</span>
+  <div class="badge" id="brandRoleBadge" title="مكتب عسل" aria-label="مكتب عسل"><i class="fa-solid fa-building"></i></div>
+  <span style="font-weight:700; font-size:18px;">مكتب عسل</span>
 </div>
 
       <div class="head-actions">
@@ -1700,8 +1971,11 @@ select{
         <!-- ====== Sidebar مستقل (الفواتير المستوردة PDF) ====== -->
     <aside class="sidebar" id="importedSidebar">
     <div class="panel-title">
-  <h3><i class="fa-solid fa-file-import"></i>الفواتير المستوردة</h3>
+  <h3 class="merge-box-title"><i class="fa-solid fa-code-merge"></i> دمج</h3>
   <div style="display:flex; gap:8px;">
+    <button class="icon-btn instant-merge-btn" id="btnMergeInstant" title="دمج فوري من فواتير السيرفر المحددة">
+      <i class="fa-solid fa-bolt"></i>
+    </button>
     <button class="icon-btn" id="btnImportPDF" title="استيراد ملفات">
       <i class="fa-solid fa-download"></i>
     </button>
@@ -1884,17 +2158,916 @@ select{
        متغيرات عامة (نفس القديمة)
        ========================= */
     let currentInvoice = null;                                             // الفاتورة الحالية
-    let invoices = JSON.parse(localStorage.getItem("invoices") || "[]");   // كل الفواتير المخزنة
+    let invoices = [];                                                     // فواتير الجهاز لهذا المستخدم
     let selectedInvoiceIndex = null;                                       // مؤشر الفاتورة المختارة
     let database = {};                                                     // قاعدة بيانات الأصناف من الإكسل
     let currentCategory = "";                                              // الصنف الحالي المختار
-    let importedPdfFiles = [];                                             // ملفات PDF المستوردة مؤقتًا
+    let importedPdfFiles = [];                                             // ملفات الدمج/الملفات المستوردة
+    let selectedSidebarInvoiceKeys = new Set();                            // الفواتير المحددة بضغط مطول
+    let serverInvoicesCache = [];                                          // فواتير السيرفر
+    let serverInvoicesLoaded = false;                                      // هل تم تحميل فواتير السيرفر؟
+    let mergeProgressState = { active:false, percent:0, text:"", done:false };
+    let firebaseDb = null;                                                 // Firebase Realtime Database
+    let firebaseReady = false;                                             // حالة الربط
 
     // رابط ملف الإكسل (نفسك)
   const dropboxMainFile = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSZww_ZDcqXnX6pUjlKccZdFUkRR9Z_JmfmdvNsnGVYT_rq_RTsSB1ydTy6QVrrS_o4s_ml1DNBTnaQ/pub?output=xlsx" + "&t=" + new Date().getTime();
 
 
 
+
+
+
+
+/* ===== Firebase (الخطوة 3) =====
+   عبّي القيم الحقيقية من مشروع Firebase مالك */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAfM0XJDTwY0-diMfVqXlXW6-ywdnxZqjs",
+  authDomain: "assal-invoice-server.firebaseapp.com",
+  databaseURL: "https://assal-invoice-server-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "assal-invoice-server",
+  storageBucket: "assal-invoice-server.firebasestorage.app",
+  messagingSenderId: "642996860492",
+  appId: "1:642996860492:web:382915edbc316665ce66e9",
+  measurementId: "G-F58YGT0B0P"
+};
+
+const LOCAL_INVOICES_PREFIX = "assal_user_invoices_";
+const LOCAL_MERGEBOX_PREFIX = "assal_merge_box_";
+const LEGACY_INVOICES_KEY   = "invoices";
+const SERVER_INVOICES_PATH  = "assal_server_invoices";
+
+function hasValidFirebaseConfig(){
+  return !!(
+    FIREBASE_CONFIG.apiKey &&
+    FIREBASE_CONFIG.databaseURL &&
+    FIREBASE_CONFIG.projectId &&
+    FIREBASE_CONFIG.appId
+  );
+}
+
+function initFirebaseServices(){
+  if(firebaseReady && firebaseDb) return true;
+  if(!hasValidFirebaseConfig()) return false;
+
+  try{
+    if(typeof firebase === "undefined") return false;
+
+    if(!firebase.apps.length){
+      firebase.initializeApp(FIREBASE_CONFIG);
+    }
+    firebaseDb = firebase.database();
+    firebaseReady = true;
+    return true;
+  }catch(err){
+    console.error("Firebase init error:", err);
+    firebaseReady = false;
+    firebaseDb = null;
+    return false;
+  }
+}
+
+function getServerInvoicesRef(){
+  if(!initFirebaseServices()) return null;
+  return firebaseDb.ref(SERVER_INVOICES_PATH);
+}
+
+function isMainAdmin(){
+  return currentUser?.role === "main_admin";
+}
+
+function isSecondaryAdmin(){
+  return currentUser?.role === "secondary_admin";
+}
+
+function isRegularUser(){
+  return currentUser?.role === "user";
+}
+
+function canCurrentUserSendInvoices(){
+  return isSecondaryAdmin() || isRegularUser();
+}
+
+function getLocalInvoicesKey(){
+  if(!currentUser?.code) return LEGACY_INVOICES_KEY;
+  return `${LOCAL_INVOICES_PREFIX}${currentUser.code}`;
+}
+
+function migrateLegacyInvoicesIfNeeded(){
+  if(!currentUser?.code) return;
+  const userKey = getLocalInvoicesKey();
+  const hasUserKey = localStorage.getItem(userKey);
+  const legacyRaw  = localStorage.getItem(LEGACY_INVOICES_KEY);
+
+  if(!hasUserKey && legacyRaw){
+    localStorage.setItem(userKey, legacyRaw);
+  }
+}
+
+function loadLocalInvoicesForCurrentUser(){
+  if(!currentUser) return [];
+  migrateLegacyInvoicesIfNeeded();
+
+  try{
+    invoices = JSON.parse(localStorage.getItem(getLocalInvoicesKey()) || "[]");
+    if(!Array.isArray(invoices)) invoices = [];
+  }catch{
+    invoices = [];
+  }
+
+  return invoices;
+}
+
+function persistInvoices(){
+  localStorage.setItem(getLocalInvoicesKey(), JSON.stringify(invoices));
+}
+
+function getMergeBoxStorageKey(){
+  if(!currentUser?.code) return `${LOCAL_MERGEBOX_PREFIX}guest`;
+  return `${LOCAL_MERGEBOX_PREFIX}${currentUser.code}`;
+}
+
+function normalizeMergedEntry(entry = {}){
+  const normalizedItems = (entry.items || []).map(it => ({
+    category: String(it.category || '').trim(),
+    name: String(it.name || it.item || '').trim(),
+    qty: String(it.qty || '').trim(),
+    note: String(it.note || '').trim()
+  })).filter(it => it.name.length);
+
+  return {
+    kind: 'merged_invoice',
+    mergeEntryId: String(entry.mergeEntryId || `merge_${Date.now()}_${Math.random().toString(36).slice(2,8)}`),
+    name: String(entry.name || autoMainMergeBoxName()).trim(),
+    createdAt: Number(entry.createdAt || Date.now()),
+    items: normalizedItems,
+    size: Number(entry.size || new Blob([JSON.stringify(normalizedItems)]).size || 0)
+  };
+}
+
+function persistMergeBoxEntries(){
+  try{
+    const serializable = importedPdfFiles
+      .filter(isMergedImportEntry)
+      .map(entry => normalizeMergedEntry(entry));
+    localStorage.setItem(getMergeBoxStorageKey(), JSON.stringify(serializable));
+  }catch(err){
+    console.error('persist merge box error:', err);
+  }
+}
+
+function loadPersistedMergeBoxEntries(){
+  try{
+    const raw = localStorage.getItem(getMergeBoxStorageKey());
+    const parsed = JSON.parse(raw || '[]');
+    importedPdfFiles = Array.isArray(parsed)
+      ? parsed.filter(isMergedImportEntry).map(entry => normalizeMergedEntry(entry))
+      : [];
+  }catch(err){
+    console.error('load merge box error:', err);
+    importedPdfFiles = [];
+  }
+  return importedPdfFiles;
+}
+
+function syncCurrentInvoiceToOpenedMergeEntry(){
+  if(!currentInvoice?.__mergedEntryId) return;
+  const idx = importedPdfFiles.findIndex(entry => isMergedImportEntry(entry) && entry.mergeEntryId === currentInvoice.__mergedEntryId);
+  if(idx === -1) return;
+
+  importedPdfFiles[idx] = normalizeMergedEntry({
+    ...importedPdfFiles[idx],
+    name: String(currentInvoice.id || importedPdfFiles[idx].name || autoMainMergeBoxName()).trim(),
+    items: (currentInvoice.items || []).map(it => ({
+      category: String(it.category || '').trim(),
+      name: String(it.name || it.item || '').trim(),
+      qty: String(it.qty || '').trim(),
+      note: String(it.note || '').trim()
+    }))
+  });
+
+  persistMergeBoxEntries();
+  renderImportedPdfList();
+}
+
+function stampInvoiceOwner(inv){
+  if(!inv || !currentUser) return inv;
+  inv.ownerCode = currentUser.code;
+  inv.ownerName = currentUser.name;
+  inv.ownerRole = currentUser.role;
+  return inv;
+}
+
+function formatServerDate(ts){
+  if(!ts) return "بدون تاريخ رفع";
+  try{
+    return new Date(ts).toLocaleString("ar-EG");
+  }catch{
+    return "بدون تاريخ رفع";
+  }
+}
+
+function escapeHtml(value){
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function refreshServerInvoicesForRole(options = {}){
+  if(!currentUser) return [];
+  if(!(isMainAdmin() || isSecondaryAdmin())){
+    serverInvoicesCache = [];
+    serverInvoicesLoaded = true;
+    renderInvoicesDropdown();
+    return [];
+  }
+
+  const ref = getServerInvoicesRef();
+  if(!ref){
+    serverInvoicesCache = [];
+    serverInvoicesLoaded = true;
+    renderInvoicesDropdown();
+    if(!options.silent && typeof showToast === "function"){
+      showToast("أضف إعدادات Firebase الحقيقية أولاً ❌", true);
+    }
+    return [];
+  }
+
+  try{
+    const snap = await ref.once("value");
+    let list = [];
+    snap.forEach(child => {
+      const val = child.val() || {};
+      list.push({ serverKey: child.key, ...val });
+    });
+
+    list.sort((a,b)=> (b.uploadedAt || 0) - (a.uploadedAt || 0));
+
+    if(isSecondaryAdmin()){
+      list = list.filter(inv => inv.senderRole === "user");
+    }
+
+    serverInvoicesCache = list;
+    serverInvoicesLoaded = true;
+    renderInvoicesDropdown();
+    return list;
+  }catch(err){
+    console.error("Server invoices load error:", err);
+    serverInvoicesCache = [];
+    serverInvoicesLoaded = true;
+    renderInvoicesDropdown();
+    if(!options.silent && typeof showToast === "function"){
+      showToast("فشل تحميل فواتير السيرفر ❌", true);
+    }
+    return [];
+  }
+}
+
+async function sendCurrentInvoiceToServer(localIndex = selectedInvoiceIndex){
+  if(!canCurrentUserSendInvoices()){
+    showToast("الإرسال متاح فقط للأدمن الثانوي أو المستخدم ❌", true);
+    return;
+  }
+
+  const inv = (localIndex !== null && invoices[localIndex]) ? invoices[localIndex] : currentInvoice;
+  if(!inv || !Array.isArray(inv.items) || !inv.items.length){
+    showToast("ماكو فاتورة صالحة للإرسال ❌", true);
+    return;
+  }
+
+  const ref = getServerInvoicesRef();
+  if(!ref){
+    showToast("أضف إعدادات Firebase الحقيقية أولاً ❌", true);
+    return;
+  }
+
+  const now = Date.now();
+  const invoiceName = String(inv.id || formatInvoiceName()).trim();
+  const todayBucket = getDayBucketFromTimestamp(now);
+
+  const payload = {
+    id: invoiceName,
+    date: inv.date || new Date().toLocaleDateString("ar-EG"),
+    items: Array.isArray(inv.items) ? inv.items.map(it => ({
+      category: String(it.category || "").trim(),
+      name: String(it.name || "").trim(),
+      qty: String(it.qty || "").trim(),
+      note: String(it.note || "").trim()
+    })) : [],
+    senderCode: currentUser.code,
+    senderName: currentUser.name,
+    senderRole: currentUser.role,
+    uploadedAt: now,
+    visibility: {
+      mainAdmin: true,
+      secondaryAdmins: true,
+      users: false
+    }
+  };
+
+  const newSignature = buildInvoiceItemsSignature(payload.items);
+
+  try{
+    const snap = await ref.once("value");
+    let sameDayMatch = null;
+
+    snap.forEach(child => {
+      const val = child.val() || {};
+      const sameSender = String(val.senderCode || "") === String(currentUser.code || "");
+      const sameName   = normalizeInvoiceMatchText(val.id) === normalizeInvoiceMatchText(invoiceName);
+      const sameDay    = getDayBucketFromTimestamp(val.uploadedAt) === todayBucket;
+
+      if(sameSender && sameName && sameDay){
+        if(!sameDayMatch || Number(val.uploadedAt || 0) > Number(sameDayMatch.uploadedAt || 0)){
+          sameDayMatch = { serverKey: child.key, ...val };
+        }
+      }
+    });
+
+    if(sameDayMatch){
+      const oldSignature = buildInvoiceItemsSignature(sameDayMatch.items || []);
+
+      if(oldSignature === newSignature){
+        markInvoiceAsSentLocally(localIndex, sameDayMatch.serverKey, sameDayMatch.uploadedAt || now);
+        showToast("الفاتورة مرسلة مسبقاً");
+        refreshServerInvoicesForRole({ silent:true });
+        return;
+      }
+
+      await ref.child(sameDayMatch.serverKey).set({
+        ...sameDayMatch,
+        ...payload,
+        uploadedAt: now,
+        updatedAt: now
+      });
+
+      markInvoiceAsSentLocally(localIndex, sameDayMatch.serverKey, now);
+      showToast("الفاتورة مرسلة مسبقاً تم تعديلها في السيرفر ✅");
+      refreshServerInvoicesForRole({ silent:true });
+      return;
+    }
+
+    const newRef = ref.push();
+    const serverKey = newRef.key;
+    await newRef.set(payload);
+
+    markInvoiceAsSentLocally(localIndex, serverKey, now);
+    showToast("تم إرسال الفاتورة إلى السيرفر ✅");
+    refreshServerInvoicesForRole({ silent:true });
+  }catch(err){
+    console.error("Send invoice error:", err);
+    showToast("فشل إرسال الفاتورة إلى السيرفر ❌", true);
+  }
+}
+
+function sendLocalInvoiceFromRow(i, ev){
+  if(ev) ev.stopPropagation();
+  sendCurrentInvoiceToServer(i);
+}
+
+function loadServerInvoiceByKey(serverKey, ev){
+  if(ev) ev.stopPropagation();
+
+  const inv = serverInvoicesCache.find(x => x.serverKey === serverKey);
+  if(!inv) return;
+
+  currentInvoice = {
+    id: inv.id || formatInvoiceName(),
+    date: inv.date || new Date().toLocaleDateString("ar-EG"),
+    items: Array.isArray(inv.items) ? inv.items.map(it => ({ ...it })) : []
+  };
+  selectedInvoiceIndex = null;
+  document.getElementById("invoiceId").textContent = currentInvoice.id;
+  renderItems();
+  showToast("تم تحميل فاتورة من السيرفر 📥");
+}
+
+function getDateObjectFromInvoiceMeta(dateValue, uploadedAt){
+  if(uploadedAt){
+    const d = new Date(uploadedAt);
+    if(!isNaN(d.getTime())) return d;
+  }
+  if(dateValue){
+    const parsed = new Date(dateValue);
+    if(!isNaN(parsed.getTime())) return parsed;
+  }
+  return null;
+}
+
+function formatInvoiceSecondaryLine(dateValue, uploadedAt){
+  const d = getDateObjectFromInvoiceMeta(dateValue, uploadedAt);
+  if(d){
+    return `فاتورة ${getDayNameAr(d)} - ${d.toLocaleDateString("ar-EG")}`;
+  }
+  if(String(dateValue || "").trim()) return `فاتورة ${String(dateValue).trim()}`;
+  return "فاتورة بدون تاريخ";
+}
+
+function getServerPrimaryTitle(inv){
+  return String(inv?.senderName || inv?.ownerName || inv?.id || "فاتورة سيرفر").trim();
+}
+
+function normalizeInvoiceMatchText(value){
+  return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function getDayBucketFromTimestamp(ts){
+  try{
+    const d = new Date(Number(ts || 0));
+    if(isNaN(d.getTime())) return "";
+    return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+  }catch{
+    return "";
+  }
+}
+
+function buildInvoiceItemsSignature(items){
+  const list = Array.isArray(items) ? items : [];
+  return list
+    .map(it => ({
+      category: normalizeInvoiceMatchText(it?.category),
+      name: normalizeInvoiceMatchText(it?.name),
+      note: normalizeInvoiceMatchText(it?.note),
+      qty: String(it?.qty ?? "").trim()
+    }))
+    .sort((a,b)=>{
+      const aa = `${a.category}|${a.name}|${a.note}|${a.qty}`;
+      const bb = `${b.category}|${b.name}|${b.note}|${b.qty}`;
+      return aa.localeCompare(bb, "ar");
+    })
+    .map(it => `${it.category}|${it.name}|${it.note}|${it.qty}`)
+    .join("~~");
+}
+
+function markInvoiceAsSentLocally(localIndex, serverKey, uploadedAt){
+  const safeNow = uploadedAt || Date.now();
+
+  if(localIndex !== null && invoices[localIndex]){
+    invoices[localIndex].serverStatus = "sent";
+    invoices[localIndex].serverUploadedAt = safeNow;
+    invoices[localIndex].serverKey = serverKey;
+    stampInvoiceOwner(invoices[localIndex]);
+    currentInvoice = invoices[localIndex];
+  }else if(currentInvoice){
+    currentInvoice.serverStatus = "sent";
+    currentInvoice.serverUploadedAt = safeNow;
+    currentInvoice.serverKey = serverKey;
+    stampInvoiceOwner(currentInvoice);
+  }
+
+  persistInvoices();
+  renderInvoicesDropdown();
+}
+
+function toggleSidebarSelection(key){
+  if(selectedSidebarInvoiceKeys.has(key)) selectedSidebarInvoiceKeys.delete(key);
+  else selectedSidebarInvoiceKeys.add(key);
+  renderInvoicesDropdown();
+}
+
+function clearSidebarSelections(){
+  if(!selectedSidebarInvoiceKeys.size) return;
+  selectedSidebarInvoiceKeys.clear();
+  renderInvoicesDropdown();
+}
+
+function bindLongPressRow(row, options = {}){
+  const longMs = options.longMs || 430;
+  let timer = null;
+  let longTriggered = false;
+
+  const cancel = ()=>{
+    if(timer){ clearTimeout(timer); timer = null; }
+  };
+
+  row.addEventListener("pointerdown", (e)=>{
+    if(e.target.closest("button")) return;
+    longTriggered = false;
+    cancel();
+    timer = setTimeout(()=>{
+      longTriggered = true;
+      options.onLongPress && options.onLongPress(e);
+    }, longMs);
+  });
+
+  ["pointerup","pointerleave","pointercancel","dragstart","contextmenu"].forEach(evt=>{
+    row.addEventListener(evt, ()=> cancel());
+  });
+
+  row.addEventListener("click", (e)=>{
+    if(e.target.closest("button")) return;
+    if(longTriggered){
+      e.preventDefault();
+      e.stopPropagation();
+      longTriggered = false;
+      return;
+    }
+    options.onClick && options.onClick(e);
+  });
+}
+
+async function renameServerInvoice(serverKey, newName){
+  const ref = getServerInvoicesRef();
+  if(!ref || !serverKey) throw new Error("invalid-ref");
+  await ref.child(serverKey).child("id").set(newName);
+  const found = serverInvoicesCache.find(x => x.serverKey === serverKey);
+  if(found) found.id = newName;
+}
+
+async function deleteServerInvoice(serverKey){
+  const ref = getServerInvoicesRef();
+  if(!ref || !serverKey) throw new Error("invalid-ref");
+  await ref.child(serverKey).remove();
+  serverInvoicesCache = serverInvoicesCache.filter(x => x.serverKey !== serverKey);
+}
+
+function openDeleteServerInvoiceModal(serverKey, ev){
+  ev?.stopPropagation?.();
+  __pendingDeleteInvoiceIndex = null;
+  __pendingDeleteServerKey = serverKey;
+  const modal = document.getElementById('deleteInvoiceModal');
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden','false');
+  document.documentElement.classList.add('no-scroll');
+  document.body.classList.add('no-scroll');
+  attachBackdropGuards(modal, '.auth-card');
+  document.getElementById('delInvYes').onclick = confirmDeleteInvoice;
+  document.getElementById('delInvNo').onclick  = closeDeleteInvoiceModal;
+  document.addEventListener('keydown', escClose);
+}
+
+function openRenameServerInvoiceModal(serverKey, ev){
+  ev?.stopPropagation?.();
+  __pendingRenameInvoiceIndex = null;
+  __pendingRenameServerKey = serverKey;
+  const modal = document.getElementById('renameInvoiceModal');
+  const input = document.getElementById('renameInvInput');
+  const inv = serverInvoicesCache.find(x => x.serverKey === serverKey);
+  input.value = inv?.id || '';
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+  document.documentElement.classList.add('no-scroll');
+  document.body.classList.add('no-scroll');
+  attachBackdropGuards(modal, '.auth-card');
+  document.getElementById('renameInvYes').onclick = confirmRenameInvoice;
+  document.getElementById('renameInvNo').onclick  = closeRenameInvoiceModal;
+  setTimeout(()=>{ input.focus(); input.select?.(); }, 10);
+  document.addEventListener('keydown', renameEscEnterHandler);
+}
+
+function isMergedImportEntry(entry){
+  return !!entry && entry.kind === 'merged_invoice';
+}
+
+function importedEntryToItems(entry){
+  if(isMergedImportEntry(entry)){
+    return (entry.items || []).map(it => ({
+      category: String(it.category || '').trim(),
+      item: String(it.name || it.item || '').trim(),
+      qty: String(it.qty || '').trim(),
+      note: String(it.note || '').trim()
+    })).filter(it => it.item.length);
+  }
+  return extractItemsFromFile(entry);
+}
+
+function autoMainMergeBoxName(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const mo = String(d.getMonth()+1).padStart(2,'0');
+  const da = String(d.getDate()).padStart(2,'0');
+  return `نقص ملف رئيسي ${y}-${mo}-${da}`;
+}
+
+function pushMergedEntryToMergeBox(mergedItems, customName){
+  const normalized = mergedItems.map(it => ({
+    category: String(it.category || '').trim(),
+    name: String(it.name || it.item || '').trim(),
+    qty: String(it.qty || '').trim(),
+    note: String(it.note || '').trim()
+  })).filter(it => it.name.length);
+
+  const entry = normalizeMergedEntry({
+    kind: 'merged_invoice',
+    name: customName || autoMainMergeBoxName(),
+    createdAt: Date.now(),
+    items: normalized,
+    size: new Blob([JSON.stringify(normalized)]).size
+  });
+  importedPdfFiles.unshift(entry);
+  persistMergeBoxEntries();
+  renderImportedPdfList();
+  return entry;
+}
+
+function openImportedMergedEntry(index, ev){
+  ev?.stopPropagation?.();
+  const entry = importedPdfFiles[index];
+  if(!isMergedImportEntry(entry)) return;
+  currentInvoice = {
+    id: entry.name || formatInvoiceName(),
+    date: new Date(entry.createdAt || Date.now()).toLocaleDateString('ar-EG'),
+    items: (entry.items || []).map(it => ({ ...it })),
+    __mergedEntryId: entry.mergeEntryId || null,
+    __fromMergeBox: true
+  };
+  selectedInvoiceIndex = null;
+  document.getElementById('invoiceId').textContent = currentInvoice.id;
+  renderItems();
+  showToast('تم فتح الملف المدموج للتعديل ✅');
+}
+
+function setMergeProgress(percent, text, done = false){
+  mergeProgressState = { active:true, percent:Math.max(0, Math.min(100, percent)), text:text || 'جاري الدمج...', done:!!done };
+  renderImportedPdfList();
+}
+
+function clearMergeProgress(){
+  mergeProgressState = { active:false, percent:0, text:'', done:false };
+  renderImportedPdfList();
+}
+
+function runFakeMergeProgress(label){
+  return new Promise(resolve => {
+    const steps = [8, 16, 24, 33, 42, 51, 62, 73, 84, 93, 100];
+    let i = 0;
+    setMergeProgress(0, label || 'جاري الدمج...', false);
+    const timer = setInterval(()=>{
+      const pct = steps[i++];
+      if(typeof pct === 'undefined'){
+        clearInterval(timer);
+        setMergeProgress(100, 'تم الدمج بنجاح ✅', true);
+        setTimeout(()=>{
+          clearMergeProgress();
+          resolve();
+        }, 700);
+        return;
+      }
+      setMergeProgress(pct, label || 'جاري الدمج...', pct >= 100);
+    }, 300);
+  });
+}
+
+function getSelectedServerInvoicesForMerge(){
+  const chosen = serverInvoicesCache.filter(inv => selectedSidebarInvoiceKeys.has(`server:${inv.serverKey}`));
+  if(chosen.length < 2){
+    showToast('حدد فاتورتين أو أكثر بضغط مطول أولاً ❌', true);
+    return null;
+  }
+  return chosen;
+}
+
+function applyRoleUI(){
+  const sidebarTitleEl = document.querySelector("#sidebar .panel-title h3");
+  const importBtn = document.getElementById("btnImportPrev");
+  const importBtnWrap = importBtn?.parentElement;
+  const importedSidebar = document.getElementById("importedSidebar");
+
+  if(sidebarTitleEl){
+    if(isMainAdmin()){
+      sidebarTitleEl.innerHTML = '<i class="fa-solid fa-cloud"></i> فواتير السيرفر';
+    }else if(isSecondaryAdmin()){
+      sidebarTitleEl.innerHTML = '<i class="fa-regular fa-folder-open"></i> فواتير عسل';
+    }else{
+      sidebarTitleEl.innerHTML = '<i class="fa-regular fa-folder-open"></i> الفواتير السابقة';
+    }
+  }
+
+  if(importBtn){
+    if(isMainAdmin()){
+      importBtn.style.display = "grid";
+      importBtn.title = "استيراد من السيرفر";
+      importBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i>';
+    }else{
+      importBtn.style.display = "none";
+    }
+  }
+
+  if(importBtnWrap){
+    importBtnWrap.style.display = isMainAdmin() ? "flex" : "none";
+  }
+
+  if(importedSidebar){
+    importedSidebar.style.display = isMainAdmin() ? "" : "none";
+  }
+}
+/* ===== الخطوة 1: نظام الدخول المحلي ===== */
+const AUTH_STORAGE_KEY = "assal_auth_session_v1";
+
+const ACCESS_CODES = {
+  "ah1234":  { role: "main_admin",      name: "مكتب عسل - حاسبة احمد" },
+  "mu1234":  { role: "secondary_admin", name: "مكتب عسل - مصطفى" },
+  "is1234":  { role: "secondary_admin", name: "مكتب عسل - سمعو" },
+  "com1234": { role: "secondary_admin", name: "مكتب عسل - حاسبة" },
+
+  "yo1234":  { role: "user",            name: "مكتب عسل التحرير" },
+  "isl1234": { role: "user",            name: "مكتب عسل الحي" },
+  "bld1234": { role: "user",            name: "مكتب عسل فرع بلدروز" }
+};
+
+let currentUser = null;
+
+function normalizeAccessCode(code){
+  return String(code || "").trim().toLowerCase();
+}
+
+function getSavedSession(){
+  try{
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if(!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if(!parsed || !parsed.code) return null;
+
+    const safeCode = normalizeAccessCode(parsed.code);
+    if(!ACCESS_CODES[safeCode]) return null;
+
+    return {
+      code: safeCode,
+      ...ACCESS_CODES[safeCode]
+    };
+  }catch{
+    return null;
+  }
+}
+
+function saveSession(code){
+  const safeCode = normalizeAccessCode(code);
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ code: safeCode }));
+}
+
+function clearSession(){
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  currentUser = null;
+  document.body.classList.remove("role-main", "role-secondary", "role-user");
+}
+
+function findUserByCode(code){
+  const safeCode = normalizeAccessCode(code);
+  if(!ACCESS_CODES[safeCode]) return null;
+  return {
+    code: safeCode,
+    ...ACCESS_CODES[safeCode]
+  };
+}
+
+function openLoginModal(){
+  const modal = document.getElementById("loginOverlay");
+  const input = document.getElementById("loginCodeInput");
+  const err   = document.getElementById("loginError");
+  const prev  = document.getElementById("loginUserPreview");
+
+  modal.style.display = "flex";
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("login-locked");
+  document.documentElement.classList.add("no-scroll");
+  document.body.classList.add("no-scroll");
+
+  err.style.display = "none";
+  prev.textContent = "";
+  input.value = "";
+
+}
+
+function closeLoginModal(){
+  const modal = document.getElementById("loginOverlay");
+  modal.style.display = "none";
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("login-locked");
+  document.documentElement.classList.remove("no-scroll");
+  document.body.classList.remove("no-scroll");
+}
+
+function updateBrandRoleBadge(){
+  const badge = document.getElementById("brandRoleBadge");
+  if(!badge) return;
+
+  badge.classList.remove("role-main", "role-secondary", "role-user");
+
+  if(isMainAdmin()){
+    badge.classList.add("role-main");
+    badge.innerHTML = '<i class="fa-solid fa-gem"></i>';
+    badge.title = "أدمن رئيسي";
+    badge.setAttribute("aria-label", "أدمن رئيسي");
+    return;
+  }
+
+  if(isSecondaryAdmin()){
+    badge.classList.add("role-secondary");
+    badge.innerHTML = '<i class="fa-solid fa-user-shield"></i>';
+    badge.title = "أدمن ثانوي";
+    badge.setAttribute("aria-label", "أدمن ثانوي");
+    return;
+  }
+
+  if(isRegularUser()){
+    badge.classList.add("role-user");
+    badge.innerHTML = '<i class="fa-solid fa-shop"></i>';
+    badge.title = "مستخدم التطبيق";
+    badge.setAttribute("aria-label", "مستخدم التطبيق");
+    return;
+  }
+
+  badge.innerHTML = '<i class="fa-solid fa-building"></i>';
+  badge.title = "مكتب عسل";
+  badge.setAttribute("aria-label", "مكتب عسل");
+}
+
+function updateBodyRoleClasses(){
+  document.body.classList.remove("role-main", "role-secondary", "role-user");
+
+  if(isMainAdmin()){
+    document.body.classList.add("role-main");
+    return;
+  }
+  if(isSecondaryAdmin()){
+    document.body.classList.add("role-secondary");
+    return;
+  }
+  if(isRegularUser()){
+    document.body.classList.add("role-user");
+    return;
+  }
+}
+
+function applyLoggedUserUI(){
+  if(!currentUser) return;
+
+  updateBrandRoleBadge();
+  updateBodyRoleClasses();
+  loadLocalInvoicesForCurrentUser();
+  loadPersistedMergeBoxEntries();
+  applyRoleUI();
+  renderInvoicesDropdown();
+  if(typeof renderImportedPdfList === "function"){
+    renderImportedPdfList();
+  }
+  refreshServerInvoicesForRole({ silent:true });
+}
+
+function submitLogin(){
+  const input = document.getElementById("loginCodeInput");
+  const err   = document.getElementById("loginError");
+  const prev  = document.getElementById("loginUserPreview");
+
+  const user = findUserByCode(input.value);
+
+  if(!user){
+    err.style.display = "block";
+    prev.textContent = "";
+    return;
+  }
+
+  currentUser = user;
+  saveSession(user.code);
+  applyLoggedUserUI();
+  closeLoginModal();
+
+  if(typeof showToast === "function"){
+    showToast(`أهلاً ${user.name} ✅`);
+  }
+}
+
+function initAuth(){
+  const saved = getSavedSession();
+
+  if(saved){
+    currentUser = saved;
+    applyLoggedUserUI();
+    closeLoginModal();
+    return;
+  }
+
+  openLoginModal();
+}
+
+function bindAuthEvents(){
+  const input = document.getElementById("loginCodeInput");
+  const btn   = document.getElementById("loginSubmitBtn");
+  const prev  = document.getElementById("loginUserPreview");
+  const err   = document.getElementById("loginError");
+
+  btn?.addEventListener("click", submitLogin);
+
+  input?.addEventListener("input", function(){
+    err.style.display = "none";
+    prev.textContent = "";
+  });
+
+  input?.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+      e.preventDefault();
+      submitLogin();
+    }
+  });
+}
+
+
+bindAuthEvents();
+initAuth();
 
 function attachBackdropGuards(modalEl, cardSelector){
   const card = modalEl.querySelector(cardSelector);
@@ -2395,7 +3568,7 @@ const existingIndex = (currentInvoice.items || []).findIndex(
     showToast("فاتورة اليوم موجودة، تم تحميلها ✅");
   } else {
     // ماكو فاتورة اليوم بالاسم الافتراضي ⇒ أنشئ واحدة جديدة
-    currentInvoice = { id: defaultName, date: today, items: [] };
+    currentInvoice = stampInvoiceOwner({ id: defaultName, date: today, items: [] });
     invoices.push(currentInvoice);
     selectedInvoiceIndex = invoices.length - 1;
     showToast("تم إنشاء فاتورة جديدة ✅");
@@ -2413,6 +3586,7 @@ const existingIndex = (currentInvoice.items || []).findIndex(
     
     // ===== تأكيد حذف الفاتورة =====
 let __pendingDeleteInvoiceIndex = null;
+let __pendingDeleteServerKey = null;
 
 function openDeleteInvoiceModal(i, ev){
   if(ev) ev.stopPropagation();
@@ -2448,21 +3622,31 @@ function openDeleteInvoiceModal(i, ev){
 
 
 
-function confirmDeleteInvoice(){
-  if(__pendingDeleteInvoiceIndex===null) return;
-  // الحذف الفعلي
-  invoices.splice(__pendingDeleteInvoiceIndex, 1);
-  localStorage.setItem("invoices", JSON.stringify(invoices));
+async function confirmDeleteInvoice(){
+  try{
+    if(__pendingDeleteServerKey){
+      await deleteServerInvoice(__pendingDeleteServerKey);
+      clearSidebarSelections();
+      renderInvoicesDropdown();
+      closeDeleteInvoiceModal();
+      showToast("تم حذف الفاتورة من السيرفر 🗑️");
+      return;
+    }
 
-  // إعادة تهيئة الحالة
-  currentInvoice = null;
-  selectedInvoiceIndex = null;
-  document.getElementById("invoiceId").textContent = "-";
-  renderItems();
-  renderInvoicesDropdown();
-
-  closeDeleteInvoiceModal();
-  showToast("تم حذف الفاتورة 🗑️");
+    if(__pendingDeleteInvoiceIndex===null) return;
+    invoices.splice(__pendingDeleteInvoiceIndex, 1);
+    persistInvoices();
+    currentInvoice = null;
+    selectedInvoiceIndex = null;
+    document.getElementById("invoiceId").textContent = "-";
+    renderItems();
+    renderInvoicesDropdown();
+    closeDeleteInvoiceModal();
+    showToast("تم حذف الفاتورة 🗑️");
+  }catch(err){
+    console.error(err);
+    showToast("تعذر حذف الفاتورة ❌", true);
+  }
 }
 
 function closeDeleteInvoiceModal(){
@@ -2470,6 +3654,7 @@ function closeDeleteInvoiceModal(){
   modal.style.display = 'none';
   modal.setAttribute('aria-hidden','true');
   __pendingDeleteInvoiceIndex = null;
+  __pendingDeleteServerKey = null;
 
   // 🔓 فتح الصفحة بالكامل
   document.documentElement.classList.remove('no-scroll');
@@ -2503,6 +3688,8 @@ function escClose(e){
     
 // ===== إعادة تسمية الفاتورة =====
 let __pendingRenameInvoiceIndex = null;
+let __pendingRenameServerKey = null;
+let __pendingRenameImportedIndex = null;
 
 function openRenameInvoiceModal(i, ev){
   ev?.stopPropagation?.();
@@ -2537,9 +3724,34 @@ function openRenameInvoiceModal(i, ev){
   document.addEventListener('keydown', renameEscEnterHandler);
 }
 
-function confirmRenameInvoice(){
-  if(__pendingRenameInvoiceIndex === null) return;
+function openRenameImportedEntryModal(i, ev){
+  ev?.stopPropagation?.();
+  __pendingRenameImportedIndex = i;
 
+  const modal = document.getElementById('renameInvoiceModal');
+  const input = document.getElementById('renameInvInput');
+  const entry = importedPdfFiles[i];
+
+  input.value = entry?.name || "";
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+
+  document.documentElement.classList.add('no-scroll');
+  document.body.classList.add('no-scroll');
+  attachBackdropGuards(modal, '.auth-card');
+
+  document.getElementById('renameInvYes').onclick = confirmRenameInvoice;
+  document.getElementById('renameInvNo').onclick  = closeRenameInvoiceModal;
+
+  setTimeout(()=>{
+    input.focus();
+    input.select?.();
+  }, 10);
+
+  document.addEventListener('keydown', renameEscEnterHandler);
+}
+
+async function confirmRenameInvoice(){
   const input = document.getElementById('renameInvInput');
   const newName = String(input.value || "").trim();
 
@@ -2548,21 +3760,46 @@ function confirmRenameInvoice(){
     input.focus(); return;
   }
 
-  // حدّث الاسم داخل المصفوفة
-  invoices[__pendingRenameInvoiceIndex].id = newName;
+  try{
+    if(__pendingRenameServerKey){
+      await renameServerInvoice(__pendingRenameServerKey, newName);
+      renderInvoicesDropdown();
+      closeRenameInvoiceModal();
+      showToast("تم تحديث اسم الفاتورة ✅");
+      return;
+    }
 
-  // إذا هي الفاتورة المفتوحة حاليًا، حدّث العنوان أعلى الصفحة
-  if(selectedInvoiceIndex === __pendingRenameInvoiceIndex && currentInvoice){
-    currentInvoice.id = newName;
-    document.getElementById("invoiceId").textContent = newName;
+    if(__pendingRenameImportedIndex !== null){
+      const entry = importedPdfFiles[__pendingRenameImportedIndex];
+      if(!entry) return;
+      entry.name = newName;
+      if(currentInvoice?.__mergedEntryId && entry.mergeEntryId === currentInvoice.__mergedEntryId){
+        currentInvoice.id = newName;
+        document.getElementById("invoiceId").textContent = newName;
+      }
+      persistMergeBoxEntries();
+      renderImportedPdfList();
+      closeRenameInvoiceModal();
+      showToast("تم تحديث اسم الملف المدموج ✅");
+      return;
+    }
+
+    if(__pendingRenameInvoiceIndex === null) return;
+    invoices[__pendingRenameInvoiceIndex].id = newName;
+
+    if(selectedInvoiceIndex === __pendingRenameInvoiceIndex && currentInvoice){
+      currentInvoice.id = newName;
+      document.getElementById("invoiceId").textContent = newName;
+    }
+
+    persistInvoices();
+    renderInvoicesDropdown();
+    closeRenameInvoiceModal();
+    showToast("تم تحديث اسم الفاتورة ✅");
+  }catch(err){
+    console.error(err);
+    showToast("تعذر تحديث اسم الفاتورة ❌", true);
   }
-
-  // حفظ وتحديث القائمة
-  localStorage.setItem("invoices", JSON.stringify(invoices));
-  renderInvoicesDropdown();
-
-  closeRenameInvoiceModal();
-  showToast("تم تحديث اسم الفاتورة ✅");
 }
 
 function closeRenameInvoiceModal(){
@@ -2582,6 +3819,8 @@ function closeRenameInvoiceModal(){
 
   // تفريغ الحالة
   __pendingRenameInvoiceIndex = null;
+  __pendingRenameServerKey = null;
+  __pendingRenameImportedIndex = null;
 }
 
 function renameEscEnterHandler(e){
@@ -2603,12 +3842,15 @@ function renameEscEnterHandler(e){
 
     function saveInvoice(){
       if(!currentInvoice) return;
+      stampInvoiceOwner(currentInvoice);
       if(selectedInvoiceIndex !== null){
         invoices[selectedInvoiceIndex] = currentInvoice;
       } else {
         invoices.push(currentInvoice);
+        selectedInvoiceIndex = invoices.length - 1;
       }
-      localStorage.setItem("invoices", JSON.stringify(invoices));
+      persistInvoices();
+      syncCurrentInvoiceToOpenedMergeEntry();
       renderInvoicesDropdown();
       showToast("تم حفظ الفاتورة 💾");
     }
@@ -2617,13 +3859,15 @@ function renameEscEnterHandler(e){
     
     function autoSaveInvoice(){
   if(!currentInvoice) return;
+  stampInvoiceOwner(currentInvoice);
   if(selectedInvoiceIndex!==null){
     invoices[selectedInvoiceIndex] = currentInvoice;
   } else {
     invoices.push(currentInvoice);
     selectedInvoiceIndex = invoices.length - 1;
   }
-  localStorage.setItem("invoices", JSON.stringify(invoices));
+  persistInvoices();
+  syncCurrentInvoiceToOpenedMergeEntry();
   renderInvoicesDropdown();
 }
 
@@ -2632,31 +3876,161 @@ function renameEscEnterHandler(e){
 
    function renderInvoicesDropdown(){
   const wrap = document.getElementById("invoicesDropdown");
+  if(!wrap) return;
   wrap.innerHTML = "";
-  invoices.forEach((inv, i)=>{
+
+  const appendEmpty = (msg)=>{
+    const box = document.createElement("div");
+    box.className = "server-empty";
+    box.textContent = msg;
+    wrap.appendChild(box);
+  };
+
+  const appendSection = (title, extraClass = "")=>{
+    const sec = document.createElement("div");
+    sec.className = `server-section-title ${extraClass}`.trim();
+    sec.textContent = title;
+    wrap.appendChild(sec);
+  };
+
+  const makeLocalRow = (inv, i)=>{
     const row = document.createElement("div");
     row.className = "invoice-chip";
-   row.innerHTML = `
-  <div class="chip-meta">
-    <strong>${inv.id}</strong>
-    <small>${inv.date} • ${inv.items.length} مادة</small>
-  </div>
-  <div style="display:flex; gap:8px;">
-    <button class="btn-rename-custom" title="إعادة تسمية" aria-label="إعادة تسمية"
-            onclick="openRenameInvoiceModal(${i}, event)">
-      <i class="fa-regular fa-pen-to-square"></i>
-    </button>
-    <button class="btn-danger-custom" title="حذف" aria-label="حذف"
-            onclick="openDeleteInvoiceModal(${i}, event)">
-      <i class="fa-regular fa-trash-can"></i>
-    </button>
-  </div>
-`;
+
+    const sentMark = inv.serverStatus === "sent"
+      ? `<span class="sent-dot" title="مرسلة"><i class="fa-solid fa-check"></i></span>`
+      : "";
+
+    let actionsHtml = "";
+
+    if(canCurrentUserSendInvoices()){
+      actionsHtml += `
+        <button class="btn-rename-custom server-send-btn ${inv.serverStatus === "sent" ? "is-sent" : ""}"
+                title="${inv.serverStatus === "sent" ? "إعادة إرسال" : "إرسال"}"
+                aria-label="إرسال"
+                onclick="sendLocalInvoiceFromRow(${i}, event)">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      `;
+
+      if(isSecondaryAdmin() || isRegularUser()){
+        actionsHtml += `
+          <button class="btn-rename-custom" title="إعادة تسمية" aria-label="إعادة تسمية"
+                  onclick="openRenameInvoiceModal(${i}, event)">
+            <i class="fa-regular fa-pen-to-square"></i>
+          </button>
+        `;
+      }
+    }else{
+      actionsHtml += `
+        <button class="btn-rename-custom" title="إعادة تسمية" aria-label="إعادة تسمية"
+                onclick="openRenameInvoiceModal(${i}, event)">
+          <i class="fa-regular fa-pen-to-square"></i>
+        </button>
+      `;
+    }
+
+    row.innerHTML = `
+      <div class="chip-meta">
+        <strong class="invoice-title-line">
+          <span>${escapeHtml(inv.id || "فاتورة بدون اسم")}</span>
+          ${sentMark}
+        </strong>
+        <small>${escapeHtml(inv.date || "-")} • ${(Array.isArray(inv.items) ? inv.items.length : 0)} مادة</small>
+      </div>
+      <div class="chip-actions">
+        ${actionsHtml}
+        <button class="btn-danger-custom" title="حذف" aria-label="حذف"
+                onclick="openDeleteInvoiceModal(${i}, event)">
+          <i class="fa-regular fa-trash-can"></i>
+        </button>
+      </div>
+    `;
 
     row.onclick = ()=> loadInvoice(i);
     wrap.appendChild(row);
-  });
+  };
+
+  const makeServerRow = (inv)=>{
+    const row = document.createElement("div");
+    const selectKey = `server:${inv.serverKey}`;
+    row.className = `invoice-chip server-chip ${selectedSidebarInvoiceKeys.has(selectKey) ? "is-selected" : ""}`.trim();
+    row.innerHTML = `
+      <div class="chip-meta">
+        <strong>${escapeHtml(getServerPrimaryTitle(inv))}</strong>
+        <small>${escapeHtml(formatInvoiceSecondaryLine(inv.date || "", inv.uploadedAt))} • ${(Array.isArray(inv.items) ? inv.items.length : 0)} مادة</small>
+      </div>
+      <div class="chip-actions">
+        <button class="btn-rename-custom" title="إعادة تسمية" aria-label="إعادة تسمية"
+                onclick="openRenameServerInvoiceModal('${String(inv.serverKey || "")}', event)">
+          <i class="fa-regular fa-pen-to-square"></i>
+        </button>
+        <button class="btn-danger-custom" title="حذف" aria-label="حذف"
+                onclick="openDeleteServerInvoiceModal('${String(inv.serverKey || "")}', event)">
+          <i class="fa-regular fa-trash-can"></i>
+        </button>
+      </div>
+    `;
+
+    bindLongPressRow(row, {
+      onLongPress: ()=> toggleSidebarSelection(selectKey),
+      onClick: ()=>{
+        if(selectedSidebarInvoiceKeys.size){
+          toggleSidebarSelection(selectKey);
+          return;
+        }
+        loadServerInvoiceByKey(inv.serverKey);
+      }
+    });
+
+    wrap.appendChild(row);
+  };
+
+  if(isMainAdmin()){
+    const shortageInvoices = serverInvoicesCache.filter(inv => inv.senderRole === "secondary_admin");
+    const branchInvoices = serverInvoicesCache.filter(inv => inv.senderRole === "user");
+
+    appendSection("فواتير السيرفر - نقص فرع رئيسي", "section-shortage");
+    if(shortageInvoices.length){
+      shortageInvoices.forEach(makeServerRow);
+    }else{
+      appendEmpty(serverInvoicesLoaded ? "لا توجد فواتير نقص حالياً" : "جاري تحميل فواتير السيرفر...");
+    }
+
+    appendSection("فواتير الفروع للاطلاع", "section-branches");
+    if(branchInvoices.length){
+      branchInvoices.forEach(makeServerRow);
+    }else{
+      appendEmpty(serverInvoicesLoaded ? "لا توجد فواتير فروع حالياً" : "جاري تحميل فواتير الفروع...");
+    }
+    return;
+  }
+
+  if(isSecondaryAdmin()){
+    appendSection("فواتيرك المحلية - نقص عسل", "section-shortage");
+    if(invoices.length){
+      invoices.forEach(makeLocalRow);
+    }else{
+      appendEmpty("لا توجد فواتير محلية بعد");
+    }
+
+    appendSection("فواتير السيرفر - فروع عسل", "section-branches");
+    const branchOnlyInvoices = serverInvoicesCache.filter(inv => inv.senderRole === "user");
+    if(branchOnlyInvoices.length){
+      branchOnlyInvoices.forEach(makeServerRow);
+    }else{
+      appendEmpty(serverInvoicesLoaded ? "لا توجد فواتير فروع حالياً" : "جاري تحميل فواتير الفروع...");
+    }
+    return;
+  }
+
+  if(invoices.length){
+    invoices.forEach(makeLocalRow);
+  }else{
+    appendEmpty("لا توجد فواتير محفوظة بعد");
+  }
 }
+
 
 
     function loadInvoice(i){
@@ -2670,7 +4044,7 @@ function renameEscEnterHandler(e){
 
     function deleteInvoice(i){
       invoices.splice(i,1);
-      localStorage.setItem("invoices", JSON.stringify(invoices));
+      persistInvoices();
       currentInvoice = null;
       document.getElementById("invoiceId").textContent = "-";
       renderItems();
@@ -2735,38 +4109,83 @@ function renameEscEnterHandler(e){
         // ===== قائمة ملفات PDF المستوردة في الـ Aside المستقل =====
    function renderImportedPdfList(){
   const wrap = document.getElementById("importedPdfList");
+  if(!wrap) return;
   wrap.innerHTML = "";
+
+  if(mergeProgressState.active){
+    const progress = document.createElement("div");
+    progress.className = `merge-progress-card ${mergeProgressState.done ? "is-done" : ""}`.trim();
+    progress.innerHTML = `
+      <div class="merge-progress-head">
+        <span>${escapeHtml(mergeProgressState.text || "جاري الدمج...")}</span>
+        <small>${mergeProgressState.percent}%</small>
+      </div>
+      <div class="merge-progress-bar">
+        <div class="merge-progress-fill" style="width:${mergeProgressState.percent}%"></div>
+      </div>
+    `;
+    wrap.appendChild(progress);
+  }
+
   if(!importedPdfFiles.length){
     const empty = document.createElement("div");
     empty.className = "chip-meta";
     empty.style.color = "var(--muted)";
     empty.style.textAlign = "center";
-    empty.textContent = "لا توجد ملفات Excel/CSV مستوردة بعد";
-    wrap.appendChild(empty);
+    empty.textContent = mergeProgressState.active ? "" : "لا توجد ملفات دمج بعد";
+    if(empty.textContent) wrap.appendChild(empty);
     return;
   }
-  importedPdfFiles.forEach((f, i)=>{
-    const ext = f.name.split(".").pop().toUpperCase();
+
+  importedPdfFiles.forEach((entry, i)=>{
     const row = document.createElement("div");
     row.className = "invoice-chip";
-    row.innerHTML = `
-      <div class="chip-meta">
-        <strong>${f.name}</strong>
-        <small>${Math.round(f.size/1024)}KB • ${ext}</small>
-      </div>
-      <button class="btn-danger-custom" title="إزالة" onclick="removeImportedPdf(${i})">
-        <i class="fa-regular fa-trash-can"></i>
-      </button>
-    `;
+
+    if(isMergedImportEntry(entry)){
+      row.innerHTML = `
+        <div class="chip-meta">
+          <strong>${escapeHtml(entry.name || `ملف مدموج ${i+1}`)}</strong>
+          <small>ملف مدموج محفوظ محليًا • ${Array.isArray(entry.items) ? entry.items.length : 0} مادة</small>
+        </div>
+        <div class="chip-actions">
+          <button class="btn-rename-custom server-open-btn" title="فتح" onclick="openImportedMergedEntry(${i}, event)">
+            <i class="fa-solid fa-folder-open"></i>
+          </button>
+          <button class="btn-rename-custom" title="تعديل الاسم" onclick="openRenameImportedEntryModal(${i}, event)">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button class="btn-danger-custom" title="إزالة" onclick="removeImportedPdf(${i})">
+            <i class="fa-regular fa-trash-can"></i>
+          </button>
+        </div>
+      `;
+      row.onclick = ()=> openImportedMergedEntry(i);
+    }else{
+      const ext = String((entry.name || "file").split(".").pop() || "FILE").toUpperCase();
+      row.innerHTML = `
+        <div class="chip-meta">
+          <strong>${escapeHtml(entry.name || `ملف ${i+1}`)}</strong>
+          <small>${Math.max(1, Math.round((entry.size || 0)/1024))}KB • ${escapeHtml(ext)}</small>
+        </div>
+        <div class="chip-actions">
+          <button class="btn-danger-custom" title="إزالة" onclick="removeImportedPdf(${i})">
+            <i class="fa-regular fa-trash-can"></i>
+          </button>
+        </div>
+      `;
+    }
+
     wrap.appendChild(row);
   });
 }
 
 
+
     function removeImportedPdf(i){
       importedPdfFiles.splice(i,1);
+      persistMergeBoxEntries();
       renderImportedPdfList();
-      showToast("تم حذف الملف المستورد 🗑️");
+      showToast("تم حذف الملف من خانة الدمج 🗑️");
     }
     
     
@@ -3747,7 +5166,13 @@ function downloadBlobFallback(filename, blob){
     
     
     // زر استيراد فاتورة إلى "الفواتير السابقة"
-document.getElementById("btnImportPrev").addEventListener("click", ()=>{
+document.getElementById("btnImportPrev").addEventListener("click", async ()=>{
+  if(isMainAdmin()){
+    await refreshServerInvoicesForRole();
+    showToast("تم تحديث فواتير السيرفر ✅");
+    return;
+  }
+
   const p = document.getElementById("prevImportPicker");
   p.value = "";
   p.click();
@@ -3784,11 +5209,11 @@ document.getElementById("prevImportPicker").addEventListener("change", async (e)
 
     // نصنع فاتورة جديدة من الملف المستورد
    const today = new Date().toLocaleDateString("ar-EG");
-const inv   = {
+const inv   = stampInvoiceOwner({
   id: formatInvoiceName(),   // نفس شكل "فاتورة الأحد - ٢٠٢٥/٠١/٠٣"
   date: today,
   items: mapped
-};
+});
 
 
     // نحفظها ضمن الفواتير ونعرضها فورًا قابلة للتعديل
@@ -3796,7 +5221,7 @@ const inv   = {
     selectedInvoiceIndex = invoices.length - 1;
     currentInvoice = inv;
 
-    localStorage.setItem("invoices", JSON.stringify(invoices));
+    persistInvoices();
     document.getElementById("invoiceId").textContent = inv.id;
 
     renderInvoicesDropdown();
@@ -3837,6 +5262,51 @@ document.getElementById("btnCommand")?.addEventListener("click", palOpen);
     
     
     
+    document.getElementById("btnMergeInstant")?.addEventListener("click", async ()=>{
+  const selectedInvoices = getSelectedServerInvoicesForMerge();
+  if(!selectedInvoices) return;
+
+  const rawItems = selectedInvoices.flatMap(inv => Array.isArray(inv.items) ? inv.items : []).map(it => ({
+    category: String(it.category || '').trim(),
+    item: String(it.name || it.item || '').trim(),
+    qty: String(it.qty || '').trim(),
+    note: String(it.note || '').trim()
+  })).filter(it => it.item.length);
+
+  if(!rawItems.length){
+    showToast("الفواتير المحددة لا تحتوي مواد صالحة للدمج ❌", true);
+    return;
+  }
+
+  const group = new Map();
+  for(const it of rawItems){
+    const k = `${(it.category||'').toLowerCase()}||${(it.item||'').toLowerCase()}||${(it.note||'').toLowerCase()}`;
+    group.set(k, (group.get(k) || 0) + 1);
+  }
+  const dupCount = Array.from(group.values()).filter(c => c > 1).length;
+
+  const proceed = async ()=>{
+    const merged = mergeByMaxQuantity(rawItems).map(it => ({
+      category: String(it.category || '').trim(),
+      name: String(it.item || it.name || '').trim(),
+      qty: String(it.qty || '').trim(),
+      note: String(it.note || '').trim()
+    }));
+    await runFakeMergeProgress('جاري دمج فواتير السيرفر...');
+    pushMergedEntryToMergeBox(merged, autoMainMergeBoxName());
+    selectedSidebarInvoiceKeys.clear();
+    renderInvoicesDropdown();
+    showToast('تم الدمج وظهر الملف داخل خانة دمج ✅');
+  };
+
+  if(dupCount > 0){
+    openMergeConfirmModal(dupCount, proceed);
+    return;
+  }
+
+  await proceed();
+});
+
     // ✅ ربط زر الاستيراد لفتح مُلتقط الملفات
 document.getElementById("btnImportPDF").addEventListener("click", ()=>{
   const picker = document.getElementById("pdfFilePicker");
@@ -3879,34 +5349,39 @@ document.getElementById("btnImportPDF").addEventListener("click", ()=>{
 
     // الدمج + محاولة ترتيب الأيتمات أبجدياً
 document.getElementById("btnMergePDF").addEventListener("click", async ()=>{
-  if(importedPdfFiles.length < 2){
-    showToast("يرجى استيراد ملفين  (Excel/CSV) ❌", true);
+  const entries = importedPdfFiles.filter(Boolean);
+  if(entries.length < 2){
+    showToast("يرجى توفير ملفين أو أكثر داخل خانة دمج ❌", true);
     return;
   }
 
   try{
-    const arrays = await Promise.all(importedPdfFiles.map(extractItemsFromFile));
-    let items = arrays.flat().filter(it => (it.item||"").trim().length);
+    const arrays = await Promise.all(entries.map(importedEntryToItems));
+    let items = arrays.flat().filter(it => String(it.item || it.name || '').trim().length);
     if(!items.length){
-      showToast("ماكو عناصر صالحة بالملفات المستوردة ❌", true);
+      showToast("ماكو عناصر صالحة للدمج ❌", true);
       return;
     }
 
-    // احسب التكرارات على أساس (Category+Item+Notes)
     const group = new Map();
     for(const it of items){
-      const k = `${(it.category||"").toLowerCase()}||${(it.item||"").toLowerCase()}||${(it.note||"").toLowerCase()}`;
+      const k = `${(it.category||"").toLowerCase()}||${(it.item||it.name||"").toLowerCase()}||${(it.note||"").toLowerCase()}`;
       group.set(k, (group.get(k)||0)+1);
     }
     const dupCount = Array.from(group.values()).filter(c=> c>1).length;
 
     const proceed = async ()=>{
-      // دمج بأكبر كمية
-      const merged = mergeByMaxQuantity(items);
-      const doc = await buildItemsPdf(merged);
-      const fileName = autoMergedName("ASSAL_SORTED","pdf");
-      doc.save(fileName);
-      showToast("تم توليد PDF مدمج (أخذ أكبر كمية) ✅");
+      const mergedRaw = mergeByMaxQuantity(items);
+      await runFakeMergeProgress('جاري دمج الملفات...');
+      const mergedEntry = pushMergedEntryToMergeBox(mergedRaw.map(it => ({
+        category: it.category,
+        name: it.item,
+        qty: it.qty,
+        note: it.note
+      })), autoMainMergeBoxName());
+      const doc = await buildItemsPdf(mergedRaw);
+      doc.save(`${mergedEntry.name}.pdf`);
+      showToast("تم الدمج وإنشاء PDF ✅");
     };
 
     if(dupCount > 0){
@@ -3923,30 +5398,34 @@ document.getElementById("btnMergePDF").addEventListener("click", async ()=>{
 });
 
 
-
 document.getElementById("btnMergeCSV").addEventListener("click", async ()=>{
-  if(importedPdfFiles.length < 2){
-    showToast("يرجى استيراد ملفين  (Excel/CSV) ❌", true);
+  const entries = importedPdfFiles.filter(Boolean);
+  if(entries.length < 2){
+    showToast("يرجى توفير ملفين أو أكثر داخل خانة دمج ❌", true);
     return;
   }
   try{
-    const arrays = await Promise.all(importedPdfFiles.map(extractItemsFromFile));
-    let items = arrays.flat().filter(it => (it.item||"").trim().length);
+    const arrays = await Promise.all(entries.map(importedEntryToItems));
+    let items = arrays.flat().filter(it => String(it.item || it.name || '').trim().length);
     if(!items.length){ showToast("ماكو عناصر صالحة ❌", true); return; }
 
-    // احسب التكرارات
     const group = new Map();
     for(const it of items){
-      const k = `${(it.category||"").toLowerCase()}||${(it.item||"").toLowerCase()}||${(it.note||"").toLowerCase()}`;
+      const k = `${(it.category||"").toLowerCase()}||${(it.item||it.name||"").toLowerCase()}||${(it.note||"").toLowerCase()}`;
       group.set(k, (group.get(k)||0)+1);
     }
     const dupCount = Array.from(group.values()).filter(c=> c>1).length;
 
-    const proceed = ()=>{
-      // ✳️ دمج بأكبر كمية
-      const merged = mergeByMaxQuantity(items);
+    const proceed = async ()=>{
+      const mergedRaw = mergeByMaxQuantity(items);
+      await runFakeMergeProgress('جاري تجهيز ملف الدمج...');
+      const mergedEntry = pushMergedEntryToMergeBox(mergedRaw.map(it => ({
+        category: it.category,
+        name: it.item,
+        qty: it.qty,
+        note: it.note
+      })), autoMainMergeBoxName());
 
-      // CSV آمن + BOM
       const esc = v=>{
         const s = String(v ?? "");
         const needs = /[",\r\n]/.test(s);
@@ -3955,15 +5434,13 @@ document.getElementById("btnMergeCSV").addEventListener("click", async ()=>{
       };
       const rows = [
         ["Category","Item","Quantity","Notes"],
-        ...merged.map(it=> [it.category||"", it.item||"", it.qty||"", it.note||""])
+        ...mergedRaw.map(it=> [it.category||"", it.item||"", it.qty||"", it.note||""])
       ];
       const csv = "\uFEFF" + rows.map(r=>r.map(esc).join(",")).join("\r\n");
-
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-      const name = autoMergedName("ASSAL_SORTED","csv");
-      downloadBlobDirect(name, blob);
+      downloadBlobDirect(`${mergedEntry.name}.csv`, blob);
 
-      showToast("تم توليد CSV مدمج (أخذ أكبر كمية) ✅");
+      showToast("تم الدمج وإنشاء CSV ✅");
     };
 
     if(dupCount > 0){
@@ -3971,7 +5448,7 @@ document.getElementById("btnMergeCSV").addEventListener("click", async ()=>{
       return;
     }
 
-    proceed();
+    await proceed();
   }catch(err){
     console.error(err);
     showToast("فشل إنشاء CSV ❌", true);
@@ -4180,8 +5657,11 @@ document.getElementById("btnMergeCSV").addEventListener("click", async ()=>{
        window.addEventListener("load", ()=>{
       loadExcelFiles();
       renderInvoicesDropdown();
-      renderImportedPdfList(); // ← يعرض قائمة PDF المستوردة 
-       setTimeout(()=> showToast("👋 أهلاً وسهلاً بك في تطبيقنا"), 300);
+      renderImportedPdfList(); // ← يعرض قائمة PDF المستوردة
+      if(currentUser){
+        refreshServerInvoicesForRole({ silent:true });
+      }
+      setTimeout(()=> showToast("👋 أهلاً وسهلاً بك في تطبيقنا"), 300);
     });
 
     
