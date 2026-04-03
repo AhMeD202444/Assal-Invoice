@@ -1955,6 +1955,70 @@ body.no-copy-ui [contenteditable="true"]{
   }
 }
 
+
+/* ===== نافذة قرار فاتورة اليوم ===== */
+.same-day-card{
+  width: min(560px, 92vw);
+  background:
+    radial-gradient(120% 120% at 50% -10%, rgba(33,212,253,.10), transparent 55%),
+    linear-gradient(180deg, rgba(20,24,33,.96), rgba(13,16,22,.96));
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 24px 70px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.03);
+}
+.same-day-title{
+  margin:0 0 8px 0;
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1.5;
+}
+.same-day-desc{
+  margin:0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.9;
+}
+.same-day-actions{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+.same-day-actions .btn{
+  width:100%;
+  min-width:0;
+  padding: 12px 10px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+@media (max-width: 560px){
+  .same-day-card{
+    width: min(96vw, 460px);
+    padding: 18px 14px;
+    border-radius: 20px;
+  }
+  .same-day-title{
+    font-size: 17px;
+  }
+  .same-day-desc{
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .same-day-actions{
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 8px;
+  }
+  .same-day-actions .btn{
+    padding: 11px 6px;
+    font-size: 13px;
+    letter-spacing: 0;
+  }
+  .same-day-actions .btn i{
+    margin-inline-start: 2px;
+    font-size: 12px;
+  }
+}
+
+
 </style>
 </head>
 <body>
@@ -2217,6 +2281,24 @@ body.no-copy-ui [contenteditable="true"]{
   
   
   
+
+  
+<!-- نافذة فاتورة اليوم الموجودة على السيرفر -->
+<div id="sameDayServerModal" class="auth-overlay" aria-hidden="true">
+  <div class="auth-card same-day-card" role="dialog" aria-modal="true" style="text-align:center;">
+    <h3 class="same-day-title">فاتورة اليوم موجودة مسبقاً</h3>
+    <p class="same-day-desc">
+      هناك فاتورة مرسلة إلى السيرفر في نفس اليوم. هل تريد <b>دمجها بأخذ أكبر كمية</b>
+      للعناصر المتشابهة أم إرسال فاتورة جديدة؟
+    </p>
+    <div class="same-day-actions">
+      <button id="sameDaySendNewBtn" class="btn blue"><i class="fa-solid fa-file-circle-plus"></i> إرسال جديد</button>
+      <button id="sameDayMergeBtn" class="btn green"><i class="fa-solid fa-code-merge"></i> دمج</button>
+      <button id="sameDayCancelBtn" class="btn amber"><i class="fa-solid fa-xmark"></i> إلغاء</button>
+    </div>
+  </div>
+</div>
+
 
   <!-- ====== Layout ====== -->
   <main class="layout">
@@ -2736,6 +2818,100 @@ async function refreshServerInvoicesForRole(options = {}){
   }
 }
 
+
+function normalizeSameDayMergeKey(item = {}){
+  return [
+    String(item.category || '').trim().toLowerCase(),
+    String(item.name || item.item || '').trim().toLowerCase(),
+    String(item.note || '').trim().toLowerCase()
+  ].join('||');
+}
+
+function qtyToNumberForMax(value){
+  const n = parseFloat(String(value ?? '').replace(/,/g, '').trim());
+  return isNaN(n) ? 0 : n;
+}
+
+function mergeItemsKeepingMaxQty(primaryItems = [], secondaryItems = []){
+  const outMap = new Map();
+
+  [...primaryItems, ...secondaryItems].forEach((raw)=>{
+    const item = {
+      category: String(raw.category || '').trim(),
+      name: String(raw.name || raw.item || '').trim(),
+      qty: String(raw.qty ?? '').trim(),
+      note: String(raw.note || '').trim()
+    };
+    if(!item.name) return;
+
+    const key = normalizeSameDayMergeKey(item);
+    const existing = outMap.get(key);
+    if(!existing){
+      outMap.set(key, item);
+      return;
+    }
+
+    const oldQty = qtyToNumberForMax(existing.qty);
+    const newQty = qtyToNumberForMax(item.qty);
+    if(newQty > oldQty){
+      outMap.set(key, { ...existing, qty: item.qty });
+    }
+  });
+
+  return Array.from(outMap.values()).sort((a, b)=>{
+    const catA = String(a.category || '');
+    const catB = String(b.category || '');
+    const nameA = String(a.name || '');
+    const nameB = String(b.name || '');
+    if(catA === catB) return nameA.localeCompare(nameB, 'ar');
+    return catA.localeCompare(catB, 'ar');
+  });
+}
+
+function openSameDayServerModal(){
+  return new Promise((resolve)=>{
+    const modal = document.getElementById('sameDayServerModal');
+    if(!modal){
+      resolve('cancel');
+      return;
+    }
+
+    const mergeBtn = document.getElementById('sameDayMergeBtn');
+    const sendNewBtn = document.getElementById('sameDaySendNewBtn');
+    const cancelBtn = document.getElementById('sameDayCancelBtn');
+
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    document.documentElement.classList.add('no-scroll');
+    document.body.classList.add('no-scroll');
+    attachBackdropGuards(modal, '.auth-card');
+
+    let settled = false;
+    const finish = (result)=>{
+      if(settled) return;
+      settled = true;
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+      document.documentElement.classList.remove('no-scroll');
+      document.body.classList.remove('no-scroll');
+      detachBackdropGuards(modal);
+      document.removeEventListener('keydown', escHandler);
+      mergeBtn.onclick = null;
+      sendNewBtn.onclick = null;
+      cancelBtn.onclick = null;
+      resolve(result);
+    };
+
+    const escHandler = (e)=>{ if(e.key === 'Escape') finish('cancel'); };
+    document.addEventListener('keydown', escHandler);
+
+    mergeBtn.onclick = ()=> finish('merge');
+    sendNewBtn.onclick = ()=> finish('new');
+    cancelBtn.onclick = ()=> finish('cancel');
+  });
+}
+
+
 async function sendCurrentInvoiceToServer(localIndex = selectedInvoiceIndex){
   if(!canCurrentUserSendInvoices()){
     showToast("الإرسال متاح فقط للأدمن الثانوي أو المستخدم ❌", true);
@@ -2807,15 +2983,35 @@ async function sendCurrentInvoiceToServer(localIndex = selectedInvoiceIndex){
         return;
       }
 
-      await ref.child(sameDayMatch.serverKey).set({
-        ...sameDayMatch,
-        ...payload,
-        uploadedAt: now,
-        updatedAt: now
-      });
+      const decision = await openSameDayServerModal();
+      if(decision === 'cancel'){
+        return;
+      }
 
-      markInvoiceAsSentLocally(localIndex, sameDayMatch.serverKey, now);
-      showToast("الفاتورة مرسلة مسبقاً تم تعديلها في السيرفر ✅");
+      if(decision === 'merge'){
+        const mergedItems = mergeItemsKeepingMaxQty(sameDayMatch.items || [], payload.items || []);
+        const mergedPayload = {
+          ...sameDayMatch,
+          ...payload,
+          items: mergedItems,
+          uploadedAt: now,
+          updatedAt: now
+        };
+        mergedPayload.signature = buildInvoiceItemsSignature(mergedItems);
+
+        await ref.child(sameDayMatch.serverKey).set(mergedPayload);
+        markInvoiceAsSentLocally(localIndex, sameDayMatch.serverKey, now);
+        showToast("تم دمج فاتورة اليوم مع السيرفر ✅");
+        refreshServerInvoicesForRole({ silent:true });
+        return;
+      }
+
+      const newRef = ref.push();
+      const serverKey = newRef.key;
+      await newRef.set(payload);
+
+      markInvoiceAsSentLocally(localIndex, serverKey, now);
+      showToast("تم إرسال فاتورة جديدة إلى السيرفر ✅");
       refreshServerInvoicesForRole({ silent:true });
       return;
     }
@@ -3403,7 +3599,7 @@ function autoMainMergeBoxName(){
   const y = d.getFullYear();
   const mo = String(d.getMonth()+1).padStart(2,'0');
   const da = String(d.getDate()).padStart(2,'0');
-  return `نقص ملف رئيسي ${y}-${mo}-${da}`;
+  return `نقص ${y}-${mo}-${da}`;
 }
 
 function pushMergedEntryToMergeBox(mergedItems, customName){
@@ -4903,7 +5099,7 @@ function renameEscEnterHandler(e){
       row.innerHTML = `
         <div class="chip-meta">
           <strong>${escapeHtml(entry.name || `ملف مدموج ${i+1}`)}</strong>
-          <small>${escapeHtml(uploadedState)} • ${Array.isArray(entry.items) ? entry.items.length : 0} مادة</small>
+          <small>${Array.isArray(entry.items) ? entry.items.length : 0} مادة</small>
         </div>
         <div class="chip-actions">
           ${uploadBtn}
@@ -5353,7 +5549,71 @@ function printCustom(htmlContent, title = 'فاتورة') {
             border-radius: 0;
           }
         }
-      </style>
+      
+/* ===== نافذة قرار فاتورة اليوم ===== */
+.same-day-card{
+  width: min(560px, 92vw);
+  background:
+    radial-gradient(120% 120% at 50% -10%, rgba(33,212,253,.10), transparent 55%),
+    linear-gradient(180deg, rgba(20,24,33,.96), rgba(13,16,22,.96));
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 24px 70px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.03);
+}
+.same-day-title{
+  margin:0 0 8px 0;
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1.5;
+}
+.same-day-desc{
+  margin:0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.9;
+}
+.same-day-actions{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+.same-day-actions .btn{
+  width:100%;
+  min-width:0;
+  padding: 12px 10px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+@media (max-width: 560px){
+  .same-day-card{
+    width: min(96vw, 460px);
+    padding: 18px 14px;
+    border-radius: 20px;
+  }
+  .same-day-title{
+    font-size: 17px;
+  }
+  .same-day-desc{
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .same-day-actions{
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 8px;
+  }
+  .same-day-actions .btn{
+    padding: 11px 6px;
+    font-size: 13px;
+    letter-spacing: 0;
+  }
+  .same-day-actions .btn i{
+    margin-inline-start: 2px;
+    font-size: 12px;
+  }
+}
+
+
+</style>
     </head>
     <body>
       <div class="page">
@@ -5744,7 +6004,71 @@ function printInvoiceHTML() {
       .sign-label{
         font-size: 10px;
       }
-    </style>
+    
+/* ===== نافذة قرار فاتورة اليوم ===== */
+.same-day-card{
+  width: min(560px, 92vw);
+  background:
+    radial-gradient(120% 120% at 50% -10%, rgba(33,212,253,.10), transparent 55%),
+    linear-gradient(180deg, rgba(20,24,33,.96), rgba(13,16,22,.96));
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 24px 70px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.03);
+}
+.same-day-title{
+  margin:0 0 8px 0;
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1.5;
+}
+.same-day-desc{
+  margin:0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.9;
+}
+.same-day-actions{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+.same-day-actions .btn{
+  width:100%;
+  min-width:0;
+  padding: 12px 10px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+@media (max-width: 560px){
+  .same-day-card{
+    width: min(96vw, 460px);
+    padding: 18px 14px;
+    border-radius: 20px;
+  }
+  .same-day-title{
+    font-size: 17px;
+  }
+  .same-day-desc{
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .same-day-actions{
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 8px;
+  }
+  .same-day-actions .btn{
+    padding: 11px 6px;
+    font-size: 13px;
+    letter-spacing: 0;
+  }
+  .same-day-actions .btn i{
+    margin-inline-start: 2px;
+    font-size: 12px;
+  }
+}
+
+
+</style>
     ${html}
   `, `فاتورة نقص/مرتجع - ${invId || invDate}`);
 }
