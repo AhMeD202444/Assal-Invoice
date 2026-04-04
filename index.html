@@ -3607,20 +3607,7 @@ async function uploadMergedEntryToServer(index, ev){
       String(file.signature || '') === sig
     );
 
-    if(sameExact){
-      showToast('هذا الملف تم ارساله مسبقاً إلى السيرفر');
-      importedPdfFiles[index] = normalizeMergedEntry({
-        ...normalized,
-        mergeServerKey: sameExact.serverKey,
-        serverUploadedAt: Number(sameExact.uploadedAt || normalized.serverUploadedAt || Date.now()),
-        signature: String(sameExact.signature || sig)
-      });
-      persistMergeBoxEntries();
-      renderImportedPdfList();
-      return;
-    }
-
-    const sameName = serverMergedFilesCache.find(file =>
+    const sameName = sameExact || serverMergedFilesCache.find(file =>
       normalizeInvoiceMatchText(file.id || file.name) === targetName
     );
 
