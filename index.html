@@ -2646,6 +2646,21 @@ body.no-copy-ui [contenteditable="true"]{
   </div>
 </div>
 
+<!-- نافذة تعارض رفع ملف الدمج على السيرفر -->
+<div id="mergeUploadConflictModal" class="auth-overlay" aria-hidden="true">
+  <div class="auth-card same-day-card" role="dialog" aria-modal="true" style="text-align:center;">
+    <h3 class="same-day-title">الملف مرفوع مسبقاً</h3>
+    <p id="mergeUploadConflictMsg" class="same-day-desc">
+      يوجد ملف بنفس الاسم على السيرفر. هل تريد <b>استبداله</b> أم <b>دمجه</b> بأخذ أكبر كمية للعناصر المتشابهة؟
+    </p>
+    <div class="same-day-actions">
+      <button id="mergeUploadReplaceBtn" class="btn blue"><i class="fa-solid fa-arrows-rotate"></i> استبدال</button>
+      <button id="mergeUploadMergeBtn" class="btn green"><i class="fa-solid fa-code-merge"></i> دمج</button>
+      <button id="mergeUploadCloseBtn" class="btn amber"><i class="fa-solid fa-xmark"></i> إغلاق</button>
+    </div>
+  </div>
+</div>
+
 
   <!-- ====== Layout ====== -->
   <main class="layout">
@@ -3259,6 +3274,56 @@ function openSameDayServerModal(){
 }
 
 
+function openMergeUploadConflictModal(fileName = ''){
+  return new Promise((resolve)=>{
+    const modal = document.getElementById('mergeUploadConflictModal');
+    if(!modal){
+      resolve('close');
+      return;
+    }
+
+    const msg = document.getElementById('mergeUploadConflictMsg');
+    const replaceBtn = document.getElementById('mergeUploadReplaceBtn');
+    const mergeBtn = document.getElementById('mergeUploadMergeBtn');
+    const closeBtn = document.getElementById('mergeUploadCloseBtn');
+
+    if(msg){
+      const safeName = escapeHtml(String(fileName || '').trim() || 'بدون اسم');
+      msg.innerHTML = `يوجد ملف باسم <b>${safeName}</b> مرفوع مسبقاً على السيرفر. هل تريد <b>استبداله</b> أم <b>دمجه</b> بأخذ <b>أكبر كمية</b> للعناصر المتشابهة؟`;
+    }
+
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    document.documentElement.classList.add('no-scroll');
+    document.body.classList.add('no-scroll');
+    attachBackdropGuards(modal, '.auth-card');
+
+    let settled = false;
+    const finish = (result)=>{
+      if(settled) return;
+      settled = true;
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+      document.documentElement.classList.remove('no-scroll');
+      document.body.classList.remove('no-scroll');
+      detachBackdropGuards(modal);
+      document.removeEventListener('keydown', escHandler);
+      replaceBtn.onclick = null;
+      mergeBtn.onclick = null;
+      closeBtn.onclick = null;
+      resolve(result);
+    };
+
+    const escHandler = (e)=>{ if(e.key === 'Escape') finish('close'); };
+    document.addEventListener('keydown', escHandler);
+
+    replaceBtn.onclick = ()=> finish('replace');
+    mergeBtn.onclick = ()=> finish('merge');
+    closeBtn.onclick = ()=> finish('close');
+  });
+}
+
+
 async function sendCurrentInvoiceToServer(localIndex = selectedInvoiceIndex){
   if(!canCurrentUserSendInvoices()){
     showToast("الإرسال متاح فقط للأدمن الثانوي أو المستخدم ❌", true);
@@ -3535,8 +3600,10 @@ async function uploadMergedEntryToServer(index, ev){
 
   try{
     await refreshServerMergedFiles({ silent:true });
+    const targetName = normalizeInvoiceMatchText(payload.name);
+
     const sameExact = serverMergedFilesCache.find(file =>
-      normalizeInvoiceMatchText(file.id || file.name) === normalizeInvoiceMatchText(payload.name) &&
+      normalizeInvoiceMatchText(file.id || file.name) === targetName &&
       String(file.signature || '') === sig
     );
 
@@ -3545,32 +3612,69 @@ async function uploadMergedEntryToServer(index, ev){
       importedPdfFiles[index] = normalizeMergedEntry({
         ...normalized,
         mergeServerKey: sameExact.serverKey,
-        serverUploadedAt: Number(sameExact.uploadedAt || normalized.serverUploadedAt || Date.now())
+        serverUploadedAt: Number(sameExact.uploadedAt || normalized.serverUploadedAt || Date.now()),
+        signature: String(sameExact.signature || sig)
       });
       persistMergeBoxEntries();
       renderImportedPdfList();
       return;
     }
 
-    const sameName = serverMergedFilesCache.find(file => normalizeInvoiceMatchText(file.id || file.name) === normalizeInvoiceMatchText(payload.name));
+    const sameName = serverMergedFilesCache.find(file =>
+      normalizeInvoiceMatchText(file.id || file.name) === targetName
+    );
 
     if(sameName){
-      await ref.child(sameName.serverKey).set({
-        ...sameName,
-        ...payload,
-        updatedAt: Date.now()
-      });
-      importedPdfFiles[index] = normalizeMergedEntry({
-        ...normalized,
-        mergeServerKey: sameName.serverKey,
-        serverUploadedAt: Date.now(),
-        signature: sig
-      });
-      persistMergeBoxEntries();
-      await refreshServerMergedFiles({ silent:true });
-      renderImportedPdfList();
-      showToast('تم تحديث الملف في السيرفر ✅');
-      return;
+      const decision = await openMergeUploadConflictModal(payload.name);
+      if(decision === 'close') return;
+
+      if(decision === 'replace'){
+        const replacePayload = {
+          ...payload,
+          uploadedAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        await ref.child(sameName.serverKey).set(replacePayload);
+        importedPdfFiles[index] = normalizeMergedEntry({
+          ...normalized,
+          mergeServerKey: sameName.serverKey,
+          serverUploadedAt: replacePayload.uploadedAt,
+          signature: replacePayload.signature,
+          items: replacePayload.items || normalized.items
+        });
+        persistMergeBoxEntries();
+        await refreshServerMergedFiles({ silent:true });
+        renderImportedPdfList();
+        showToast('تم استبدال الملف في السيرفر ✅');
+        return;
+      }
+
+      if(decision === 'merge'){
+        const mergedItems = mergeItemsKeepingMaxQty(sameName.items || [], normalized.items || []);
+        const mergedEntry = normalizeMergedEntry({
+          ...normalized,
+          items: mergedItems,
+          name: String(sameName.id || sameName.name || payload.name).trim() || payload.name
+        });
+        const mergedPayload = {
+          ...buildMergedServerPayload(mergedEntry),
+          uploadedAt: Date.now(),
+          updatedAt: Date.now()
+        };
+
+        await ref.child(sameName.serverKey).set(mergedPayload);
+        importedPdfFiles[index] = normalizeMergedEntry({
+          ...mergedEntry,
+          mergeServerKey: sameName.serverKey,
+          serverUploadedAt: mergedPayload.uploadedAt,
+          signature: mergedPayload.signature
+        });
+        persistMergeBoxEntries();
+        await refreshServerMergedFiles({ silent:true });
+        renderImportedPdfList();
+        showToast('تم دمج الملف مع نسخة السيرفر ✅');
+        return;
+      }
     }
 
     const newRef = ref.push();
@@ -3609,13 +3713,30 @@ async function importMergedEntriesFromServer(){
     return;
   }
 
-  const localKeys = new Set(importedPdfFiles.filter(isMergedImportEntry).map(entry => String(entry.mergeServerKey || '')));
-  const localSigs = new Set(importedPdfFiles.filter(isMergedImportEntry).map(entry => String(entry.signature || buildMergedEntrySignatureFromItems(entry.items || []))));
+  const localMergedEntries = importedPdfFiles.filter(isMergedImportEntry);
+  const localKeys = new Set(localMergedEntries.map(entry => String(entry.mergeServerKey || '')));
+  const localSigs = new Set(localMergedEntries.map(entry => String(entry.signature || buildMergedEntrySignatureFromItems(entry.items || []))));
 
-  const fresh = list.filter(file => !localKeys.has(String(file.serverKey || '')) && !localSigs.has(String(file.signature || '')));
+  const fresh = [];
+  const skipped = [];
+
+  list.forEach(file => {
+    const serverKey = String(file.serverKey || '');
+    const serverSig = String(file.signature || buildMergedEntrySignatureFromItems(file.items || []));
+    if(localKeys.has(serverKey) || localSigs.has(serverSig)){
+      skipped.push(file);
+      return;
+    }
+    fresh.push(file);
+  });
 
   if(!fresh.length){
-    showToast('ملفات السيرفر مستوردة مسبقاً');
+    if(skipped.length){
+      const dupName = String(skipped[0]?.id || skipped[0]?.name || 'بدون اسم').trim();
+      showToast(`لم يتم الاستيراد لأن الملف (${dupName}) موجود مسبقاً لديك`);
+    }else{
+      showToast('ملفات السيرفر مستوردة مسبقاً');
+    }
     return;
   }
 
@@ -3633,6 +3754,14 @@ async function importMergedEntriesFromServer(){
 
   persistMergeBoxEntries();
   renderImportedPdfList();
+
+  if(skipped.length){
+    const dupName = String(skipped[0]?.id || skipped[0]?.name || 'بدون اسم').trim();
+    const importedLabel = fresh.length === 1 ? 'ملف واحد' : `${fresh.length} ملفات`;
+    showToast(`تم استيراد ${importedLabel} لأن الملف (${dupName}) موجود مسبقاً لديك ✅`);
+    return;
+  }
+
   showToast(`تم استيراد ${fresh.length} ملف من السيرفر ✅`);
 }
 
