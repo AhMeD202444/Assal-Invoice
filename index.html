@@ -2646,21 +2646,6 @@ body.no-copy-ui [contenteditable="true"]{
   </div>
 </div>
 
-<!-- نافذة تعارض رفع ملف الدمج على السيرفر -->
-<div id="mergeUploadConflictModal" class="auth-overlay" aria-hidden="true">
-  <div class="auth-card same-day-card" role="dialog" aria-modal="true" style="text-align:center;">
-    <h3 class="same-day-title">الملف مرفوع مسبقاً</h3>
-    <p id="mergeUploadConflictMsg" class="same-day-desc">
-      يوجد ملف بنفس الاسم على السيرفر. هل تريد <b>استبداله</b> أم <b>رفع نسخة جديدة</b> مع ترقيم تلقائي؟
-    </p>
-    <div class="same-day-actions">
-      <button id="mergeUploadReplaceBtn" class="btn blue"><i class="fa-solid fa-arrows-rotate"></i> استبدال</button>
-      <button id="mergeUploadMergeBtn" class="btn green"><i class="fa-solid fa-copy"></i> رفع جديد</button>
-      <button id="mergeUploadCloseBtn" class="btn amber"><i class="fa-solid fa-xmark"></i> إغلاق</button>
-    </div>
-  </div>
-</div>
-
 
   <!-- ====== Layout ====== -->
   <main class="layout">
@@ -3274,56 +3259,6 @@ function openSameDayServerModal(){
 }
 
 
-function openMergeUploadConflictModal(fileName = ''){
-  return new Promise((resolve)=>{
-    const modal = document.getElementById('mergeUploadConflictModal');
-    if(!modal){
-      resolve('close');
-      return;
-    }
-
-    const msg = document.getElementById('mergeUploadConflictMsg');
-    const replaceBtn = document.getElementById('mergeUploadReplaceBtn');
-    const mergeBtn = document.getElementById('mergeUploadMergeBtn');
-    const closeBtn = document.getElementById('mergeUploadCloseBtn');
-
-    if(msg){
-      const safeName = escapeHtml(String(fileName || '').trim() || 'بدون اسم');
-      msg.innerHTML = `يوجد ملف باسم <b>${safeName}</b> مرفوع مسبقاً على السيرفر. هل تريد <b>استبداله</b> أم <b>رفع نسخة جديدة</b> مع ترقيم تلقائي؟`;
-    }
-
-    modal.style.display = 'flex';
-    modal.setAttribute('aria-hidden', 'false');
-    document.documentElement.classList.add('no-scroll');
-    document.body.classList.add('no-scroll');
-    attachBackdropGuards(modal, '.auth-card');
-
-    let settled = false;
-    const finish = (result)=>{
-      if(settled) return;
-      settled = true;
-      modal.style.display = 'none';
-      modal.setAttribute('aria-hidden', 'true');
-      document.documentElement.classList.remove('no-scroll');
-      document.body.classList.remove('no-scroll');
-      detachBackdropGuards(modal);
-      document.removeEventListener('keydown', escHandler);
-      replaceBtn.onclick = null;
-      mergeBtn.onclick = null;
-      closeBtn.onclick = null;
-      resolve(result);
-    };
-
-    const escHandler = (e)=>{ if(e.key === 'Escape') finish('close'); };
-    document.addEventListener('keydown', escHandler);
-
-    replaceBtn.onclick = ()=> finish('replace');
-    mergeBtn.onclick = ()=> finish('new');
-    closeBtn.onclick = ()=> finish('close');
-  });
-}
-
-
 async function sendCurrentInvoiceToServer(localIndex = selectedInvoiceIndex){
   if(!canCurrentUserSendInvoices()){
     showToast("الإرسال متاح فقط للأدمن الثانوي أو المستخدم ❌", true);
@@ -3521,33 +3456,25 @@ function buildInvoiceItemsSignature(items){
 }
 
 
+function getMergedServerCreatedAt(file = {}, fallback = Date.now()){
+  return Number(file?.createdAt || file?.originalCreatedAt || fallback || Date.now());
+}
+
 function buildMergedServerPayload(entry){
   const normalized = normalizeMergedEntry(entry);
+  const now = Date.now();
   return {
     id: normalized.name,
     name: normalized.name,
     items: normalized.items,
     signature: normalized.signature || buildMergedEntrySignatureFromItems(normalized.items),
-    uploadedAt: Date.now(),
+    createdAt: getMergedServerCreatedAt(normalized, now),
+    uploadedAt: now,
+    updatedAt: now,
     uploaderCode: currentUser?.code || '',
     uploaderName: currentUser?.name || '',
     uploaderRole: currentUser?.role || ''
   };
-}
-
-function buildNextServerMergedName(baseName = '', existingFiles = []){
-  const original = String(baseName || '').trim() || autoMainMergeBoxName();
-  const match = original.match(/^(.*?)(?:\s*\((\d+)\))?$/);
-  const cleanBase = String((match && match[1]) || original).trim() || original;
-  const existingNames = new Set((Array.isArray(existingFiles) ? existingFiles : []).map(file => normalizeInvoiceMatchText(file?.id || file?.name || '')));
-  if(!existingNames.has(normalizeInvoiceMatchText(cleanBase))) return cleanBase;
-  let counter = 2;
-  let candidate = `${cleanBase} (${counter})`;
-  while(existingNames.has(normalizeInvoiceMatchText(candidate))){
-    counter += 1;
-    candidate = `${cleanBase} (${counter})`;
-  }
-  return candidate;
 }
 
 async function refreshServerMergedFiles(options = {}){
@@ -3600,6 +3527,12 @@ async function uploadMergedEntryToServer(index, ev){
     return;
   }
 
+  const openedEntryId = String(currentInvoice?.__mergedEntryId || '');
+  const targetEntryId = String(importedPdfFiles[index]?.mergeEntryId || '');
+  if(openedEntryId && targetEntryId && openedEntryId === targetEntryId){
+    syncCurrentInvoiceToOpenedMergeEntry();
+  }
+
   const entry = importedPdfFiles[index];
   if(!isMergedImportEntry(entry)) return;
 
@@ -3611,80 +3544,132 @@ async function uploadMergedEntryToServer(index, ev){
 
   const normalized = normalizeMergedEntry(entry);
   const payload = buildMergedServerPayload(normalized);
-  const sig = payload.signature;
+  const sig = String(payload.signature || '');
 
   try{
     await refreshServerMergedFiles({ silent:true });
-    const targetName = normalizeInvoiceMatchText(payload.name);
-    const sameName = serverMergedFilesCache.find(file =>
-      normalizeInvoiceMatchText(file.id || file.name) === targetName
+
+    const currentServerRecord = serverMergedFilesCache.find(file =>
+      String(file.serverKey || '').trim() && String(file.serverKey || '').trim() === String(normalized.mergeServerKey || '').trim()
     );
 
-    if(sameName){
-      const decision = await openMergeUploadConflictModal(payload.name);
-      if(decision === 'close') return;
+    if(currentServerRecord){
+      const currentServerSig = String(currentServerRecord.signature || buildMergedEntrySignatureFromItems(currentServerRecord.items || []));
+      const keepCreatedAt = getMergedServerCreatedAt(currentServerRecord, normalized.createdAt || Date.now());
+      const keepUploadedAt = Number(currentServerRecord.uploadedAt || normalized.serverUploadedAt || payload.uploadedAt || Date.now());
 
-      if(decision === 'replace'){
-        const replacePayload = {
-          ...payload,
-          uploadedAt: Date.now(),
-          updatedAt: Date.now()
-        };
-        await ref.child(sameName.serverKey).set(replacePayload);
+      if(currentServerSig === sig){
+        showToast('هذا الملف تم ارساله مسبقاً إلى السيرفر');
         importedPdfFiles[index] = normalizeMergedEntry({
           ...normalized,
-          name: String(sameName.id || sameName.name || payload.name).trim() || payload.name,
-          mergeServerKey: sameName.serverKey,
-          serverUploadedAt: replacePayload.uploadedAt,
-          signature: replacePayload.signature,
-          items: replacePayload.items || normalized.items
+          name: String(currentServerRecord.id || currentServerRecord.name || normalized.name || autoMainMergeBoxName()).trim(),
+          createdAt: keepCreatedAt,
+          mergeServerKey: currentServerRecord.serverKey,
+          serverUploadedAt: keepUploadedAt,
+          signature: sig
         });
         persistMergeBoxEntries();
-        await refreshServerMergedFiles({ silent:true });
         renderImportedPdfList();
-        showToast('تم استبدال الملف في السيرفر ✅');
         return;
       }
 
-      if(decision === 'new'){
-        const nextName = buildNextServerMergedName(payload.name, serverMergedFilesCache);
-        const newPayload = {
-          ...payload,
-          id: nextName,
-          name: nextName,
-          uploadedAt: Date.now(),
-          updatedAt: Date.now()
-        };
-        const newRef = ref.push();
-        await newRef.set(newPayload);
-        importedPdfFiles[index] = normalizeMergedEntry({
-          ...normalized,
-          name: nextName,
-          mergeServerKey: newRef.key,
-          serverUploadedAt: newPayload.uploadedAt,
-          signature: newPayload.signature,
-          items: newPayload.items || normalized.items
-        });
-        persistMergeBoxEntries();
-        await refreshServerMergedFiles({ silent:true });
-        renderImportedPdfList();
-        showToast(`تم رفع نسخة جديدة باسم ${nextName} ✅`);
+      const wantsReplace = await showReplaceOrCloseModal(
+        'تبديل محتوى الملف؟',
+        'هذا الملف موجود في السيرفر، هل تريد تبديل المحتوى؟',
+        'تبديل المحتوى',
+        'إلغاء'
+      );
+
+      if(!wantsReplace){
+        showToast('تم إلغاء تبديل المحتوى');
         return;
       }
+
+      const finalName = buildUniqueMergedName(normalized.name || payload.name, serverMergedFilesCache, {
+        excludeServerKey: currentServerRecord.serverKey,
+        excludeMergeEntryId: normalized.mergeEntryId
+      });
+      const finalPayload = {
+        ...currentServerRecord,
+        ...payload,
+        id: finalName,
+        name: finalName,
+        signature: sig,
+        createdAt: keepCreatedAt,
+        uploadedAt: keepUploadedAt,
+        updatedAt: Date.now()
+      };
+
+      await ref.child(currentServerRecord.serverKey).set(finalPayload);
+      importedPdfFiles[index] = normalizeMergedEntry({
+        ...normalized,
+        name: finalName,
+        createdAt: keepCreatedAt,
+        mergeServerKey: currentServerRecord.serverKey,
+        serverUploadedAt: keepUploadedAt,
+        signature: sig
+      });
+      persistMergeBoxEntries();
+      await refreshServerMergedFiles({ silent:true });
+      renderImportedPdfList();
+      if(finalName !== (normalized.name || payload.name)){
+        showToast(`تم تبديل المحتوى وتحديث الاسم إلى: ${finalName} ✅`);
+      }else{
+        showToast('تم تبديل محتوى الملف في السيرفر ✅');
+      }
+      return;
     }
 
+    const sameExact = serverMergedFilesCache.find(file =>
+      String(file.signature || buildMergedEntrySignatureFromItems(file.items || [])) === sig
+    );
+
+    if(sameExact){
+      showToast('هذا الملف تم ارساله مسبقاً إلى السيرفر');
+      importedPdfFiles[index] = normalizeMergedEntry({
+        ...normalized,
+        name: String(sameExact.id || sameExact.name || normalized.name || autoMainMergeBoxName()).trim(),
+        createdAt: getMergedServerCreatedAt(sameExact, normalized.createdAt || Date.now()),
+        mergeServerKey: sameExact.serverKey,
+        serverUploadedAt: Number(sameExact.uploadedAt || normalized.serverUploadedAt || Date.now()),
+        signature: sig
+      });
+      persistMergeBoxEntries();
+      renderImportedPdfList();
+      return;
+    }
+
+    const finalName = buildUniqueMergedName(payload.name, serverMergedFilesCache, {
+      excludeServerKey: normalized.mergeServerKey,
+      excludeMergeEntryId: normalized.mergeEntryId
+    });
+    const finalPayload = {
+      ...payload,
+      id: finalName,
+      name: finalName,
+      signature: sig,
+      createdAt: getMergedServerCreatedAt(normalized, payload.createdAt || Date.now()),
+      updatedAt: Date.now()
+    };
+
     const newRef = ref.push();
-    await newRef.set(payload);
+    await newRef.set(finalPayload);
     importedPdfFiles[index] = normalizeMergedEntry({
       ...normalized,
+      name: finalName,
+      createdAt: finalPayload.createdAt,
       mergeServerKey: newRef.key,
-      serverUploadedAt: payload.uploadedAt,
+      serverUploadedAt: finalPayload.uploadedAt,
       signature: sig
     });
     persistMergeBoxEntries();
     await refreshServerMergedFiles({ silent:true });
     renderImportedPdfList();
-    showToast('تم رفع ملف الدمج إلى السيرفر ✅');
+    if(finalName !== payload.name){
+      showToast(`تم رفع ملف الدمج باسم جديد تلقائياً: ${finalName} ✅`);
+    }else{
+      showToast('تم رفع ملف الدمج إلى السيرفر ✅');
+    }
   }catch(err){
     console.error('upload merged entry error:', err);
     showToast('فشل رفع ملف الدمج إلى السيرفر ❌', true);
@@ -3709,77 +3694,121 @@ async function importMergedEntriesFromServer(){
     return;
   }
 
-  const localMergedEntries = importedPdfFiles.filter(isMergedImportEntry);
-  const localSigs = new Set(localMergedEntries.map(entry => String(entry.signature || buildMergedEntrySignatureFromItems(entry.items || []))));
-  const localIndexByServerKey = new Map();
-  importedPdfFiles.forEach((entry, idx)=>{
-    if(!isMergedImportEntry(entry)) return;
-    const key = String(entry.mergeServerKey || '').trim();
-    if(key) localIndexByServerKey.set(key, idx);
-  });
-
   let importedCount = 0;
-  const skipped = [];
+  let replacedCount = 0;
+  let skippedCount = 0;
 
-  list.forEach(file => {
-    const serverKey = String(file.serverKey || '').trim();
-    const serverSig = String(file.signature || buildMergedEntrySignatureFromItems(file.items || []));
-    if(localSigs.has(serverSig)){
-      skipped.push(file);
-      return;
-    }
+  const orderedList = [...list].reverse();
 
-    const normalizedIncoming = normalizeMergedEntry({
-      mergeEntryId: `srv_${String(file.serverKey || Date.now())}`,
-      mergeServerKey: serverKey,
-      name: String(file.id || file.name || autoMainMergeBoxName()).trim(),
-      createdAt: Number(file.updatedAt || file.uploadedAt || Date.now()),
-      items: file.items || [],
-      signature: serverSig,
-      serverUploadedAt: Number(file.uploadedAt || 0)
-    });
+  for(const file of orderedList){
+    const serverName = String(file.id || file.name || autoMainMergeBoxName()).trim();
+    const serverSignature = String(file.signature || buildMergedEntrySignatureFromItems(file.items || []) || '');
+    const serverCreatedAt = getMergedServerCreatedAt(file, file.uploadedAt || Date.now());
+    const existingExactIndex = importedPdfFiles.findIndex(entry =>
+      isMergedImportEntry(entry) && (
+        (String(entry.mergeServerKey || '').trim() && String(entry.mergeServerKey || '').trim() === String(file.serverKey || '').trim()) ||
+        (serverSignature && String(entry.signature || buildMergedEntrySignatureFromItems(entry.items || [])) === serverSignature)
+      )
+    );
 
-    if(serverKey && localIndexByServerKey.has(serverKey)){
-      const existingIndex = localIndexByServerKey.get(serverKey);
-      const existingEntry = importedPdfFiles[existingIndex] || {};
-      importedPdfFiles[existingIndex] = normalizeMergedEntry({
-        ...existingEntry,
-        ...normalizedIncoming,
-        mergeEntryId: String(existingEntry.mergeEntryId || normalizedIncoming.mergeEntryId)
+    if(existingExactIndex !== -1){
+      const oldLocal = normalizeMergedEntry(importedPdfFiles[existingExactIndex] || {});
+      importedPdfFiles[existingExactIndex] = normalizeMergedEntry({
+        mergeEntryId: oldLocal.mergeEntryId,
+        mergeServerKey: String(file.serverKey || ''),
+        name: serverName,
+        createdAt: serverCreatedAt,
+        items: file.items || [],
+        signature: serverSignature,
+        serverUploadedAt: Number(file.uploadedAt || 0)
       });
-      localSigs.add(normalizedIncoming.signature);
-      importedCount += 1;
-      return;
+      replacedCount++;
+      continue;
     }
 
-    importedPdfFiles.unshift(normalizedIncoming);
-    if(serverKey) localIndexByServerKey.set(serverKey, 0);
-    localSigs.add(normalizedIncoming.signature);
-    importedCount += 1;
-  });
+    const localUniqueName = buildUniqueMergedName(serverName, importedPdfFiles);
 
-  if(!importedCount && skipped.length){
-    const dupName = String(skipped[0]?.id || skipped[0]?.name || 'بدون اسم').trim();
-    showToast(`لم يتم استيراد الملف (${dupName}) لكونه موجود لديك`);
-    return;
-  }
-
-  if(!importedCount){
-    showToast('ملفات السيرفر مستوردة مسبقاً');
-    return;
+    importedPdfFiles.unshift(normalizeMergedEntry({
+      mergeEntryId: `srv_${String(file.serverKey || Date.now())}`,
+      mergeServerKey: String(file.serverKey || ''),
+      name: localUniqueName,
+      createdAt: serverCreatedAt,
+      items: file.items || [],
+      signature: serverSignature,
+      serverUploadedAt: Number(file.uploadedAt || 0)
+    }));
+    importedCount++;
   }
 
   persistMergeBoxEntries();
   renderImportedPdfList();
 
-  if(skipped.length){
-    const dupName = String(skipped[0]?.id || skipped[0]?.name || 'بدون اسم').trim();
-    const importedLabel = importedCount === 1 ? 'ملف واحد' : `${importedCount} ملفات`;
-    showToast(`تم استيراد ${importedLabel}، ولم يتم استيراد الملف (${dupName}) لكونه موجود لديك ✅`);
+  if(importedCount || replacedCount){
+    const parts = [];
+    if(importedCount) parts.push(`تم استيراد ${importedCount} ملف`);
+    if(replacedCount) parts.push(`تم تحديث ${replacedCount} ملف`);
+    if(skippedCount) parts.push(`تم تجاهل ${skippedCount} ملف`);
+    showToast(`${parts.join(' • ')} ✅`);
     return;
   }
 
-  showToast(`تم استيراد ${importedCount} ملف من السيرفر ✅`);
+  showToast('لم يتم استيراد أي ملف');
+}
+
+
+function showReplaceOrCloseModal(title, message, yesText = 'استبدال', noText = 'إغلاق'){
+  return new Promise((resolve)=>{
+    const modal = document.getElementById('confirmModal');
+    const titleEl = modal?.querySelector('h3');
+    const msgEl = modal?.querySelector('p');
+    const yesBtn = document.getElementById('confirmYes');
+    const noBtn = document.getElementById('confirmNo');
+
+    if(!modal || !titleEl || !msgEl || !yesBtn || !noBtn){
+      resolve(false);
+      return;
+    }
+
+    const prev = {
+      title: titleEl.textContent,
+      msg: msgEl.textContent,
+      yesHtml: yesBtn.innerHTML,
+      noHtml: noBtn.innerHTML,
+      yesClass: yesBtn.className,
+      noClass: noBtn.className
+    };
+
+    const close = (result)=>{
+      modal.style.display = 'none';
+      document.body.classList.remove('no-scroll');
+
+      titleEl.textContent = prev.title;
+      msgEl.textContent = prev.msg;
+      yesBtn.innerHTML = prev.yesHtml;
+      noBtn.innerHTML = prev.noHtml;
+      yesBtn.className = prev.yesClass;
+      noBtn.className = prev.noClass;
+
+      yesBtn.onclick = null;
+      noBtn.onclick = null;
+      modal.onclick = null;
+      resolve(result);
+    };
+
+    titleEl.textContent = String(title || 'تأكيد');
+    msgEl.textContent = String(message || '');
+    yesBtn.innerHTML = `<i class="fa-solid fa-arrows-rotate"></i> ${yesText}`;
+    noBtn.innerHTML = `<i class="fa-solid fa-xmark"></i> ${noText}`;
+    yesBtn.className = 'btn green';
+    noBtn.className = 'btn amber';
+
+    yesBtn.onclick = ()=> close(true);
+    noBtn.onclick = ()=> close(false);
+    modal.onclick = (e)=>{ if(e.target === modal) close(false); };
+
+    document.body.classList.add('no-scroll');
+    modal.style.display = 'flex';
+  });
 }
 
 function roleLabelAr(role){
@@ -4092,7 +4121,40 @@ function autoMainMergeBoxName(){
   const y = d.getFullYear();
   const mo = String(d.getMonth()+1).padStart(2,'0');
   const da = String(d.getDate()).padStart(2,'0');
-  return `نقص ${y}-${mo}-${da}`;
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  const ss = String(d.getSeconds()).padStart(2,'0');
+  const ms = String(d.getMilliseconds()).padStart(3,'0');
+  return `نقص ${y}-${mo}-${da} ${hh}-${mm}-${ss}-${ms}`;
+}
+
+function buildUniqueMergedName(baseName, existingEntries = [], options = {}){
+  const fallback = autoMainMergeBoxName();
+  const rawBase = String(baseName || fallback).trim() || fallback;
+  const excludeServerKey = String(options.excludeServerKey || '').trim();
+  const excludeMergeEntryId = String(options.excludeMergeEntryId || '').trim();
+
+  const taken = new Set(
+    (Array.isArray(existingEntries) ? existingEntries : [])
+      .filter(entry => {
+        if(!entry) return false;
+        const entryServerKey = String(entry.serverKey || entry.mergeServerKey || '').trim();
+        const entryMergeEntryId = String(entry.mergeEntryId || '').trim();
+        if(excludeServerKey && entryServerKey && entryServerKey === excludeServerKey) return false;
+        if(excludeMergeEntryId && entryMergeEntryId && entryMergeEntryId === excludeMergeEntryId) return false;
+        return true;
+      })
+      .map(entry => normalizeInvoiceMatchText(entry.id || entry.name || ''))
+      .filter(Boolean)
+  );
+
+  let candidate = rawBase;
+  let counter = 2;
+  while(taken.has(normalizeInvoiceMatchText(candidate))){
+    candidate = `${rawBase} (${counter})`;
+    counter += 1;
+  }
+  return candidate;
 }
 
 function pushMergedEntryToMergeBox(mergedItems, customName){
@@ -4182,7 +4244,7 @@ function applyRoleUI(){
 
   if(sidebarTitleEl){
     if(isMainAdmin()){
-      sidebarTitleEl.innerHTML = '<i class="fa-solid fa-cloud"></i> فواتير السيرفر';
+      sidebarTitleEl.innerHTML = '<i class="fa-solid fa-layer-group"></i> فواتير الأدمن والسيرفر';
     }else if(isSecondaryAdmin()){
       sidebarTitleEl.innerHTML = '<i class="fa-regular fa-folder-open"></i> فواتير عسل';
     }else{
@@ -5427,6 +5489,13 @@ function renameEscEnterHandler(e){
   if(isMainAdmin()){
     const shortageInvoices = serverInvoicesCache.filter(inv => inv.senderRole === "secondary_admin");
     const branchInvoices = serverInvoicesCache.filter(inv => inv.senderRole === "user");
+
+    appendSection("فواتير الأدمن المحلية", "section-shortage");
+    if(invoices.length){
+      invoices.forEach(makeLocalRow);
+    }else{
+      appendEmpty("لا توجد فواتير الأدمن المحلية بعد");
+    }
 
     appendSection("فواتير السيرفر - نقص فرع رئيسي", "section-shortage");
     if(shortageInvoices.length){
