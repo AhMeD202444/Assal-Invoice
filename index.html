@@ -2019,6 +2019,353 @@ body.no-copy-ui [contenteditable="true"]{
 }
 
 
+
+
+/* ===== Command Palette • Professional Compact Refresh ===== */
+.palette-foot{ display:none !important; }
+
+@media (min-width: 769px){
+  .palette{
+    width: min(1180px, 94vw);
+    max-height: 84vh;
+    border-radius: 24px;
+    padding-block-start: 0;
+    background:
+      radial-gradient(130% 120% at 100% -10%, rgba(33,212,253,.10), transparent 48%),
+      linear-gradient(180deg, rgba(16,20,28,.985), rgba(11,14,20,.985));
+    border: 1px solid rgba(255,255,255,.10);
+    box-shadow: 0 28px 90px rgba(0,0,0,.46);
+  }
+
+  .palette-top{
+    padding: 16px 18px;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+    background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+  }
+
+  .palette-search{
+    min-height: 48px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.05);
+    border-color: rgba(255,255,255,.10);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+  }
+
+  .palette-search input{
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .palette-body{
+    padding: 14px 16px 18px;
+    background: linear-gradient(180deg, rgba(255,255,255,.015), rgba(255,255,255,0));
+  }
+
+  .group-title{
+    position: sticky;
+    top: 0;
+    display: inline-flex;
+    align-items: center;
+    width: auto;
+    margin: 14px 0 8px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .2px;
+    color: #e8eefc;
+    border: 1px solid rgba(255,255,255,.10);
+    border-right: 3px solid rgba(33,212,253,.95);
+    border-left: none;
+    border-radius: 999px;
+    background: rgba(255,255,255,.045);
+    box-shadow: none;
+  }
+
+  .item-row{
+    grid-template-columns: 22px minmax(240px,1.35fr) minmax(220px,1fr) 142px 42px;
+    gap: 10px;
+    min-height: 58px;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(20,24,33,.92), rgba(14,18,26,.92));
+    border: 1px solid rgba(255,255,255,.08);
+    color: #edf3ff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+  }
+
+  .item-row:hover{
+    background: linear-gradient(180deg, rgba(24,29,39,.96), rgba(16,20,29,.96));
+    border-color: rgba(255,255,255,.14);
+    transform: translateY(-1px);
+  }
+
+  .item-row .chk{
+    width: 16px;
+    height: 16px;
+    accent-color: #22d3ee;
+  }
+
+  .pal-title-wrap{
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .item-row .name{
+    font-size: 13.5px;
+    font-weight: 900;
+    color: #f8fbff;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pal-meta{
+    font-size: 11px;
+    color: #8ea1bf;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .item-row .note,
+  .item-row .note-wrap{ display:block; min-width: 0; }
+
+  .pal-note-input{
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.045);
+    color: #eaf0ff;
+    outline: none;
+    font-size: 13px;
+    font-weight: 700;
+    transition: border-color var(--speed), background var(--speed), box-shadow var(--speed);
+  }
+
+  .pal-note-input::placeholder{ color: #7f8da8; }
+  .pal-note-input:focus{
+    border-color: rgba(33,212,253,.55);
+    background: rgba(255,255,255,.07);
+    box-shadow: 0 0 0 3px rgba(33,212,253,.10);
+  }
+
+  .qty-wrap{
+    display: grid;
+    grid-template-columns: 34px minmax(54px,1fr) 34px;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .qty-btn{
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 11px;
+    background: rgba(255,255,255,.045);
+    color: #dbe7ff;
+    cursor: pointer;
+    transition: transform var(--speed), background var(--speed), border-color var(--speed);
+  }
+  .qty-btn:hover{
+    transform: translateY(-1px);
+    background: rgba(255,255,255,.08);
+    border-color: rgba(255,255,255,.18);
+  }
+
+  .item-row input.qty{
+    width: 100%;
+    height: 38px;
+    text-align: center;
+    padding: 0 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.045);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 900;
+  }
+  .item-row input.qty:focus{
+    border-color: rgba(109,94,252,.55);
+    box-shadow: 0 0 0 3px rgba(109,94,252,.12);
+  }
+
+  .item-row .del{
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    box-shadow: 0 8px 18px rgba(220,38,38,.18);
+  }
+}
+
+@media (max-width: 768px){
+  .palette-foot{ display:none !important; }
+  .pal-title-wrap{ min-width:0; }
+  .pal-meta{ display:none; }
+  .note-wrap{ display:none; }
+  .qty-wrap{
+    display:grid;
+    grid-template-columns: 28px minmax(48px,1fr) 28px;
+    gap:4px;
+    align-items:center;
+  }
+  .qty-btn{
+    width: 28px;
+    height: 28px;
+    display:grid;
+    place-items:center;
+    border-radius: 9px;
+    border:1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.06);
+    color:#dbe7ff;
+  }
+  .item-row .qty{ height: 30px; }
+}
+
+
+
+/* ===== Palette Final Icon + Mobile Fix ===== */
+/* النصوص داخل لوحة الأوامر كلها Cairo */
+.palette,
+.palette .palette-top,
+.palette .palette-body,
+.palette .group-title,
+.palette .item-row,
+.palette .pal-title-wrap,
+.palette .name,
+.palette .pal-meta,
+.palette .note-wrap,
+.palette .pal-note-input,
+.palette .qty-wrap,
+.palette .qty,
+.palette .palette-search,
+.palette .palette-search input,
+.palette button,
+.palette input,
+.palette label,
+.palette span,
+.palette div{
+  font-family: "Cairo", system-ui, -apple-system, "Segoe UI", sans-serif !important;
+}
+
+/* لكن الأيقونات تبقى Font Awesome حتى ما تتكسر */
+.palette i,
+.palette .fa,
+.palette .fas,
+.palette .far,
+.palette .fab,
+.palette .fa-solid,
+.palette .fa-regular,
+.palette .fa-brands{
+  font-style: normal !important;
+  line-height: 1 !important;
+}
+.palette .fa,
+.palette .fas,
+.palette .fa-solid{ 
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 900 !important;
+}
+.palette .far,
+.palette .fa-regular{
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 400 !important;
+}
+.palette .fab,
+.palette .fa-brands{
+  font-family: "Font Awesome 6 Brands" !important;
+  font-weight: 400 !important;
+}
+
+/* شكل العدد والحذف أنظف بدون زائد/ناقص */
+.palette .qty-wrap{
+  display:grid !important;
+  grid-template-columns: 34px minmax(56px,1fr) 34px !important;
+  align-items:center !important;
+  gap:8px !important;
+  width:auto !important;
+  min-width:140px !important;
+  margin-inline-start:0 !important;
+}
+.palette .qty-btn{
+  display:grid !important;
+  place-items:center !important;
+  width:34px !important;
+  height:34px !important;
+  border:1px solid rgba(255,255,255,.10) !important;
+  border-radius:11px !important;
+  background:rgba(255,255,255,.045) !important;
+  color:#dbe7ff !important;
+}
+.palette .qty{
+  width:100% !important;
+  height:38px !important;
+  margin:0 !important;
+  text-align:center !important;
+  border-radius:12px !important;
+  font-weight:900 !important;
+}
+.palette .del{
+  display:grid !important;
+  place-items:center !important;
+}
+
+/* الهاتف فقط: نخفي أزرار الزيادة والنقصان ونبقي مربع العدد مرتب بدون لمس تصميم الحاسوب */
+@media (max-width: 768px){
+  .palette .item-row{
+    grid-template-columns: 22px minmax(0,1fr) 72px 44px !important;
+    gap: 6px !important;
+    align-items: center !important;
+  }
+  .palette .note-wrap{ display:none !important; }
+  .palette .qty-wrap{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    width:72px !important;
+    min-width:72px !important;
+    gap:0 !important;
+  }
+  .palette .qty-btn.desktop-only{ display:none !important; }
+  .palette .qty{
+    height:38px !important;
+    font-size:17px !important;
+  }
+  .palette .del{
+    width:42px !important;
+    height:42px !important;
+  }
+}
+
+@media (max-width: 480px){
+  .palette .item-row{
+    grid-template-columns: 22px minmax(0,1fr) 68px 42px !important;
+    gap: 5px !important;
+    padding: 8px !important;
+  }
+  .palette .qty-wrap{
+    width:68px !important;
+    min-width:68px !important;
+  }
+  .palette .qty{
+    height:36px !important;
+    font-size:16px !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -2202,7 +2549,7 @@ body.no-copy-ui [contenteditable="true"]{
     </div>
 
    <div class="palette-foot">
-  <div class="foot-note">تحديث حيّ — أي تعديل هنا يُحفظ فورًا ويظهر في الجدول مباشرةً</div>
+  
 </div>
 
     
@@ -5613,6 +5960,222 @@ function printCustom(htmlContent, title = 'فاتورة') {
 }
 
 
+
+
+/* ===== Command Palette • Professional Compact Refresh ===== */
+.palette-foot{ display:none !important; }
+
+@media (min-width: 769px){
+  .palette{
+    width: min(1180px, 94vw);
+    max-height: 84vh;
+    border-radius: 24px;
+    padding-block-start: 0;
+    background:
+      radial-gradient(130% 120% at 100% -10%, rgba(33,212,253,.10), transparent 48%),
+      linear-gradient(180deg, rgba(16,20,28,.985), rgba(11,14,20,.985));
+    border: 1px solid rgba(255,255,255,.10);
+    box-shadow: 0 28px 90px rgba(0,0,0,.46);
+  }
+
+  .palette-top{
+    padding: 16px 18px;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+    background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+  }
+
+  .palette-search{
+    min-height: 48px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.05);
+    border-color: rgba(255,255,255,.10);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+  }
+
+  .palette-search input{
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .palette-body{
+    padding: 14px 16px 18px;
+    background: linear-gradient(180deg, rgba(255,255,255,.015), rgba(255,255,255,0));
+  }
+
+  .group-title{
+    position: sticky;
+    top: 0;
+    display: inline-flex;
+    align-items: center;
+    width: auto;
+    margin: 14px 0 8px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .2px;
+    color: #e8eefc;
+    border: 1px solid rgba(255,255,255,.10);
+    border-right: 3px solid rgba(33,212,253,.95);
+    border-left: none;
+    border-radius: 999px;
+    background: rgba(255,255,255,.045);
+    box-shadow: none;
+  }
+
+  .item-row{
+    grid-template-columns: 22px minmax(240px,1.35fr) minmax(220px,1fr) 142px 42px;
+    gap: 10px;
+    min-height: 58px;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(20,24,33,.92), rgba(14,18,26,.92));
+    border: 1px solid rgba(255,255,255,.08);
+    color: #edf3ff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+  }
+
+  .item-row:hover{
+    background: linear-gradient(180deg, rgba(24,29,39,.96), rgba(16,20,29,.96));
+    border-color: rgba(255,255,255,.14);
+    transform: translateY(-1px);
+  }
+
+  .item-row .chk{
+    width: 16px;
+    height: 16px;
+    accent-color: #22d3ee;
+  }
+
+  .pal-title-wrap{
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .item-row .name{
+    font-size: 13.5px;
+    font-weight: 900;
+    color: #f8fbff;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pal-meta{
+    font-size: 11px;
+    color: #8ea1bf;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .item-row .note,
+  .item-row .note-wrap{ display:block; min-width: 0; }
+
+  .pal-note-input{
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.045);
+    color: #eaf0ff;
+    outline: none;
+    font-size: 13px;
+    font-weight: 700;
+    transition: border-color var(--speed), background var(--speed), box-shadow var(--speed);
+  }
+
+  .pal-note-input::placeholder{ color: #7f8da8; }
+  .pal-note-input:focus{
+    border-color: rgba(33,212,253,.55);
+    background: rgba(255,255,255,.07);
+    box-shadow: 0 0 0 3px rgba(33,212,253,.10);
+  }
+
+  .qty-wrap{
+    display: grid;
+    grid-template-columns: 34px minmax(54px,1fr) 34px;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .qty-btn{
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 11px;
+    background: rgba(255,255,255,.045);
+    color: #dbe7ff;
+    cursor: pointer;
+    transition: transform var(--speed), background var(--speed), border-color var(--speed);
+  }
+  .qty-btn:hover{
+    transform: translateY(-1px);
+    background: rgba(255,255,255,.08);
+    border-color: rgba(255,255,255,.18);
+  }
+
+  .item-row input.qty{
+    width: 100%;
+    height: 38px;
+    text-align: center;
+    padding: 0 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.045);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 900;
+  }
+  .item-row input.qty:focus{
+    border-color: rgba(109,94,252,.55);
+    box-shadow: 0 0 0 3px rgba(109,94,252,.12);
+  }
+
+  .item-row .del{
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    box-shadow: 0 8px 18px rgba(220,38,38,.18);
+  }
+}
+
+@media (max-width: 768px){
+  .palette-foot{ display:none !important; }
+  .pal-title-wrap{ min-width:0; }
+  .pal-meta{ display:none; }
+  .note-wrap{ display:none; }
+  .qty-wrap{
+    display:grid;
+    grid-template-columns: 28px minmax(48px,1fr) 28px;
+    gap:4px;
+    align-items:center;
+  }
+  .qty-btn{
+    width: 28px;
+    height: 28px;
+    display:grid;
+    place-items:center;
+    border-radius: 9px;
+    border:1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.06);
+    color:#dbe7ff;
+  }
+  .item-row .qty{ height: 30px; }
+}
+
 </style>
     </head>
     <body>
@@ -6067,6 +6630,222 @@ function printInvoiceHTML() {
   }
 }
 
+
+
+
+/* ===== Command Palette • Professional Compact Refresh ===== */
+.palette-foot{ display:none !important; }
+
+@media (min-width: 769px){
+  .palette{
+    width: min(1180px, 94vw);
+    max-height: 84vh;
+    border-radius: 24px;
+    padding-block-start: 0;
+    background:
+      radial-gradient(130% 120% at 100% -10%, rgba(33,212,253,.10), transparent 48%),
+      linear-gradient(180deg, rgba(16,20,28,.985), rgba(11,14,20,.985));
+    border: 1px solid rgba(255,255,255,.10);
+    box-shadow: 0 28px 90px rgba(0,0,0,.46);
+  }
+
+  .palette-top{
+    padding: 16px 18px;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+    background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+  }
+
+  .palette-search{
+    min-height: 48px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.05);
+    border-color: rgba(255,255,255,.10);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+  }
+
+  .palette-search input{
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .palette-body{
+    padding: 14px 16px 18px;
+    background: linear-gradient(180deg, rgba(255,255,255,.015), rgba(255,255,255,0));
+  }
+
+  .group-title{
+    position: sticky;
+    top: 0;
+    display: inline-flex;
+    align-items: center;
+    width: auto;
+    margin: 14px 0 8px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .2px;
+    color: #e8eefc;
+    border: 1px solid rgba(255,255,255,.10);
+    border-right: 3px solid rgba(33,212,253,.95);
+    border-left: none;
+    border-radius: 999px;
+    background: rgba(255,255,255,.045);
+    box-shadow: none;
+  }
+
+  .item-row{
+    grid-template-columns: 22px minmax(240px,1.35fr) minmax(220px,1fr) 142px 42px;
+    gap: 10px;
+    min-height: 58px;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(20,24,33,.92), rgba(14,18,26,.92));
+    border: 1px solid rgba(255,255,255,.08);
+    color: #edf3ff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+  }
+
+  .item-row:hover{
+    background: linear-gradient(180deg, rgba(24,29,39,.96), rgba(16,20,29,.96));
+    border-color: rgba(255,255,255,.14);
+    transform: translateY(-1px);
+  }
+
+  .item-row .chk{
+    width: 16px;
+    height: 16px;
+    accent-color: #22d3ee;
+  }
+
+  .pal-title-wrap{
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .item-row .name{
+    font-size: 13.5px;
+    font-weight: 900;
+    color: #f8fbff;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pal-meta{
+    font-size: 11px;
+    color: #8ea1bf;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .item-row .note,
+  .item-row .note-wrap{ display:block; min-width: 0; }
+
+  .pal-note-input{
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.045);
+    color: #eaf0ff;
+    outline: none;
+    font-size: 13px;
+    font-weight: 700;
+    transition: border-color var(--speed), background var(--speed), box-shadow var(--speed);
+  }
+
+  .pal-note-input::placeholder{ color: #7f8da8; }
+  .pal-note-input:focus{
+    border-color: rgba(33,212,253,.55);
+    background: rgba(255,255,255,.07);
+    box-shadow: 0 0 0 3px rgba(33,212,253,.10);
+  }
+
+  .qty-wrap{
+    display: grid;
+    grid-template-columns: 34px minmax(54px,1fr) 34px;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .qty-btn{
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 11px;
+    background: rgba(255,255,255,.045);
+    color: #dbe7ff;
+    cursor: pointer;
+    transition: transform var(--speed), background var(--speed), border-color var(--speed);
+  }
+  .qty-btn:hover{
+    transform: translateY(-1px);
+    background: rgba(255,255,255,.08);
+    border-color: rgba(255,255,255,.18);
+  }
+
+  .item-row input.qty{
+    width: 100%;
+    height: 38px;
+    text-align: center;
+    padding: 0 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.045);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 900;
+  }
+  .item-row input.qty:focus{
+    border-color: rgba(109,94,252,.55);
+    box-shadow: 0 0 0 3px rgba(109,94,252,.12);
+  }
+
+  .item-row .del{
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    box-shadow: 0 8px 18px rgba(220,38,38,.18);
+  }
+}
+
+@media (max-width: 768px){
+  .palette-foot{ display:none !important; }
+  .pal-title-wrap{ min-width:0; }
+  .pal-meta{ display:none; }
+  .note-wrap{ display:none; }
+  .qty-wrap{
+    display:grid;
+    grid-template-columns: 28px minmax(48px,1fr) 28px;
+    gap:4px;
+    align-items:center;
+  }
+  .qty-btn{
+    width: 28px;
+    height: 28px;
+    display:grid;
+    place-items:center;
+    border-radius: 9px;
+    border:1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.06);
+    color:#dbe7ff;
+  }
+  .item-row .qty{ height: 30px; }
+}
 
 </style>
     ${html}
@@ -7245,7 +8024,6 @@ function palRender(){
   host.innerHTML = "";
   const data = palFiltered();
 
-  // نجمع حسب الصنف
   const groups = new Map();
   data.forEach(it=>{
     const k = it.category || "بدون صنف";
@@ -7253,13 +8031,21 @@ function palRender(){
     groups.get(k).push(it);
   });
 
+  const commitPalItem = (orig, patch, toastMsg="")=>{
+    if(!currentInvoice || !currentInvoice.items || !currentInvoice.items[orig]) return;
+    Object.assign(currentInvoice.items[orig], patch);
+    autoSaveInvoice();
+    __palDirty = true;
+    if(toastMsg) showToast(toastMsg);
+  };
+
   groups.forEach((items, cat)=>{
     const gt = document.createElement('div');
     gt.className = 'group-title';
     gt.textContent = cat;
     host.appendChild(gt);
 
-    items.forEach((it, i)=>{
+    items.forEach((it)=>{
       const row = document.createElement('div');
       row.className = 'item-row';
       row.setAttribute('data-orig', it.orig);
@@ -7267,79 +8053,114 @@ function palRender(){
       const checked = __palSel.has(it.orig) ? 'checked' : '';
       row.innerHTML = `
         <input type="checkbox" class="chk" ${checked} />
-        <div class="name">${escapeHtml(it.name)}</div>
-        <input class="qty" type="number" value="${escapeHtml(it.qty)}" />
-        <div class="note" title="${escapeHtml(it.note)}">${escapeHtml(it.note)}</div>
-        <button class="del" title="حذف"><i class="fa-regular fa-trash-can"></i></button>
+        <div class="pal-title-wrap">
+          <div class="name">${escapeHtml(it.name)}</div>
+          <div class="pal-meta">${escapeHtml(cat)}</div>
+        </div>
+        <div class="note-wrap">
+          <input class="pal-note-input" type="text" value="${escapeHtml(it.note)}" placeholder="ملاحظات" />
+        </div>
+        <div class="qty-wrap">
+          <button type="button" class="qty-btn qty-minus desktop-only" title="تقليل"><i class="fa-solid fa-minus"></i></button>
+          <input class="qty" type="number" min="0" inputmode="numeric" value="${escapeHtml(it.qty ?? '0')}" />
+          <button type="button" class="qty-btn qty-plus desktop-only" title="زيادة"><i class="fa-solid fa-plus"></i></button>
+        </div>
+        <button class="del" type="button" title="حذف"><i class="fa-regular fa-trash-can"></i></button>
       `;
 
-      // تحديد
-      row.querySelector('.chk').addEventListener('change', (e)=>{
+      const chkEl = row.querySelector('.chk');
+      const qtyEl = row.querySelector('.qty');
+      const plusEl = row.querySelector('.qty-plus');
+      const minusEl = row.querySelector('.qty-minus');
+      const noteEl = row.querySelector('.pal-note-input');
+      const delEl = row.querySelector('.del');
+
+      chkEl.addEventListener('change', (e)=>{
         if(e.currentTarget.checked) __palSel.add(it.orig);
         else __palSel.delete(it.orig);
       });
 
-      // بعد (استبدل الكود أعلاه بهذا)
-const qtyEl = row.querySelector('.qty');
-let prevVal = qtyEl.value;              // نخزّن القيمة قبل التحرير
+      let prevQty = String(qtyEl.value || '1');
+      qtyEl.addEventListener('focus', ()=>{ prevQty = String(qtyEl.value || '1'); });
 
-// لما ياخذ فوكس، نحفظ القيمة الحالية للمقارنة لاحقاً
-qtyEl.addEventListener('focus', ()=>{
-  prevVal = qtyEl.value;
-});
+     const normalizeQty = ()=>{
+  let num = parseInt(qtyEl.value, 10);
+  if(isNaN(num) || num < 0) num = 0;
+  qtyEl.value = String(num);
+  return String(num);
+};
 
-// حفظ فعلي + رسالة عند انتهاء الإدخال (change)
-qtyEl.addEventListener('change', (e)=>{
-  const val = e.currentTarget.value.trim();
-  currentInvoice.items[it.orig].qty = val;
-  autoSaveInvoice();
-  renderItems();
-  __palDirty = true;
-  showToast("تم تغير عدد هذه المادة");   // ← النص المطلوب
-});
+      const saveQty = (notify=false)=>{
+        const val = normalizeQty();
+        if(String(currentInvoice.items[it.orig]?.qty || '1') === val) return;
+        commitPalItem(it.orig, { qty: val }, notify ? 'تم تعديل العدد ✅' : '');
+      };
 
-// Enter = ثبّت التعديل ثم انقل فوكس لكمية السطر التالي
-qtyEl.addEventListener('keydown', (e)=>{
-  if(e.key === 'Enter'){
-    e.preventDefault();
+      plusEl?.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        qtyEl.value = String((parseInt(qtyEl.value, 10) || 0) + 1);
+        saveQty(false);
+      });
 
-    // 1) ثبّت التعديل عبر blur (يشغّل change أعلاه)
-    qtyEl.blur();
+      minusEl?.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        qtyEl.value = String(Math.max(0, (parseInt(qtyEl.value, 10) || 0) - 1));
+        saveQty(false);
+      });
 
-    // 2) بعد لحظة قصيرة، حرّك الفوكس لكمية العنصر التالي (يلف عند النهاية)
-    setTimeout(()=>{
-      const inputs = Array.from(document.querySelectorAll('#palList .item-row .qty'));
-      const idx = inputs.indexOf(qtyEl);
-      if(inputs.length){
-        const next = inputs[(idx + 1) % inputs.length]; // يلف للأول إذا آخر واحد
-        next?.focus();
-        next?.select?.();
+      qtyEl.addEventListener('change', ()=> saveQty(true));
+      qtyEl.addEventListener('blur', ()=>{
+        const now = normalizeQty();
+        if(now !== prevQty) saveQty(false);
+      });
+      qtyEl.addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          saveQty(true);
+          setTimeout(()=>{
+            const inputs = Array.from(document.querySelectorAll('#palList .item-row .qty'));
+            const idx = inputs.indexOf(qtyEl);
+            if(inputs.length){
+              const next = inputs[(idx + 1) % inputs.length];
+              next?.focus();
+              next?.select?.();
+            }
+          }, 10);
+        }
+      });
+
+      if(noteEl){
+        let prevNote = noteEl.value;
+        noteEl.addEventListener('focus', ()=>{ prevNote = noteEl.value; });
+        const saveNote = (notify=false)=>{
+          const val = noteEl.value.trim();
+          if(String(currentInvoice.items[it.orig]?.note || '') === val) return;
+          commitPalItem(it.orig, { note: val }, notify ? 'تم تحديث الملاحظات ✅' : '');
+        };
+        noteEl.addEventListener('change', ()=> saveNote(true));
+        noteEl.addEventListener('blur', ()=>{
+          if(noteEl.value !== prevNote) saveNote(false);
+        });
+        noteEl.addEventListener('keydown', (e)=>{
+          if(e.key === 'Enter'){
+            e.preventDefault();
+            saveNote(true);
+            qtyEl?.focus();
+            qtyEl?.select?.();
+          }
+        });
       }
-    }, 10);
-  }
-});
 
-
-// اختياري: لو تحب تظهر توست أيضاً عند الخروج إذا اختلفت القيمة
-qtyEl.addEventListener('blur', (e)=>{
-  const now = e.currentTarget.value.trim();
-  if(now !== prevVal){
-    // التوست صار بالفعل في change عادةً، هذا للتأكيد في حالات معيّنة
-    // showToast(`تم تحديث عدد "${it.name}" إلى ${now} ✅`);
-  }
-});
-
-
-      // حذف فوري
-      row.querySelector('.del').addEventListener('click', ()=>{
+      delEl.addEventListener('click', (e)=>{
+        e.stopPropagation();
         palDeleteOne(it.orig);
       });
 
-      // فوكس للتنقّل بالأسهم
-      row.addEventListener('click', ()=>{
+      row.addEventListener('click', (e)=>{
+        if(e.target.closest('.chk, .qty, .qty-btn, .pal-note-input, .del')) return;
         __palFocus = it.orig;
-        // فوكس على qty
-        row.querySelector('.qty').focus();
+        qtyEl.focus();
+        qtyEl.select?.();
       });
 
       host.appendChild(row);
