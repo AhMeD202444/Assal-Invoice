@@ -3015,7 +3015,34 @@ function loadLocalInvoicesForCurrentUser(){
     invoices = [];
   }
 
+  let changed = false;
+  invoices.forEach(inv => {
+    if(ensureInvoiceLocalKey(inv)) changed = true;
+  });
+  if(changed) persistInvoices();
+
   return invoices;
+}
+
+function ensureInvoiceLocalKey(inv){
+  if(!inv || typeof inv !== 'object') return false;
+  const current = String(inv.localKey || '').trim();
+  if(current) return false;
+  const base = [
+    String(inv.id || '').trim(),
+    String(inv.date || '').trim(),
+    String(inv.ownerCode || currentUser?.code || '').trim(),
+    Date.now().toString(36),
+    Math.random().toString(36).slice(2,8)
+  ].filter(Boolean).join('_').replace(/\s+/g,'_');
+  inv.localKey = `local_${base || Math.random().toString(36).slice(2,10)}`;
+  return true;
+}
+
+function getLocalInvoiceSelectKey(inv, fallbackIndex = null){
+  ensureInvoiceLocalKey(inv);
+  const stable = String(inv?.localKey || '').trim();
+  return `local:${stable || fallbackIndex || 0}`;
 }
 
 function persistInvoices(){
@@ -3118,6 +3145,7 @@ function stampInvoiceOwner(inv){
   inv.ownerCode = currentUser.code;
   inv.ownerName = currentUser.name;
   inv.ownerRole = currentUser.role;
+  ensureInvoiceLocalKey(inv);
   return inv;
 }
 
@@ -4251,7 +4279,13 @@ function runFakeMergeProgress(label){
 }
 
 function getSelectedServerInvoicesForMerge(){
-  const chosen = serverInvoicesCache.filter(inv => selectedSidebarInvoiceKeys.has(`server:${inv.serverKey}`));
+  const chosenLocal = isMainAdmin()
+    ? invoices.filter(inv => selectedSidebarInvoiceKeys.has(getLocalInvoiceSelectKey(inv)))
+    : [];
+
+  const chosenServer = serverInvoicesCache.filter(inv => selectedSidebarInvoiceKeys.has(`server:${inv.serverKey}`));
+  const chosen = [...chosenLocal, ...chosenServer];
+
   if(chosen.length < 2){
     showToast('حدد فاتورتين أو أكثر بضغط مطول أولاً ❌', true);
     return null;
@@ -5419,7 +5453,8 @@ function renameEscEnterHandler(e){
 
   const makeLocalRow = (inv, i)=>{
     const row = document.createElement("div");
-    row.className = "invoice-chip";
+    const selectKey = getLocalInvoiceSelectKey(inv, i);
+    row.className = `invoice-chip ${isMainAdmin() && selectedSidebarInvoiceKeys.has(selectKey) ? "is-selected" : ""}`.trim();
 
     const sentMark = inv.serverStatus === "sent"
       ? `<span class="sent-dot" title="مرسلة"><i class="fa-solid fa-check"></i></span>`
@@ -5471,7 +5506,21 @@ function renameEscEnterHandler(e){
       </div>
     `;
 
-    row.onclick = ()=> loadInvoice(i);
+    if(isMainAdmin()){
+      bindLongPressRow(row, {
+        onLongPress: ()=> toggleSidebarSelection(selectKey),
+        onClick: ()=>{
+          if(selectedSidebarInvoiceKeys.size){
+            toggleSidebarSelection(selectKey);
+            return;
+          }
+          loadInvoice(i);
+        }
+      });
+    }else{
+      row.onclick = ()=> loadInvoice(i);
+    }
+
     wrap.appendChild(row);
   };
 
@@ -5574,6 +5623,10 @@ function renameEscEnterHandler(e){
     
 
     function deleteInvoice(i){
+      const deleted = invoices[i];
+      if(deleted){
+        selectedSidebarInvoiceKeys.delete(getLocalInvoiceSelectKey(deleted, i));
+      }
       invoices.splice(i,1);
       persistInvoices();
       currentInvoice = null;
