@@ -757,6 +757,30 @@ body{
 /* ====== Content ====== */
 .content{ display:flex; flex-direction:column; gap:18px; }
 
+/* ضبط خانة إضافة النقص على الديسكتوب: نرجّع العرض الطبيعي ونمدّد الارتفاع حتى يختفي الفراغ */
+@media (min-width: 993px){
+  .content{
+    align-self: stretch;
+    min-height: 100%;
+  }
+  .content > .card:first-child{
+    flex: 0 0 auto;
+  }
+  .content > .card:nth-child(2){
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .content > .card:nth-child(2) .editor{
+    flex: 0 0 auto;
+  }
+  .content > .card:nth-child(2) .table-wrap{
+    margin-top: auto;
+  }
+}
+
+
 
 /* تمديد خانة الفواتير على الديسكتوب فقط للمستخدم والأدمن الثانوي */
 @media (min-width: 993px){
