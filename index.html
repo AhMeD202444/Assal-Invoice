@@ -776,7 +776,19 @@ body{
     flex: 0 0 auto;
   }
   .content > .card:nth-child(2) .table-wrap{
-    margin-top: auto;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 260px;
+    height: 100%;
+    max-height: none;
+    margin-top: 20px;
+  }
+  .content > .card:nth-child(2) .table-wrap table{
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
   }
 }
 
@@ -898,8 +910,9 @@ body{
   -webkit-overflow-scrolling: touch; /* سلاسة على iOS */
   border-radius: 14px;
 
-  max-height: 300px;             /* يحدد أقصى ارتفاع (تقديراً 5 صفوف) */
-  overflow-y: auto;              /* يخلي سكرول عمودي إذا تعدى 5 صفوف */
+  min-height: 300px;             /* حد أدنى للارتفاع */
+  max-height: 300px;             /* افتراضيًا يبقى مضبوط على الشاشات الأصغر */
+  overflow-y: auto;              /* يخلي سكرول عمودي إذا تعدى الارتفاع المتاح */
 }
 
 
@@ -3072,6 +3085,7 @@ function buildMergedEntrySignatureFromItems(items = []){
 
 function normalizeMergedEntry(entry = {}){
   const normalizedItems = normalizeMergedItemsList(entry.items || []);
+  const freshSignature = buildMergedEntrySignatureFromItems(normalizedItems);
 
   return {
     kind: 'merged_invoice',
@@ -3080,10 +3094,135 @@ function normalizeMergedEntry(entry = {}){
     createdAt: Number(entry.createdAt || Date.now()),
     items: normalizedItems,
     size: Number(entry.size || new Blob([JSON.stringify(normalizedItems)]).size || 0),
-    signature: String(entry.signature || buildMergedEntrySignatureFromItems(normalizedItems)),
+    signature: String(freshSignature),
     mergeServerKey: String(entry.mergeServerKey || ''),
     serverUploadedAt: Number(entry.serverUploadedAt || 0)
   };
+}
+
+
+function getMergedServerLikeKey(entry = {}){
+  return String(entry.mergeServerKey || entry.serverKey || '').trim();
+}
+
+function getMergedEntryStableSignature(entry = {}){
+  return String(entry.signature || buildMergedEntrySignatureFromItems(entry.items || []) || '').trim();
+}
+
+function getMergedEntryNormalizedNameKey(entry = {}){
+  return normalizeInvoiceMatchText(entry.name || entry.id || '');
+}
+
+function scoreMergedEntryForDedup(entry = {}){
+  let score = 0;
+  if(getMergedServerLikeKey(entry)) score += 100;
+  if(getMergedEntryStableSignature(entry)) score += 60;
+  if(Array.isArray(entry.items) && entry.items.length) score += Math.min(30, entry.items.length);
+  if(Number(entry.serverUploadedAt || entry.uploadedAt || 0)) score += 20;
+  return score;
+}
+
+function pickPreferredMergedEntry(existing = {}, candidate = {}){
+  const a = normalizeMergedEntry(existing || {});
+  const b = normalizeMergedEntry(candidate || {});
+  const keepB = scoreMergedEntryForDedup(b) > scoreMergedEntryForDedup(a);
+  const keep = keepB ? b : a;
+  const other = keepB ? a : b;
+  return normalizeMergedEntry({
+    ...keep,
+    mergeEntryId: String(keep.mergeEntryId || other.mergeEntryId || `merge_${Date.now()}_${Math.random().toString(36).slice(2,8)}`),
+    mergeServerKey: getMergedServerLikeKey(keep) || getMergedServerLikeKey(other),
+    name: String(keep.name || other.name || autoMainMergeBoxName()).trim(),
+    createdAt: Number(keep.createdAt || other.createdAt || Date.now()),
+    items: Array.isArray(keep.items) && keep.items.length ? keep.items : (other.items || []),
+    signature: getMergedEntryStableSignature(keep) || getMergedEntryStableSignature(other),
+    serverUploadedAt: Number(keep.serverUploadedAt || keep.uploadedAt || other.serverUploadedAt || other.uploadedAt || 0)
+  });
+}
+
+function buildMergedEntryIdentityCandidates(entry = {}){
+  const normalized = normalizeMergedEntry(entry || {});
+  const serverKey = getMergedServerLikeKey(normalized);
+  const sig = getMergedEntryStableSignature(normalized);
+  const nameKey = getMergedEntryNormalizedNameKey(normalized);
+  const createdAt = Number(normalized.createdAt || 0);
+  const uploadedAt = Number(normalized.serverUploadedAt || normalized.uploadedAt || 0);
+  const keys = [];
+
+  if(serverKey) keys.push(`server:${serverKey}`);
+  if(serverKey && nameKey) keys.push(`server-name:${serverKey}|${nameKey}`);
+  if(sig) keys.push(`sig:${sig}`);
+  if(sig && nameKey) keys.push(`sig-name:${sig}|${nameKey}`);
+  if(nameKey && createdAt && sig) keys.push(`name-created-sig:${nameKey}|${createdAt}|${sig}`);
+  if(nameKey && uploadedAt) keys.push(`name-uploaded:${nameKey}|${uploadedAt}`);
+
+  return Array.from(new Set(keys.filter(Boolean)));
+}
+
+function dedupeLocalMergedEntries(list = []){
+  const input = Array.isArray(list) ? list : [];
+  const out = [];
+  const seen = new Map();
+
+  input.forEach(raw => {
+    if(!isMergedImportEntry(raw)){
+      out.push(raw);
+      return;
+    }
+
+    const normalized = normalizeMergedEntry(raw);
+    const keys = buildMergedEntryIdentityCandidates(normalized);
+    const matchIndex = keys.map(key => seen.get(key)).find(index => Number.isInteger(index));
+
+    if(Number.isInteger(matchIndex)){
+      out[matchIndex] = pickPreferredMergedEntry(out[matchIndex], normalized);
+      buildMergedEntryIdentityCandidates(out[matchIndex]).forEach(key => seen.set(key, matchIndex));
+      return;
+    }
+
+    const idx = out.push(normalized) - 1;
+    keys.forEach(key => seen.set(key, idx));
+  });
+
+  return out;
+}
+
+function findLocalMergedImportMatchIndex(serverFile = {}){
+  const normalizedServerEntry = normalizeMergedEntry({
+    mergeEntryId: `srv_${String(serverFile.serverKey || Date.now())}`,
+    mergeServerKey: String(serverFile.serverKey || serverFile.mergeServerKey || ''),
+    name: String(serverFile.id || serverFile.name || autoMainMergeBoxName()).trim(),
+    createdAt: getMergedServerCreatedAt(serverFile, serverFile.uploadedAt || Date.now()),
+    items: serverFile.items || [],
+    signature: String(serverFile.signature || buildMergedEntrySignatureFromItems(serverFile.items || [])),
+    serverUploadedAt: Number(serverFile.uploadedAt || 0)
+  });
+
+  const targetKeys = buildMergedEntryIdentityCandidates(normalizedServerEntry);
+  const targetNameKey = getMergedEntryNormalizedNameKey(normalizedServerEntry);
+  let fallbackIndex = -1;
+
+  for(let i = 0; i < importedPdfFiles.length; i++){
+    const entry = importedPdfFiles[i];
+    if(!isMergedImportEntry(entry)) continue;
+
+    const localEntry = normalizeMergedEntry(entry);
+    const localKeys = buildMergedEntryIdentityCandidates(localEntry);
+    if(targetKeys.some(key => localKeys.includes(key))) return i;
+
+    if(
+      targetNameKey &&
+      getMergedEntryNormalizedNameKey(localEntry) === targetNameKey &&
+      (
+        (Number(localEntry.createdAt || 0) && Number(localEntry.createdAt || 0) === Number(normalizedServerEntry.createdAt || 0)) ||
+        (Number(localEntry.serverUploadedAt || 0) && Number(localEntry.serverUploadedAt || 0) === Number(normalizedServerEntry.serverUploadedAt || 0))
+      )
+    ){
+      fallbackIndex = i;
+    }
+  }
+
+  return fallbackIndex;
 }
 
 function findLocalMergedDuplicateByItems(items, excludeIndex = -1){
@@ -3097,6 +3236,7 @@ function findLocalMergedDuplicateByItems(items, excludeIndex = -1){
 
 function persistMergeBoxEntries(){
   try{
+    importedPdfFiles = dedupeLocalMergedEntries(importedPdfFiles);
     const serializable = importedPdfFiles
       .filter(isMergedImportEntry)
       .map(entry => normalizeMergedEntry(entry));
@@ -3113,6 +3253,7 @@ function loadPersistedMergeBoxEntries(){
     importedPdfFiles = Array.isArray(parsed)
       ? parsed.filter(isMergedImportEntry).map(entry => normalizeMergedEntry(entry))
       : [];
+    importedPdfFiles = dedupeLocalMergedEntries(importedPdfFiles);
   }catch(err){
     console.error('load merge box error:', err);
     importedPdfFiles = [];
@@ -3125,15 +3266,18 @@ function syncCurrentInvoiceToOpenedMergeEntry(){
   const idx = importedPdfFiles.findIndex(entry => isMergedImportEntry(entry) && entry.mergeEntryId === currentInvoice.__mergedEntryId);
   if(idx === -1) return;
 
+  const syncedItems = (currentInvoice.items || []).map(it => ({
+    category: String(it.category || '').trim(),
+    name: String(it.name || it.item || '').trim(),
+    qty: String(it.qty || '').trim(),
+    note: String(it.note || '').trim()
+  }));
+
   importedPdfFiles[idx] = normalizeMergedEntry({
     ...importedPdfFiles[idx],
     name: String(currentInvoice.id || importedPdfFiles[idx].name || autoMainMergeBoxName()).trim(),
-    items: (currentInvoice.items || []).map(it => ({
-      category: String(it.category || '').trim(),
-      name: String(it.name || it.item || '').trim(),
-      qty: String(it.qty || '').trim(),
-      note: String(it.note || '').trim()
-    }))
+    items: syncedItems,
+    signature: buildMergedEntrySignatureFromItems(syncedItems)
   });
 
   persistMergeBoxEntries();
@@ -3749,6 +3893,16 @@ async function importMergedEntriesFromServer(){
   let importedCount = 0;
   let replacedCount = 0;
   let skippedCount = 0;
+  let cleanedCount = 0;
+
+  const runLocalDedup = ()=>{
+    const before = importedPdfFiles.filter(isMergedImportEntry).length;
+    importedPdfFiles = dedupeLocalMergedEntries(importedPdfFiles);
+    const after = importedPdfFiles.filter(isMergedImportEntry).length;
+    if(before > after) cleanedCount += (before - after);
+  };
+
+  runLocalDedup();
 
   const orderedList = [...list].reverse();
 
@@ -3756,12 +3910,14 @@ async function importMergedEntriesFromServer(){
     const serverName = String(file.id || file.name || autoMainMergeBoxName()).trim();
     const serverSignature = String(file.signature || buildMergedEntrySignatureFromItems(file.items || []) || '');
     const serverCreatedAt = getMergedServerCreatedAt(file, file.uploadedAt || Date.now());
-    const existingExactIndex = importedPdfFiles.findIndex(entry =>
-      isMergedImportEntry(entry) && (
-        (String(entry.mergeServerKey || '').trim() && String(entry.mergeServerKey || '').trim() === String(file.serverKey || '').trim()) ||
-        (serverSignature && String(entry.signature || buildMergedEntrySignatureFromItems(entry.items || [])) === serverSignature)
-      )
-    );
+    const existingExactIndex = findLocalMergedImportMatchIndex({
+      ...file,
+      id: serverName,
+      name: serverName,
+      signature: serverSignature,
+      createdAt: serverCreatedAt,
+      uploadedAt: Number(file.uploadedAt || 0)
+    });
 
     if(existingExactIndex !== -1){
       const oldLocal = normalizeMergedEntry(importedPdfFiles[existingExactIndex] || {});
@@ -3775,6 +3931,7 @@ async function importMergedEntriesFromServer(){
         serverUploadedAt: Number(file.uploadedAt || 0)
       });
       replacedCount++;
+      runLocalDedup();
       continue;
     }
 
@@ -3790,23 +3947,24 @@ async function importMergedEntriesFromServer(){
       serverUploadedAt: Number(file.uploadedAt || 0)
     }));
     importedCount++;
+    runLocalDedup();
   }
 
   persistMergeBoxEntries();
   renderImportedPdfList();
 
-  if(importedCount || replacedCount){
+  if(importedCount || replacedCount || cleanedCount){
     const parts = [];
     if(importedCount) parts.push(`تم استيراد ${importedCount} ملف`);
     if(replacedCount) parts.push(`تم تحديث ${replacedCount} ملف`);
     if(skippedCount) parts.push(`تم تجاهل ${skippedCount} ملف`);
+    if(cleanedCount) parts.push(`تم تنظيف ${cleanedCount} نسخة مكررة`);
     showToast(`${parts.join(' • ')} ✅`);
     return;
   }
 
   showToast('لم يتم استيراد أي ملف');
 }
-
 
 function showReplaceOrCloseModal(title, message, yesText = 'استبدال', noText = 'إغلاق'){
   return new Promise((resolve)=>{
