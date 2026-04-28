@@ -2767,6 +2767,106 @@ body{
   .scroll-top-fab{ display: none !important; }
 }
 
+
+
+/* =========================================================
+   FINAL • Main Admin Command Palette dual quantity fields for all invoices
+   - يظهر فقط داخل لوحة الأوامر عند الدخول بحساب الأدمن الرئيسي لكل الفواتير
+   - الحقل الأول يعرض العدد الأصلي المقفول ويبقى ثابت حتى بعد إغلاق/فتح لوحة الأوامر
+   - الحقل الثاني يحتفظ برقم الطباعة/التصدير، وهو الرقم الوحيد المعتمد للطباعة بعد التعديل
+   - حقول العدد صارت بنفس ارتفاع حقل الملاحظات داخل لوحة الأوامر
+   - عند تغيير رقم الحقل الثاني يظهر توست تأكيد التغيير
+   - لا تظهر هذه الحقول في الطباعة أو التصدير؛ فقط داخل لوحة الأوامر
+   ========================================================= */
+.palette .item-row.admin-dual-qty{
+  overflow: visible;
+}
+
+.palette .qty-duo-wrap{
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr) !important;
+  align-items: center !important;
+  gap: 7px !important;
+  min-width: 0 !important;
+  height: 40px !important;              /* يساوي ارتفاع خانة الملاحظات */
+}
+
+.palette .qty-field{
+  min-width: 0;
+  display: block;
+  margin: 0;
+}
+
+.palette .qty-mini-label{
+  display: none !important;
+}
+
+.palette .qty-duo-wrap input.qty,
+.palette .qty-duo-wrap input.qty-locked{
+  width: 100% !important;
+  height: 40px !important;              /* نفس ارتفاع حقل الملاحظات */
+  line-height: 40px !important;
+  text-align: center;
+  padding: 0 10px !important;
+  border-radius: 12px !important;       /* نفس نعومة حقل الملاحظات */
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  outline: none;
+}
+
+.palette .qty-duo-wrap input.qty-locked{
+  cursor: not-allowed;
+  user-select: text;
+  color: #b7c4d8 !important;
+  background: rgba(148,163,184,.085) !important;
+  border: 1px dashed rgba(148,163,184,.32) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+
+.palette .qty-duo-wrap input.qty-edit{
+  color: #f8fbff !important;
+  background: rgba(33,212,253,.075) !important;
+  border: 1px solid rgba(33,212,253,.24) !important;
+}
+
+.palette .qty-duo-wrap input.qty-edit::placeholder{
+  color: rgba(226,232,240,.55);
+}
+
+.palette .qty-duo-wrap input.qty-edit:focus{
+  border-color: rgba(33,212,253,.62) !important;
+  box-shadow: 0 0 0 3px rgba(33,212,253,.12) !important;
+  background: rgba(33,212,253,.11) !important;
+}
+
+@media (min-width: 769px){
+  .palette .item-row.admin-dual-qty{
+    grid-template-columns: 22px minmax(220px,1.22fr) minmax(180px,.9fr) minmax(178px,210px) 42px !important;
+  }
+}
+
+@media (max-width: 768px){
+  .palette .item-row.admin-dual-qty{
+    grid-template-columns: 22px minmax(0,1fr) minmax(126px,150px) 42px !important;
+    gap: 6px !important;
+  }
+  .palette .item-row.admin-dual-qty .note-wrap{
+    display: none !important;
+  }
+  .palette .qty-duo-wrap{
+    gap: 5px !important;
+  }
+  .palette .qty-mini-label{
+    font-size: 9px;
+  }
+  .palette .qty-duo-wrap input.qty,
+  .palette .qty-duo-wrap input.qty-locked{
+    height: 32px !important;
+    border-radius: 10px !important;
+    font-size: 12px !important;
+    padding: 0 5px !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -8543,7 +8643,7 @@ function mergeByMaxQuantity(items){
     
     /* ===== Command Palette (Ctrl+K): open, render, inline edit, multi-select, delete ===== */
 let __palFilter = "";
-let __palMap = [];          // {orig, category, name, qty, note}
+let __palMap = [];          // {orig, category, name, qty, note, lockedQty, editQty}
 let __palSel = new Set();   // selected original indexes
 let __palFocus = -1;        // focused row for arrows
 let __palDirty = false;     // ← صار تعديل داخل لوحة الأوامر؟
@@ -8679,13 +8779,50 @@ function palClose(){
 }
 
 function palBuildMap(){
-  __palMap = (currentInvoice.items||[]).map((it, idx)=> ({
-    orig: idx,
-    category: String(it.category||""),
-    name: String(it.name||""),
-    qty: String(it.qty||""),
-    note: String(it.note||"")
-  }));
+  const useDualQty = palUsesAdminDualQty();
+  let shouldSaveAdminQtyState = false;
+
+  __palMap = (currentInvoice.items||[]).map((it, idx)=> {
+    const currentQ = String(it.qty ?? "");
+    let lockedQ = currentQ;
+    let editQ = currentQ;
+
+    if(useDualQty){
+      // أول رقم يدخل للفاتورة بحساب الأدمن الرئيسي يبقى هو الحقل المقفول.
+      // الرقم الثاني هو رقم الطباعة/التصدير ويبقى محفوظ حتى بعد إغلاق وفتح لوحة الأوامر.
+      if(it._mainAdminOriginalQty === undefined || it._mainAdminOriginalQty === null || String(it._mainAdminOriginalQty).trim() === ""){
+        it._mainAdminOriginalQty = currentQ;
+        shouldSaveAdminQtyState = true;
+      }
+      if(it._mainAdminPrintQty === undefined || it._mainAdminPrintQty === null || String(it._mainAdminPrintQty).trim() === ""){
+        it._mainAdminPrintQty = currentQ;
+        shouldSaveAdminQtyState = true;
+      }
+
+      lockedQ = String(it._mainAdminOriginalQty ?? currentQ);
+      editQ = String(it._mainAdminPrintQty ?? currentQ);
+
+      // الطباعة/التصدير في كل النظام يعتمد item.qty، لذلك نخليه دائماً مطابق لخانة الرقم الثاني.
+      if(String(it.qty ?? "") !== editQ){
+        it.qty = editQ;
+        shouldSaveAdminQtyState = true;
+      }
+    }
+
+    return {
+      orig: idx,
+      category: String(it.category||""),
+      name: String(it.name||""),
+      qty: editQ,
+      lockedQty: lockedQ,
+      editQty: editQ,
+      note: String(it.note||"")
+    };
+  });
+
+  if(shouldSaveAdminQtyState){
+    autoSaveInvoice();
+  }
 }
 
 function __norm2(s){ 
@@ -8706,10 +8843,21 @@ function palFiltered(){
     __norm2(it.note).includes(q));
 }
 
+function palUsesAdminDualQty(){
+  // داخل حساب الأدمن الرئيسي: كل الفواتير داخل لوحة الأوامر تستخدم حقلين للعدد.
+  // الأول أصل/مرجع مقفول لا يتغير، والثاني رقم العمل الذي تعتمد عليه الطباعة والتصدير.
+  // هذا التغيير خاص بلوحة الأوامر فقط ولا يضيف أي حقول للطباعة أو التصدير.
+  return !!(
+    isMainAdmin() &&
+    currentInvoice &&
+    Array.isArray(currentInvoice.items)
+  );
+}
 function palRender(){
   const host = document.getElementById('palList');
   host.innerHTML = "";
   const data = palFiltered();
+  const useDualQty = palUsesAdminDualQty();
 
   const groups = new Map();
   data.forEach(it=>{
@@ -8734,7 +8882,7 @@ function palRender(){
 
     items.forEach((it)=>{
       const row = document.createElement('div');
-      row.className = 'item-row';
+      row.className = useDualQty ? 'item-row admin-dual-qty' : 'item-row';
       row.setAttribute('data-orig', it.orig);
 
       const checked = __palSel.has(it.orig) ? 'checked' : '';
@@ -8747,16 +8895,28 @@ function palRender(){
         <div class="note-wrap">
           <input class="pal-note-input" type="text" value="${escapeHtml(it.note)}" placeholder="ملاحظات" />
         </div>
+        ${useDualQty ? `
+        <div class="qty-wrap qty-duo-wrap" title="الأول رقم مقفول محفوظ، والثاني رقم الطباعة والتصدير">
+          <label class="qty-field qty-field-locked">
+            <span class="qty-mini-label" aria-hidden="true"></span>
+            <input class="qty-locked" type="number" value="${escapeHtml(it.lockedQty ?? it.qty ?? '0')}" readonly tabindex="-1" aria-label="العدد الحالي المقفول" />
+          </label>
+          <label class="qty-field qty-field-edit">
+            <span class="qty-mini-label" aria-hidden="true"></span>
+            <input class="qty qty-edit" type="number" min="0" inputmode="numeric" value="${escapeHtml(it.editQty ?? it.qty ?? '0')}" placeholder="" aria-label="عدد الطباعة والتصدير" />
+          </label>
+        </div>` : `
         <div class="qty-wrap">
           <button type="button" class="qty-btn qty-minus desktop-only" title="تقليل"><i class="fa-solid fa-minus"></i></button>
           <input class="qty" type="number" min="0" inputmode="numeric" value="${escapeHtml(it.qty ?? '0')}" />
           <button type="button" class="qty-btn qty-plus desktop-only" title="زيادة"><i class="fa-solid fa-plus"></i></button>
-        </div>
+        </div>`}
         <button class="del" type="button" title="حذف"><i class="fa-regular fa-trash-can"></i></button>
       `;
 
       const chkEl = row.querySelector('.chk');
       const qtyEl = row.querySelector('.qty');
+      const lockedQtyEl = row.querySelector('.qty-locked');
       const plusEl = row.querySelector('.qty-plus');
       const minusEl = row.querySelector('.qty-minus');
       const noteEl = row.querySelector('.pal-note-input');
@@ -8767,54 +8927,143 @@ function palRender(){
         else __palSel.delete(it.orig);
       });
 
-      let prevQty = String(qtyEl.value || '1');
-      qtyEl.addEventListener('focus', ()=>{ prevQty = String(qtyEl.value || '1'); });
+      if(useDualQty){
+        // داخل حساب الأدمن الرئيسي: الحقل الأول قراءة فقط ويبقى ثابت حتى بعد الإغلاق،
+        // والثاني هو الرقم المحفوظ للطباعة والتصدير ويبقى ظاهر دائماً.
+        let prevQty = String(qtyEl.value || '');
+        let focusStartQty = prevQty;
+        let lastNotifiedQty = prevQty;
+        qtyEl.addEventListener('focus', ()=>{
+          prevQty = String(qtyEl.value || '');
+          focusStartQty = prevQty;
+        });
 
-     const normalizeQty = ()=>{
-  let num = parseInt(qtyEl.value, 10);
-  if(isNaN(num) || num < 0) num = 0;
-  qtyEl.value = String(num);
-  return String(num);
-};
+        const normalizeNewQty = ()=>{
+          const raw = String(qtyEl.value || '').trim();
+          if(raw === '') return '';
+          let num = parseInt(raw, 10);
+          if(isNaN(num) || num < 0) return null;
+          return String(num);
+        };
 
-      const saveQty = (notify=false)=>{
-        const val = normalizeQty();
-        if(String(currentInvoice.items[it.orig]?.qty || '1') === val) return;
-        commitPalItem(it.orig, { qty: val }, notify ? 'تم تعديل العدد ✅' : '');
-      };
+        const saveDualQty = (notify=false, live=false)=>{
+          const raw = String(qtyEl.value || '').trim();
+          if(raw === '') return false;
 
-      plusEl?.addEventListener('click', (e)=>{
-        e.stopPropagation();
-        qtyEl.value = String((parseInt(qtyEl.value, 10) || 0) + 1);
-        saveQty(false);
-      });
-
-      minusEl?.addEventListener('click', (e)=>{
-        e.stopPropagation();
-        qtyEl.value = String(Math.max(0, (parseInt(qtyEl.value, 10) || 0) - 1));
-        saveQty(false);
-      });
-
-      qtyEl.addEventListener('change', ()=> saveQty(true));
-      qtyEl.addEventListener('blur', ()=>{
-        const now = normalizeQty();
-        if(now !== prevQty) saveQty(false);
-      });
-      qtyEl.addEventListener('keydown', (e)=>{
-        if(e.key === 'Enter'){
-          e.preventDefault();
-          saveQty(true);
-          setTimeout(()=>{
-            const inputs = Array.from(document.querySelectorAll('#palList .item-row .qty'));
-            const idx = inputs.indexOf(qtyEl);
-            if(inputs.length){
-              const next = inputs[(idx + 1) % inputs.length];
-              next?.focus();
-              next?.select?.();
+          const val = normalizeNewQty();
+          if(val === null){
+            if(!live){
+              showToast('اكتب رقم صحيح للعدد ❌', true);
+              qtyEl.focus();
+              qtyEl.select?.();
             }
-          }, 10);
-        }
-      });
+            return false;
+          }
+
+          // خانة الرقم الثاني تبقى ظاهرة، وهي وحدها التي تعتمدها الطباعة والتصدير.
+          qtyEl.value = val;
+          prevQty = val;
+
+          const itemRef = currentInvoice.items[it.orig];
+          const oldVal = String(itemRef?.qty ?? '0');
+          const oldPrintVal = String(itemRef?._mainAdminPrintQty ?? '');
+          const changedInData = (oldVal !== val || oldPrintVal !== val);
+          if(changedInData){
+            commitPalItem(it.orig, { qty: val, _mainAdminPrintQty: val }, '');
+            renderItems();
+          }
+
+          // لأن الحفظ الحي يصير أثناء الكتابة، نخلي التوست يظهر عند اعتماد التغيير
+          // حتى لو كان الرقم محفوظ فعلياً قبل حدث change/blur.
+          if(notify && val !== lastNotifiedQty && val !== focusStartQty){
+            lastNotifiedQty = val;
+            showToast('تم التعديل والحفظ ✅');
+          }
+
+          // لا نغيّر الحقل المقفول أبداً؛ يبقى الرقم الأصلي المحفوظ.
+          it.qty = val;
+          it.editQty = val;
+          const mapped = __palMap.find(x => x.orig === it.orig);
+          if(mapped){
+            mapped.qty = val;
+            mapped.editQty = val;
+            // mapped.lockedQty يبقى كما هو حتى لا يتحول الرقم المقفول إلى الرقم الجديد.
+          }
+          return true;
+        };
+
+        qtyEl.addEventListener('input', ()=> saveDualQty(false, true));
+        qtyEl.addEventListener('change', ()=> saveDualQty(true));
+        qtyEl.addEventListener('blur', ()=>{
+          const rawNow = String(qtyEl.value || '').trim();
+          // إذا تغير عن الرقم الذي كان عند دخول الحقل، أظهر توست التأكيد عند الخروج أيضاً.
+          if(rawNow !== focusStartQty) saveDualQty(true);
+        });
+        qtyEl.addEventListener('keydown', (e)=>{
+          if(e.key === 'Enter'){
+            e.preventDefault();
+            saveDualQty(true);
+            setTimeout(()=>{
+              const inputs = Array.from(document.querySelectorAll('#palList .item-row .qty'));
+              const idx = inputs.indexOf(qtyEl);
+              if(inputs.length){
+                const next = inputs[(idx + 1) % inputs.length];
+                next?.focus();
+                next?.select?.();
+              }
+            }, 10);
+          }
+        });
+      }else{
+        let prevQty = String(qtyEl.value || '1');
+        qtyEl.addEventListener('focus', ()=>{ prevQty = String(qtyEl.value || '1'); });
+
+       const normalizeQty = ()=>{
+    let num = parseInt(qtyEl.value, 10);
+    if(isNaN(num) || num < 0) num = 0;
+    qtyEl.value = String(num);
+    return String(num);
+  };
+
+        const saveQty = (notify=false)=>{
+          const val = normalizeQty();
+          if(String(currentInvoice.items[it.orig]?.qty || '1') === val) return;
+          commitPalItem(it.orig, { qty: val }, notify ? 'تم تعديل العدد ✅' : '');
+        };
+
+        plusEl?.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          qtyEl.value = String((parseInt(qtyEl.value, 10) || 0) + 1);
+          saveQty(false);
+        });
+
+        minusEl?.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          qtyEl.value = String(Math.max(0, (parseInt(qtyEl.value, 10) || 0) - 1));
+          saveQty(false);
+        });
+
+        qtyEl.addEventListener('change', ()=> saveQty(true));
+        qtyEl.addEventListener('blur', ()=>{
+          const now = normalizeQty();
+          if(now !== prevQty) saveQty(false);
+        });
+        qtyEl.addEventListener('keydown', (e)=>{
+          if(e.key === 'Enter'){
+            e.preventDefault();
+            saveQty(true);
+            setTimeout(()=>{
+              const inputs = Array.from(document.querySelectorAll('#palList .item-row .qty'));
+              const idx = inputs.indexOf(qtyEl);
+              if(inputs.length){
+                const next = inputs[(idx + 1) % inputs.length];
+                next?.focus();
+                next?.select?.();
+              }
+            }, 10);
+          }
+        });
+      }
 
       if(noteEl){
         let prevNote = noteEl.value;
@@ -8844,7 +9093,7 @@ function palRender(){
       });
 
       row.addEventListener('click', (e)=>{
-        if(e.target.closest('.chk, .qty, .qty-btn, .pal-note-input, .del')) return;
+        if(e.target.closest('.chk, .qty, .qty-locked, .qty-btn, .pal-note-input, .del')) return;
         __palFocus = it.orig;
         qtyEl.focus();
         qtyEl.select?.();
@@ -8924,8 +9173,24 @@ function palKeyHandler(e){
   // + / - لتعديل الكمية سريعاً (على الصف المتركز)
   if(e.key === '+' || e.key === '-' ){
     if(__palFocus === -1) return;
-    const el = document.querySelector(`.item-row[data-orig="${__palFocus}"] .qty`);
+    const row = document.querySelector(`.item-row[data-orig="${__palFocus}"]`);
+    const el = row?.querySelector('.qty');
     if(!el) return;
+
+    if(row.classList.contains('admin-dual-qty')){
+      const baseRaw = String(el.value || '').trim() || String(currentInvoice.items[__palFocus]?._mainAdminPrintQty || currentInvoice.items[__palFocus]?.qty || row.querySelector('.qty-locked')?.value || '0');
+      const cur = Number(baseRaw || "0");
+      const next = e.key==='+' ? cur+1 : Math.max(0, cur-1);
+      el.value = String(next);
+      el.dispatchEvent(new Event('input', { bubbles:true }));
+      // أظهر توست حتى عند التعديل السريع من لوحة المفاتيح داخل المربع الثاني.
+      showToast('تم التعديل والحفظ ✅');
+      el.focus();
+      el.select?.();
+      e.preventDefault();
+      return;
+    }
+
     const cur = Number(el.value || "0");
     const next = e.key==='+' ? cur+1 : Math.max(0, cur-1);
     el.value = next;
