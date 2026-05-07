@@ -3202,6 +3202,84 @@ body{
   .assal-chat-card,
   .assal-notify-btn{ display:none !important; }
 }
+
+
+/* =========================================================
+   ASSAL FINAL • Notification badge outside bell button
+   - دائرة الإشعارات خارج زر الجرس وملتصقة به
+   - يلغي قصّ .icon-btn حتى لا تنحجب الدائرة
+   - لا يغيّر منطق الإشعارات أو Firebase
+   ========================================================= */
+.icon-btn.assal-notify-btn{
+  position: relative !important;
+  overflow: visible !important;
+  clip-path: none !important;
+  isolation: isolate;
+}
+
+.icon-btn.assal-notify-btn::after{
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 14px;
+  pointer-events: none;
+}
+
+.assal-notify-badge{
+  position: absolute !important;
+  top: -9px !important;
+  right: -9px !important;
+  left: auto !important;
+  inset-inline-start: auto !important;
+  inset-inline-end: auto !important;
+
+  min-width: 20px !important;
+  height: 20px !important;
+  padding: 0 5px !important;
+
+  display: none;
+  place-items: center;
+  border-radius: 999px !important;
+
+  background: linear-gradient(135deg,#ff334b 0%, #ef233c 48%, #b91c1c 100%) !important;
+  color: #ffffff !important;
+
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  font-family: "Cairo", system-ui, -apple-system, "Segoe UI", sans-serif !important;
+
+  border: 2px solid rgba(9,12,18,.98) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.18),
+    0 7px 16px rgba(239,35,60,.40),
+    0 0 16px rgba(239,35,60,.30) !important;
+
+  z-index: 5 !important;
+  pointer-events: none !important;
+}
+
+.assal-notify-badge.show{
+  display: grid !important;
+  animation: assalNotifyBadgePop .22s ease both;
+}
+
+@keyframes assalNotifyBadgePop{
+  from{ transform: scale(.70); opacity: .35; }
+  to{ transform: scale(1); opacity: 1; }
+}
+
+@media (max-width:576px){
+  .assal-notify-badge{
+    top: -8px !important;
+    right: -8px !important;
+    min-width: 19px !important;
+    height: 19px !important;
+    font-size: 9px !important;
+    border-width: 2px !important;
+  }
+}
+
 </style>
 </head>
 <body>
