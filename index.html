@@ -3929,6 +3929,16 @@ const ASSAL_AUDIT_LOGS_PATH = "assal_audit_logs";
 const ASSAL_INVOICE_CHATS_PATH = "assal_invoice_chats";
 const ASSAL_DEVICE_TOKENS_PATH = "assal_device_tokens";
 
+/* =========================================================
+   ASSAL INVOICE • Android Push Notifications via Cloudflare Worker
+   ملاحظة مهمة:
+   - رابط الـ Worker جاهز.
+   - اكتب نفس قيمة Secret التي خزّنتها في Cloudflare مكان ASSAL_FCM_WORKER_SECRET.
+   - بدون هذا السكرت تبقى الإشعارات الداخلية تعمل، لكن إشعار الجهاز FCM لن يُرسل.
+   ========================================================= */
+const ASSAL_FCM_WORKER_URL = "https://assal-invoice-fcm.ahmed-al-bayatii-90.workers.dev/";
+const ASSAL_FCM_WORKER_SECRET = "Aa1234@Aa1234";
+
 let assalNotificationsCache = [];
 let assalNotificationsRef = null;
 let assalNotificationsBound = false;
@@ -4201,6 +4211,89 @@ async function assalWriteAuditLog(action, inv, details = {}){
   try{ await ref.push(payload); }catch(err){ console.error("ASSAL audit error:", err); }
 }
 
+function assalWorkerSecretReady(){
+  return !!(
+    ASSAL_FCM_WORKER_URL &&
+    ASSAL_FCM_WORKER_SECRET &&
+    ASSAL_FCM_WORKER_SECRET !== "PUT_YOUR_ASSAL_WORKER_SECRET_HERE"
+  );
+}
+
+async function assalSendPushNotificationToUser(userCode, title, body, data = {}){
+  const safeUserCode = String(userCode || "").trim();
+  if(!safeUserCode || !assalWorkerSecretReady()) return { ok:false, skipped:true };
+
+  try{
+    const res = await fetch(ASSAL_FCM_WORKER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-assal-secret": ASSAL_FCM_WORKER_SECRET
+      },
+      body: JSON.stringify({
+        userCode: safeUserCode,
+        title: String(title || "ASSAL INVOICE"),
+        body: String(body || "وصل إشعار جديد"),
+        data: {
+          app: "ASSAL_INVOICE",
+          ...stringifyAssalPushData(data || {})
+        }
+      })
+    });
+
+    let responseBody = null;
+    try{ responseBody = await res.json(); }catch{ responseBody = null; }
+
+    if(!res.ok){
+      console.warn("ASSAL FCM worker failed", safeUserCode, res.status, responseBody);
+      return { ok:false, status:res.status, response:responseBody };
+    }
+
+    return { ok:true, status:res.status, response:responseBody };
+  }catch(err){
+    console.warn("ASSAL FCM push error", safeUserCode, err);
+    return { ok:false, error:String(err?.message || err) };
+  }
+}
+
+function stringifyAssalPushData(data){
+  const out = {};
+  if(!data || typeof data !== "object") return out;
+  Object.entries(data).forEach(([key, value])=>{
+    if(value === undefined || value === null) return;
+    if(typeof value === "object"){
+      try{ out[String(key)] = JSON.stringify(value); }catch{ out[String(key)] = String(value); }
+    }else{
+      out[String(key)] = String(value);
+    }
+  });
+  return out;
+}
+
+async function assalSendPushNotificationsForRecipients(recipients, title, body, data = {}){
+  if(!Array.isArray(recipients) || !recipients.length) return;
+  if(!assalWorkerSecretReady()){
+    console.warn("ASSAL FCM skipped: ضع قيمة ASSAL_FCM_WORKER_SECRET داخل index.html");
+    return;
+  }
+
+  const uniqueCodes = [...new Set(
+    recipients
+      .map(r => String(r?.code || "").trim())
+      .filter(Boolean)
+  )];
+
+  // إرسال فوري ومتوازي، وأي توكن خربان يتعامل وياه الـ Worker بدون ما يوقف باقي الإشعارات.
+  const results = await Promise.allSettled(
+    uniqueCodes.map(code => assalSendPushNotificationToUser(code, title, body, data))
+  );
+
+  const failed = results.filter(r => r.status === "rejected" || (r.value && r.value.ok === false && !r.value.skipped)).length;
+  if(failed){
+    console.warn(`ASSAL FCM finished with ${failed} failed request(s)`);
+  }
+}
+
 async function assalCreateNotifications(action, inv, details = {}){
   const root = assalGetNotificationsRootRef();
   if(!root || !currentUser) return;
@@ -4212,6 +4305,7 @@ async function assalCreateNotifications(action, inv, details = {}){
   const body = assalBuildNotificationText(action, inv, details);
   const owner = assalGetInvoiceOwner(inv || {});
   const serverKey = assalGetInvoiceServerKey(inv);
+  const invoiceName = String(inv?.id || details.invoiceName || "").trim();
 
   const updates = {};
   recipients.forEach(r => {
@@ -4223,7 +4317,7 @@ async function assalCreateNotifications(action, inv, details = {}){
       action,
       read:false,
       invoiceKey: serverKey,
-      invoiceName: String(inv?.id || details.invoiceName || "").trim(),
+      invoiceName,
       actorCode: currentUser.code || "",
       actorName: currentUser.name || "",
       actorRole: currentUser.role || "",
@@ -4236,7 +4330,28 @@ async function assalCreateNotifications(action, inv, details = {}){
   });
 
   if(Object.keys(updates).length){
-    try{ await root.update(updates); }catch(err){ console.error("ASSAL notify error:", err); }
+    try{
+      // 1) الإشعار الداخلي ينكتب أولاً داخل Firebase Realtime Database.
+      await root.update(updates);
+
+      // 2) بعدها مباشرة ننادي Cloudflare Worker حتى يرسل FCM للأجهزة بشكل فوري.
+      //    هذا لا يغيّر منطق الحفظ/الدمج/رفع الفواتير، فقط يضيف إشعار جهاز خارجي.
+      assalSendPushNotificationsForRecipients(recipients, title, body, {
+        action,
+        invoiceKey: serverKey,
+        invoiceName,
+        actorCode: currentUser.code || "",
+        actorName: currentUser.name || "",
+        actorRole: currentUser.role || "",
+        ownerCode: owner.code || "",
+        ownerName: owner.name || "",
+        ownerRole: owner.role || "",
+        createdAt: now,
+        details: details || {}
+      });
+    }catch(err){
+      console.error("ASSAL notify error:", err);
+    }
   }
 }
 
