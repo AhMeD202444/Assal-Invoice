@@ -66,7 +66,9 @@
   display: none; align-items: center; justify-content: center;
   background: rgba(10,11,14,.55);
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  overscroll-behavior: contain;
+  overscroll-behavior-y: auto !important;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
    touch-action: none;            /* يمنع السحب على الخلفية */
 }
 
@@ -2435,7 +2437,9 @@ body.no-copy-ui [contenteditable="true"]{
     margin-top: 20px !important;
     overflow-y: auto !important;
     overflow-x: auto !important;
-    overscroll-behavior: contain;
+    overscroll-behavior-y: auto !important;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -2545,7 +2549,9 @@ body{
   max-height: calc((var(--invoice-section-card-h) * 3) + (var(--invoice-section-gap) * 2) + 10px);
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: auto !important;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
   padding: 2px 9px 2px 2px;
   margin: 0 0 10px 0;
@@ -2622,7 +2628,9 @@ body{
   max-height: calc((var(--invoice-section-card-h) * 3) + (var(--invoice-section-gap) * 2) + 10px);
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: auto !important;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
   padding: 2px 9px 2px 2px;
   scrollbar-width: thin !important;
@@ -2646,6 +2654,29 @@ body{
 @media print{
   body{ padding-top: 0 !important; }
   .app-header{ position: static !important; box-shadow: none !important; }
+}
+
+
+/* =========================================================
+   FINAL • Smart nested scroll for invoice sections
+   - إذا انتهى سكرول الفواتير، يتحول السحب تلقائياً لسكرول الصفحة
+   - وإذا رجع لبداية الفواتير، يصعد بالصفحة بدون تعليق
+   ========================================================= */
+.invoice-section-scroll,
+#importedPdfList{
+  touch-action: pan-y !important;
+  overscroll-behavior-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.server-section-title{
+  cursor: pointer;
+  scroll-margin-top: calc(var(--fixed-header-h, 70px) + 12px);
+}
+
+#sidebar,
+#importedSidebar{
+  scroll-margin-top: calc(var(--fixed-header-h, 70px) + 12px);
 }
 
 
@@ -2950,6 +2981,227 @@ body{
     place-items: center !important;
   }
 }
+
+
+/* =========================================================
+   ASSAL INVOICE • Realtime Notifications + Invoice Chat
+   مضاف: إشعارات داخلية + محادثة فاتورة + سجل تعديلات
+   ========================================================= */
+.assal-notify-btn{ position:relative; }
+.assal-notify-badge{
+  position:absolute;
+  top:-6px;
+  inset-inline-start:-6px;
+  min-width:19px;
+  height:19px;
+  display:none;
+  place-items:center;
+  padding:0 5px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#ef4444,#f97316);
+  color:#fff;
+  font-size:10px;
+  font-weight:900;
+  border:1px solid rgba(255,255,255,.35);
+  box-shadow:0 8px 18px rgba(239,68,68,.35);
+}
+.assal-notify-badge.show{ display:grid; }
+.assal-notify-panel{
+  position:fixed;
+  inset:0;
+  z-index:10120;
+  display:none;
+  background:rgba(10,11,14,.55);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.assal-notify-panel.show{ display:block; }
+.assal-notify-drawer{
+  position:absolute;
+  inset-block:0;
+  inset-inline-end:0;
+  width:min(430px,94vw);
+  display:flex;
+  flex-direction:column;
+  background:linear-gradient(180deg,rgba(18,22,31,.98),rgba(10,13,19,.98));
+  border-inline-start:1px solid rgba(255,255,255,.12);
+  box-shadow:-24px 0 70px rgba(0,0,0,.45);
+  color:var(--text);
+}
+.assal-panel-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:16px;
+  border-bottom:1px solid rgba(255,255,255,.10);
+}
+.assal-panel-title{ display:flex; flex-direction:column; gap:2px; }
+.assal-panel-title strong{ font-size:16px; }
+.assal-panel-title small{ color:var(--muted); font-size:12px; }
+.assal-panel-actions{ display:flex; align-items:center; gap:8px; }
+.assal-mini-btn{
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  background:rgba(255,255,255,.06);
+  color:#eaf0ff;
+  cursor:pointer;
+}
+.assal-mini-btn:hover{ background:rgba(255,255,255,.10); }
+.assal-notify-list{
+  flex:1 1 auto;
+  overflow:auto;
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+}
+.assal-notify-empty{
+  margin:auto;
+  text-align:center;
+  color:var(--muted);
+  line-height:1.8;
+  padding:30px 16px;
+}
+.assal-notify-item{
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  padding:12px;
+  background:rgba(255,255,255,.045);
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.assal-notify-item.unread{
+  background:linear-gradient(180deg,rgba(33,212,253,.10),rgba(255,255,255,.045));
+  border-color:rgba(33,212,253,.30);
+}
+.assal-notify-item strong{ font-size:13px; color:#f8fbff; }
+.assal-notify-item p{ margin:0; color:#cfd8ea; font-size:12px; line-height:1.65; }
+.assal-notify-meta{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  color:#8ea1bf;
+  font-size:11px;
+}
+.assal-chat-card{ display:none; }
+.assal-chat-card.show{ display:block; }
+.assal-chat-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+.assal-chat-title{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.assal-chat-title strong{ font-size:14px; color:#f8fbff; }
+.assal-chat-title small{ color:var(--muted); font-size:11px; }
+.assal-chat-status{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border-radius:999px;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.10);
+  color:#cbd5e1;
+  font-size:11px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.assal-chat-status.ready{ color:#86efac; border-color:rgba(34,197,94,.30); background:rgba(34,197,94,.08); }
+.assal-chat-messages{
+  height:260px;
+  overflow:auto;
+  padding:10px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  background:rgba(0,0,0,.14);
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.assal-chat-empty{
+  margin:auto;
+  color:var(--muted);
+  text-align:center;
+  font-size:13px;
+  line-height:1.8;
+}
+.assal-chat-msg{
+  width:min(84%,520px);
+  padding:10px 12px;
+  border-radius:16px;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.10);
+  align-self:flex-start;
+}
+.assal-chat-msg.mine{
+  align-self:flex-end;
+  background:linear-gradient(135deg,rgba(33,212,253,.18),rgba(109,94,252,.16));
+  border-color:rgba(33,212,253,.25);
+}
+.assal-chat-msg .name{
+  font-size:11px;
+  color:#9fb2d0;
+  margin-bottom:4px;
+  font-weight:900;
+}
+.assal-chat-msg .text{
+  font-size:13px;
+  line-height:1.75;
+  color:#f8fbff;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+.assal-chat-msg .time{
+  margin-top:5px;
+  color:#8290aa;
+  font-size:10px;
+  text-align:end;
+}
+.assal-chat-compose{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:8px;
+  margin-top:10px;
+}
+.assal-chat-compose textarea{
+  min-height:46px;
+  max-height:120px;
+  resize:vertical;
+  text-align:start;
+}
+.assal-chat-compose .btn{ width:auto; min-width:90px; }
+.assal-chat-disabled{
+  padding:12px;
+  border:1px dashed rgba(255,255,255,.16);
+  border-radius:14px;
+  color:var(--muted);
+  background:rgba(255,255,255,.035);
+  line-height:1.8;
+  font-size:13px;
+}
+@media (max-width:576px){
+  .assal-notify-drawer{ width:100%; }
+  .assal-chat-messages{ height:230px; }
+  .assal-chat-compose{ grid-template-columns:1fr; }
+  .assal-chat-compose .btn{ width:100%; }
+}
+@media print{
+  .assal-notify-panel,
+  .assal-chat-card,
+  .assal-notify-btn{ display:none !important; }
+}
 </style>
 </head>
 <body>
@@ -3071,6 +3323,10 @@ body{
 
       <div class="head-actions">
   <button class="icon-btn" id="btnReload" title="تحديث الصفحة"><i class="fa-solid fa-rotate-right"></i></button>
+  <button class="icon-btn assal-notify-btn" id="assalNotifyBtn" title="الإشعارات">
+    <i class="fa-regular fa-bell"></i>
+    <span class="assal-notify-badge" id="assalNotifyBadge">0</span>
+  </button>
 
   <!-- زر تصدير JSON فقط -->
  <button class="icon-btn" id="btnExportJSON" title="تصدير Excel">
@@ -3093,6 +3349,30 @@ body{
 
     </div>
   </header>
+
+<!-- ASSAL INVOICE • لوحة الإشعارات الفورية -->
+<div id="assalNotificationsPanel" class="assal-notify-panel" aria-hidden="true">
+  <div class="assal-notify-drawer" role="dialog" aria-modal="true" aria-label="إشعارات ASSAL INVOICE">
+    <div class="assal-panel-head">
+      <div class="assal-panel-title">
+        <strong><i class="fa-regular fa-bell"></i> إشعارات ASSAL INVOICE</strong>
+        <small id="assalNotifySubtitle">كل تعديل ومحادثة تظهر هنا</small>
+      </div>
+      <div class="assal-panel-actions">
+        <button class="assal-mini-btn" id="assalNotifyReadAllBtn" title="تعليم الكل كمقروء" aria-label="تعليم الكل كمقروء">
+          <i class="fa-solid fa-check-double"></i>
+        </button>
+        <button class="assal-mini-btn" id="assalNotifyCloseBtn" title="إغلاق" aria-label="إغلاق">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+    <div id="assalNotificationsList" class="assal-notify-list">
+      <div class="assal-notify-empty">جاري تحميل الإشعارات...</div>
+    </div>
+  </div>
+</div>
+
   
   
   
@@ -3429,6 +3709,26 @@ body{
         </table>
       </div>
 
+      <!-- ASSAL INVOICE • محادثة فورية مرتبطة بالفاتورة -->
+      <div class="card assal-chat-card" id="assalInvoiceChatCard">
+        <div class="assal-chat-head">
+          <div class="assal-chat-title">
+            <strong><i class="fa-regular fa-comments"></i> محادثة الفاتورة</strong>
+            <small id="assalChatSubtitle">اختر فاتورة مرتبطة بالسيرفر حتى تبدأ المحادثة</small>
+          </div>
+          <span class="assal-chat-status" id="assalChatStatus"><i class="fa-solid fa-circle-info"></i> غير مفعلة</span>
+        </div>
+        <div id="assalChatDisabled" class="assal-chat-disabled">
+          المحادثة تشتغل على الفواتير المرفوعة للسيرفر فقط. افتح فاتورة سيرفر أو أرسل فاتورة الفرع للسيرفر حتى تتفعّل المحادثة.
+        </div>
+        <div id="assalChatMessages" class="assal-chat-messages" style="display:none;"></div>
+        <div id="assalChatCompose" class="assal-chat-compose" style="display:none;">
+          <textarea id="assalChatInput" class="gfield" placeholder="اكتب رسالة داخل هذه الفاتورة..."></textarea>
+          <button id="assalChatSendBtn" class="btn blue" type="button"><i class="fa-solid fa-paper-plane"></i> إرسال</button>
+        </div>
+      </div>
+
+
     </section>
   </main>
 
@@ -3536,6 +3836,690 @@ function getServerMergedFilesRef(){
   if(!initFirebaseServices()) return null;
   return firebaseDb.ref(SERVER_MERGED_FILES_PATH);
 }
+
+
+/* =========================================================
+   ASSAL INVOICE • Realtime Notifications + Audit + Chat
+   القاعدة:
+   - فاتورة المستخدم: المستخدم يرسل لكل الأدمنية، والأدمن يرسل للمستخدم + كل الأدمنية.
+   - فاتورة الأدمن الثانوي: صاحبها يرسل للأدمن الرئيسي، والرئيسي يرسل لصاحب الفاتورة فقط.
+   ملاحظة: هذا نظام إشعارات داخل التطبيق عبر Realtime Database.
+   إشعارات Android خارج التطبيق تحتاج FCM داخل Android Studio بالخطوة القادمة.
+   ========================================================= */
+const ASSAL_NOTIFICATIONS_PATH = "assal_notifications";
+const ASSAL_AUDIT_LOGS_PATH = "assal_audit_logs";
+const ASSAL_INVOICE_CHATS_PATH = "assal_invoice_chats";
+const ASSAL_DEVICE_TOKENS_PATH = "assal_device_tokens";
+
+let assalNotificationsCache = [];
+let assalNotificationsRef = null;
+let assalNotificationsBound = false;
+let assalChatRef = null;
+let assalChatKey = "";
+let assalChatMessagesCache = [];
+let assalChatBound = false;
+let assalServerSyncTimer = null;
+let assalLastServerSyncSignature = "";
+let assalLastNotifyAtByKey = {};
+
+function assalSafeText(v){
+  return String(v ?? "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/\"/g,"&quot;")
+    .replace(/'/g,"&#39;");
+}
+
+function assalNow(){ return Date.now(); }
+
+function assalTimeLabel(ts){
+  const d = new Date(Number(ts || Date.now()));
+  if(isNaN(d.getTime())) return "-";
+  try{
+    return d.toLocaleString("ar-EG", { dateStyle:"short", timeStyle:"short" });
+  }catch{
+    return d.toLocaleString("ar-EG");
+  }
+}
+
+function assalRoleLabel(role){
+  if(role === "main_admin") return "أدمن رئيسي";
+  if(role === "secondary_admin") return "أدمن ثانوي";
+  if(role === "user") return "فرع";
+  return "مستخدم";
+}
+
+function assalGetNotificationsRootRef(){
+  if(!initFirebaseServices()) return null;
+  return firebaseDb.ref(ASSAL_NOTIFICATIONS_PATH);
+}
+function assalGetAuditRootRef(){
+  if(!initFirebaseServices()) return null;
+  return firebaseDb.ref(ASSAL_AUDIT_LOGS_PATH);
+}
+function assalGetChatsRootRef(){
+  if(!initFirebaseServices()) return null;
+  return firebaseDb.ref(ASSAL_INVOICE_CHATS_PATH);
+}
+function assalGetDeviceTokensRootRef(){
+  if(!initFirebaseServices()) return null;
+  return firebaseDb.ref(ASSAL_DEVICE_TOKENS_PATH);
+}
+
+function assalGetAllAdminCodes(){
+  try{
+    return Object.entries(ACCESS_CODES || {})
+      .filter(([,u]) => u && (u.role === "main_admin" || u.role === "secondary_admin"))
+      .map(([code,u]) => ({ code, role:u.role, name:u.name || code }));
+  }catch{
+    return [];
+  }
+}
+
+function assalFindUserMetaByCode(code){
+  const safe = normalizeAccessCode(code);
+  const data = (typeof ACCESS_CODES !== "undefined" && ACCESS_CODES[safe]) ? ACCESS_CODES[safe] : null;
+  if(!data) return { code:safe, name:safe, role:"" };
+  return { code:safe, name:data.name || safe, role:data.role || "" };
+}
+
+function assalNormalizeInvoiceOwner(inv){
+  if(!inv || typeof inv !== "object") return inv;
+  if(!String(inv.ownerCode || "").trim() && String(inv.senderCode || "").trim()) inv.ownerCode = inv.senderCode;
+  if(!String(inv.ownerName || "").trim() && String(inv.senderName || "").trim()) inv.ownerName = inv.senderName;
+  if(!String(inv.ownerRole || "").trim() && String(inv.senderRole || "").trim()) inv.ownerRole = inv.senderRole;
+  if(!String(inv.senderCode || "").trim() && String(inv.ownerCode || "").trim()) inv.senderCode = inv.ownerCode;
+  if(!String(inv.senderName || "").trim() && String(inv.ownerName || "").trim()) inv.senderName = inv.ownerName;
+  if(!String(inv.senderRole || "").trim() && String(inv.ownerRole || "").trim()) inv.senderRole = inv.ownerRole;
+  return inv;
+}
+
+function assalGetInvoiceOwner(inv){
+  assalNormalizeInvoiceOwner(inv);
+  const code = String(inv?.ownerCode || inv?.senderCode || "").trim();
+  const meta = code ? assalFindUserMetaByCode(code) : null;
+  return {
+    code: code || meta?.code || "",
+    name: String(inv?.ownerName || inv?.senderName || meta?.name || "").trim(),
+    role: String(inv?.ownerRole || inv?.senderRole || meta?.role || "").trim()
+  };
+}
+
+function assalGetInvoiceServerKey(inv = currentInvoice){
+  return String(inv?.serverKey || inv?.__serverKey || "").trim();
+}
+
+function assalInvoiceHasServerKey(inv = currentInvoice){
+  return !!assalGetInvoiceServerKey(inv);
+}
+
+function assalGetInvoiceSignature(inv){
+  const items = Array.isArray(inv?.items) ? inv.items : [];
+  try{
+    if(typeof buildInvoiceItemsSignature === "function") return buildInvoiceItemsSignature(items);
+  }catch{}
+  return items.map(it => [it?.category,it?.name,it?.qty,it?.note].map(x=>String(x ?? "").trim()).join("|")).join("~~");
+}
+
+function assalSetInvoiceBaseline(inv = currentInvoice){
+  if(!inv) return;
+  inv.__assalLastSignature = assalGetInvoiceSignature(inv);
+}
+
+function assalSignatureChanged(inv = currentInvoice){
+  if(!inv) return false;
+  const next = assalGetInvoiceSignature(inv);
+  const old = inv.__assalLastSignature || "";
+  inv.__assalLastSignature = next;
+  if(!old) return false;
+  return old !== next;
+}
+
+function assalActionLabel(action){
+  const map = {
+    invoice_uploaded: "رفع فاتورة للسيرفر",
+    invoice_merged: "دمج فاتورة اليوم",
+    invoice_updated: "تعديل فاتورة",
+    invoice_saved: "حفظ تعديل فاتورة",
+    invoice_renamed: "إعادة تسمية فاتورة",
+    invoice_deleted: "حذف فاتورة",
+    chat_message: "رسالة جديدة داخل فاتورة"
+  };
+  return map[action] || "حركة على فاتورة";
+}
+
+function assalBuildNotificationText(action, inv, details = {}){
+  const actor = currentUser || {};
+  const owner = assalGetInvoiceOwner(inv || {});
+  const invoiceName = String(inv?.id || details.invoiceName || "فاتورة").trim();
+  if(action === "chat_message"){
+    return `${actor.name || "مستخدم"} أرسل رسالة داخل ${invoiceName}`;
+  }
+  if(action === "invoice_renamed"){
+    return `${actor.name || "مستخدم"} غيّر اسم الفاتورة من "${details.oldName || "-"}" إلى "${details.newName || invoiceName}"`;
+  }
+  if(action === "invoice_deleted"){
+    return `${actor.name || "مستخدم"} حذف ${invoiceName}`;
+  }
+  if(action === "invoice_uploaded"){
+    return `${actor.name || "مستخدم"} رفع ${invoiceName} إلى السيرفر`;
+  }
+  if(action === "invoice_merged"){
+    return `${actor.name || "مستخدم"} دمج تحديثات ${invoiceName} على السيرفر`;
+  }
+  if(actor.role === "user"){
+    return `${actor.name || "فرع"} عدّل ${invoiceName}`;
+  }
+  if(owner.role === "user"){
+    return `${actor.name || "أدمن"} عدّل فاتورتك: ${invoiceName}`;
+  }
+  return `${actor.name || "مستخدم"} عدّل ${invoiceName}`;
+}
+
+function assalRecipientsForInvoiceAction(inv, action){
+  if(!currentUser) return [];
+
+  assalNormalizeInvoiceOwner(inv);
+
+  const actorCode = String(currentUser.code || "").trim();
+  const actorRole = String(currentUser.role || "").trim();
+  const owner = assalGetInvoiceOwner(inv || {});
+
+  const allAdmins = assalGetAllAdminCodes();
+  const mainAdmins = allAdmins.filter(u => u.role === "main_admin");
+  const recipientsMap = new Map();
+
+  function addRecipient(u){
+    if(!u || !u.code) return;
+    const code = String(u.code || "").trim();
+    if(!code) return;
+
+    // لا ترسل إشعار لنفس الشخص اللي سوّى الحركة
+    if(code === actorCode) return;
+
+    recipientsMap.set(code, {
+      code,
+      role: u.role || "",
+      name: u.name || code
+    });
+  }
+
+  function addAllAdmins(){
+    allAdmins.forEach(addRecipient);
+  }
+
+  function addMainAdmins(){
+    mainAdmins.forEach(addRecipient);
+  }
+
+  function addOwner(){
+    if(owner && owner.code){
+      addRecipient(owner);
+    }
+  }
+
+  /*
+    ASSAL INVOICE • قواعد الإشعارات النهائية
+
+    1) فاتورة صاحبها مستخدم/فرع:
+       - المستخدم يعدل/يحذف/يراسل/يرفع فاتورته => كل الأدمنية
+       - الأدمن الرئيسي أو الثانوي يعدل فاتورة المستخدم => المستخدم صاحب الفاتورة + كل الأدمنية
+
+    2) فاتورة صاحبها أدمن ثانوي:
+       - الأدمن الثانوي صاحب الفاتورة يعدل/يحذف/يراسل/يرفع => الأدمن الرئيسي فقط
+       - الأدمن الرئيسي يعدل فاتورة الأدمن الثانوي => الأدمن الثانوي صاحب الفاتورة فقط
+
+    ملاحظة: الأدمن الثانوي لا يشاهد فواتير أدمن ثانوي آخر حسب تصميم النظام،
+    لذلك لا نضيف مسار خاص لهذه الحالة.
+  */
+
+  if(owner.role === "user"){
+    if(actorCode === owner.code){
+      // المستخدم/الفرع صاحب الفاتورة تحرّك على فاتورته
+      addAllAdmins();
+    }else if(actorRole === "main_admin" || actorRole === "secondary_admin"){
+      // أي أدمن عدّل/حذف/راسل فاتورة مستخدم
+      addOwner();
+      addAllAdmins();
+    }
+  }else if(owner.role === "secondary_admin"){
+    if(actorCode === owner.code){
+      // الأدمن الثانوي صاحب الفاتورة تحرّك على فاتورته
+      addMainAdmins();
+    }else if(actorRole === "main_admin"){
+      // الأدمن الرئيسي عدّل/حذف/راسل فاتورة أدمن ثانوي
+      addOwner();
+    }
+  }else{
+    // احتياط: إذا ما عرفنا صاحب الفاتورة، خلي حركة المستخدم تروح للإدارة
+    if(actorRole === "user"){
+      addAllAdmins();
+    }
+  }
+
+  return Array.from(recipientsMap.values());
+}
+
+async function assalWriteAuditLog(action, inv, details = {}){
+  const ref = assalGetAuditRootRef();
+  if(!ref || !currentUser) return;
+  assalNormalizeInvoiceOwner(inv);
+  const owner = assalGetInvoiceOwner(inv || {});
+  const payload = {
+    action,
+    actionLabel: assalActionLabel(action),
+    invoiceKey: assalGetInvoiceServerKey(inv),
+    invoiceName: String(inv?.id || details.invoiceName || "").trim(),
+    actorCode: currentUser.code || "",
+    actorName: currentUser.name || "",
+    actorRole: currentUser.role || "",
+    ownerCode: owner.code || "",
+    ownerName: owner.name || "",
+    ownerRole: owner.role || "",
+    details: details || {},
+    createdAt: assalNow()
+  };
+  try{ await ref.push(payload); }catch(err){ console.error("ASSAL audit error:", err); }
+}
+
+async function assalCreateNotifications(action, inv, details = {}){
+  const root = assalGetNotificationsRootRef();
+  if(!root || !currentUser) return;
+  const recipients = assalRecipientsForInvoiceAction(inv, action);
+  if(!recipients.length) return;
+
+  const now = assalNow();
+  const title = assalActionLabel(action);
+  const body = assalBuildNotificationText(action, inv, details);
+  const owner = assalGetInvoiceOwner(inv || {});
+  const serverKey = assalGetInvoiceServerKey(inv);
+
+  const updates = {};
+  recipients.forEach(r => {
+    if(!r?.code) return;
+    const key = root.child(r.code).push().key;
+    updates[`${r.code}/${key}`] = {
+      title,
+      body,
+      action,
+      read:false,
+      invoiceKey: serverKey,
+      invoiceName: String(inv?.id || details.invoiceName || "").trim(),
+      actorCode: currentUser.code || "",
+      actorName: currentUser.name || "",
+      actorRole: currentUser.role || "",
+      ownerCode: owner.code || "",
+      ownerName: owner.name || "",
+      ownerRole: owner.role || "",
+      createdAt: now,
+      details: details || {}
+    };
+  });
+
+  if(Object.keys(updates).length){
+    try{ await root.update(updates); }catch(err){ console.error("ASSAL notify error:", err); }
+  }
+}
+
+function assalNotifyInvoiceChange(action, inv = currentInvoice, details = {}, options = {}){
+  if(!inv || !currentUser) return;
+  const serverKey = assalGetInvoiceServerKey(inv);
+  const notifyKey = `${action}:${serverKey || "local"}:${assalGetInvoiceSignature(inv).slice(0,60)}`;
+  const now = assalNow();
+  if(!options.force && assalLastNotifyAtByKey[notifyKey] && (now - assalLastNotifyAtByKey[notifyKey] < 900)) return;
+  assalLastNotifyAtByKey[notifyKey] = now;
+
+  assalWriteAuditLog(action, inv, details);
+  if(serverKey || options.allowLocalNotify){
+    assalCreateNotifications(action, inv, details);
+  }
+}
+
+function assalCleanInvoiceForServer(inv){
+  assalNormalizeInvoiceOwner(inv);
+  const owner = assalGetInvoiceOwner(inv || {});
+  const now = assalNow();
+  return {
+    id: String(inv?.id || formatInvoiceName()).trim(),
+    date: inv?.date || new Date().toLocaleDateString("ar-EG"),
+    items: Array.isArray(inv?.items) ? inv.items.map(it => ({
+      category: String(it.category || "").trim(),
+      name: String(it.name || it.item || "").trim(),
+      qty: String(it.qty ?? "").trim(),
+      note: String(it.note || "").trim()
+    })) : [],
+    senderCode: owner.code || inv?.senderCode || "",
+    senderName: owner.name || inv?.senderName || "",
+    senderRole: owner.role || inv?.senderRole || "",
+    ownerCode: owner.code || "",
+    ownerName: owner.name || "",
+    ownerRole: owner.role || "",
+    updatedAt: now,
+    lastEditorCode: currentUser?.code || "",
+    lastEditorName: currentUser?.name || "",
+    lastEditorRole: currentUser?.role || ""
+  };
+}
+
+async function assalSyncInvoiceToServer(action = "invoice_updated", details = {}){
+  const inv = currentInvoice;
+  const serverKey = assalGetInvoiceServerKey(inv);
+  const ref = getServerInvoicesRef();
+  if(!inv || !serverKey || !ref) return;
+
+  const payload = assalCleanInvoiceForServer(inv);
+  const signature = `${serverKey}:${assalGetInvoiceSignature(inv)}:${payload.id}`;
+  assalLastServerSyncSignature = signature;
+
+  try{
+    const old = serverInvoicesCache.find(x => String(x.serverKey || "") === String(serverKey));
+    const updatePayload = {
+      ...payload,
+      uploadedAt: old?.uploadedAt || inv.serverUploadedAt || inv.uploadedAt || Date.now(),
+      visibility: old?.visibility || inv.visibility || { mainAdmin:true, secondaryAdmins:true, users:false },
+      signature: assalGetInvoiceSignature(inv)
+    };
+    await ref.child(serverKey).update(updatePayload);
+    const idx = serverInvoicesCache.findIndex(x => String(x.serverKey || "") === String(serverKey));
+    if(idx !== -1){
+      serverInvoicesCache[idx] = { ...serverInvoicesCache[idx], ...updatePayload, serverKey };
+      renderInvoicesDropdown();
+    }
+  }catch(err){
+    console.error("ASSAL server sync error:", err);
+    try{ showToast("تعذر تحديث السيرفر ❌", true); }catch{}
+  }
+}
+
+function assalScheduleServerSync(action = "invoice_updated", details = {}){
+  if(!assalInvoiceHasServerKey(currentInvoice)) return;
+  clearTimeout(assalServerSyncTimer);
+  assalServerSyncTimer = setTimeout(()=> assalSyncInvoiceToServer(action, details), 450);
+}
+
+function assalAfterInvoicePersisted(action = "invoice_updated", details = {}, options = {}){
+  if(!currentInvoice) return;
+  const changed = options.force ? true : assalSignatureChanged(currentInvoice);
+  if(!changed) return;
+
+  if(assalInvoiceHasServerKey(currentInvoice)){
+    assalScheduleServerSync(action, details);
+    assalNotifyInvoiceChange(action, currentInvoice, details, { force: !!options.force });
+  }else{
+    assalWriteAuditLog(action, currentInvoice, { ...details, localOnly:true });
+  }
+}
+
+function assalOpenNotificationsPanel(){
+  const panel = document.getElementById("assalNotificationsPanel");
+  if(!panel) return;
+  panel.classList.add("show");
+  panel.setAttribute("aria-hidden","false");
+  document.documentElement.classList.add("no-scroll");
+  document.body.classList.add("no-scroll");
+}
+
+function assalCloseNotificationsPanel(){
+  const panel = document.getElementById("assalNotificationsPanel");
+  if(!panel) return;
+  panel.classList.remove("show");
+  panel.setAttribute("aria-hidden","true");
+  document.documentElement.classList.remove("no-scroll");
+  document.body.classList.remove("no-scroll");
+}
+
+function assalRenderNotifications(){
+  const list = document.getElementById("assalNotificationsList");
+  const badge = document.getElementById("assalNotifyBadge");
+  const sub = document.getElementById("assalNotifySubtitle");
+  if(!list) return;
+
+  const unread = assalNotificationsCache.filter(n => !n.read).length;
+  if(badge){
+    badge.textContent = unread > 99 ? "99+" : String(unread);
+    badge.classList.toggle("show", unread > 0);
+  }
+  if(sub){
+    sub.textContent = unread ? `${unread} إشعار غير مقروء` : "كل الإشعارات مقروءة";
+  }
+
+  if(!assalNotificationsCache.length){
+    list.innerHTML = `<div class="assal-notify-empty"><i class="fa-regular fa-bell"></i><br>لا توجد إشعارات بعد</div>`;
+    return;
+  }
+
+  list.innerHTML = assalNotificationsCache.map(n => `
+    <div class="assal-notify-item ${n.read ? "" : "unread"}" data-key="${assalSafeText(n.key)}">
+      <strong>${assalSafeText(n.title || "إشعار")}</strong>
+      <p>${assalSafeText(n.body || "")}</p>
+      <div class="assal-notify-meta">
+        <span>${assalSafeText(n.actorName || "")}</span>
+        <span>${assalTimeLabel(n.createdAt)}</span>
+      </div>
+    </div>
+  `).join("");
+}
+
+function assalStartNotificationsListener(){
+  if(!currentUser?.code) return;
+  const root = assalGetNotificationsRootRef();
+  if(!root) return;
+  if(assalNotificationsRef){
+    try{ assalNotificationsRef.off(); }catch{}
+  }
+  assalNotificationsRef = root.child(currentUser.code).orderByChild("createdAt").limitToLast(80);
+  assalNotificationsRef.on("value", snap => {
+    const list = [];
+    snap.forEach(child => list.push({ key: child.key, ...(child.val() || {}) }));
+    list.sort((a,b)=> Number(b.createdAt || 0) - Number(a.createdAt || 0));
+    assalNotificationsCache = list;
+    assalRenderNotifications();
+  });
+}
+
+async function assalMarkAllNotificationsRead(){
+  if(!currentUser?.code || !assalNotificationsCache.length) return;
+  const root = assalGetNotificationsRootRef();
+  if(!root) return;
+  const updates = {};
+  assalNotificationsCache.forEach(n => {
+    if(n && n.key && !n.read) updates[`${n.key}/read`] = true;
+  });
+  if(Object.keys(updates).length){
+    await root.child(currentUser.code).update(updates);
+  }
+}
+
+function assalBindRealtimeUIEvents(){
+  if(assalNotificationsBound) return;
+  assalNotificationsBound = true;
+
+  document.getElementById("assalNotifyBtn")?.addEventListener("click", assalOpenNotificationsPanel);
+  document.getElementById("assalNotifyCloseBtn")?.addEventListener("click", assalCloseNotificationsPanel);
+  document.getElementById("assalNotifyReadAllBtn")?.addEventListener("click", assalMarkAllNotificationsRead);
+  document.getElementById("assalNotificationsPanel")?.addEventListener("click", (e)=>{
+    if(e.target?.id === "assalNotificationsPanel") assalCloseNotificationsPanel();
+  });
+
+  document.addEventListener("keydown", (e)=>{
+    if(e.key === "Escape") assalCloseNotificationsPanel();
+  });
+}
+
+function assalGetChatKey(inv = currentInvoice){
+  const serverKey = assalGetInvoiceServerKey(inv);
+  return serverKey ? `server_${serverKey}` : "";
+}
+
+function assalRenderChatState(){
+  const card = document.getElementById("assalInvoiceChatCard");
+  const disabled = document.getElementById("assalChatDisabled");
+  const messages = document.getElementById("assalChatMessages");
+  const compose = document.getElementById("assalChatCompose");
+  const status = document.getElementById("assalChatStatus");
+  const subtitle = document.getElementById("assalChatSubtitle");
+  if(!card) return;
+
+  card.classList.toggle("show", !!currentInvoice);
+  if(!currentInvoice){
+    if(assalChatRef){ try{ assalChatRef.off(); }catch{} assalChatRef = null; }
+    assalChatKey = "";
+    return;
+  }
+
+  const key = assalGetChatKey(currentInvoice);
+  const ready = !!key;
+  if(disabled) disabled.style.display = ready ? "none" : "block";
+  if(messages) messages.style.display = ready ? "flex" : "none";
+  if(compose) compose.style.display = ready ? "grid" : "none";
+  if(status){
+    status.classList.toggle("ready", ready);
+    status.innerHTML = ready
+      ? `<i class="fa-solid fa-circle-check"></i> مفعلة`
+      : `<i class="fa-solid fa-circle-info"></i> غير مفعلة`;
+  }
+  if(subtitle){
+    const invName = String(currentInvoice.id || "فاتورة").trim();
+    subtitle.textContent = ready ? `محادثة مرتبطة بـ ${invName}` : "ارسل الفاتورة للسيرفر حتى تتفعّل المحادثة";
+  }
+
+  if(ready && key !== assalChatKey){
+    assalStartChatListener(key);
+  }else if(ready){
+    assalRenderChatMessages();
+  }
+}
+
+function assalStartChatListener(key){
+  const root = assalGetChatsRootRef();
+  if(!root || !key) return;
+  if(assalChatRef){ try{ assalChatRef.off(); }catch{} }
+  assalChatKey = key;
+  assalChatMessagesCache = [];
+  assalChatRef = root.child(key).child("messages").orderByChild("createdAt").limitToLast(120);
+  assalChatRef.on("value", snap => {
+    const list = [];
+    snap.forEach(child => list.push({ key: child.key, ...(child.val() || {}) }));
+    list.sort((a,b)=> Number(a.createdAt || 0) - Number(b.createdAt || 0));
+    assalChatMessagesCache = list;
+    assalRenderChatMessages();
+  });
+}
+
+function assalRenderChatMessages(){
+  const box = document.getElementById("assalChatMessages");
+  if(!box) return;
+  if(!assalChatMessagesCache.length){
+    box.innerHTML = `<div class="assal-chat-empty"><i class="fa-regular fa-comments"></i><br>لا توجد رسائل بعد داخل هذه الفاتورة</div>`;
+    return;
+  }
+  box.innerHTML = assalChatMessagesCache.map(msg => {
+    const mine = String(msg.senderCode || "") === String(currentUser?.code || "");
+    return `
+      <div class="assal-chat-msg ${mine ? "mine" : ""}">
+        <div class="name">${assalSafeText(msg.senderName || "مستخدم")} • ${assalSafeText(assalRoleLabel(msg.senderRole || ""))}</div>
+        <div class="text">${assalSafeText(msg.message || "")}</div>
+        <div class="time">${assalTimeLabel(msg.createdAt)}</div>
+      </div>
+    `;
+  }).join("");
+  box.scrollTop = box.scrollHeight;
+}
+
+async function assalSendChatMessage(){
+  if(!currentUser || !currentInvoice) return;
+  const input = document.getElementById("assalChatInput");
+  const msg = String(input?.value || "").trim();
+  if(!msg){ input?.focus(); return; }
+  const key = assalGetChatKey(currentInvoice);
+  const root = assalGetChatsRootRef();
+  if(!key || !root){
+    try{ showToast("المحادثة تحتاج فاتورة مرفوعة للسيرفر ❌", true); }catch{}
+    return;
+  }
+
+  const owner = assalGetInvoiceOwner(currentInvoice || {});
+  const payload = {
+    invoiceKey: assalGetInvoiceServerKey(currentInvoice),
+    invoiceName: currentInvoice.id || "فاتورة",
+    senderCode: currentUser.code || "",
+    senderName: currentUser.name || "",
+    senderRole: currentUser.role || "",
+    ownerCode: owner.code || "",
+    ownerName: owner.name || "",
+    ownerRole: owner.role || "",
+    message: msg,
+    createdAt: assalNow()
+  };
+
+  try{
+    await root.child(key).child("messages").push(payload);
+    await root.child(key).child("meta").update({
+      invoiceKey: payload.invoiceKey,
+      invoiceName: payload.invoiceName,
+      ownerCode: owner.code || "",
+      ownerName: owner.name || "",
+      ownerRole: owner.role || "",
+      lastMessage: msg.slice(0,180),
+      lastSenderCode: currentUser.code || "",
+      lastSenderName: currentUser.name || "",
+      updatedAt: assalNow()
+    });
+    input.value = "";
+    assalNotifyInvoiceChange("chat_message", currentInvoice, { messagePreview: msg.slice(0,160) }, { force:true });
+  }catch(err){
+    console.error("ASSAL chat error:", err);
+    try{ showToast("فشل إرسال الرسالة ❌", true); }catch{}
+  }
+}
+
+function assalBindChatEvents(){
+  if(assalChatBound) return;
+  assalChatBound = true;
+  document.getElementById("assalChatSendBtn")?.addEventListener("click", assalSendChatMessage);
+  document.getElementById("assalChatInput")?.addEventListener("keydown", (e)=>{
+    if(e.key === "Enter" && !e.shiftKey){
+      e.preventDefault();
+      assalSendChatMessage();
+    }
+  });
+}
+
+function assalInitRealtimeModules(){
+  assalBindRealtimeUIEvents();
+  assalBindChatEvents();
+  assalStartNotificationsListener();
+  assalRenderChatState();
+  assalRegisterDeviceTokenFromAndroidBridge();
+}
+
+function assalRegisterDeviceTokenFromAndroidBridge(){
+  try{
+    if(window.AssalAndroid && typeof window.AssalAndroid.getFcmToken === "function"){
+      const token = String(window.AssalAndroid.getFcmToken() || "").trim();
+      if(token) assalRegisterDeviceToken(token);
+    }
+  }catch(err){ console.warn("ASSAL Android bridge token not ready", err); }
+}
+
+async function assalRegisterDeviceToken(token){
+  if(!currentUser?.code || !token) return;
+  const root = assalGetDeviceTokensRootRef();
+  if(!root) return;
+  try{
+    await root.child(currentUser.code).child(token.replace(/[.#$\[\]/]/g,"_")).set({
+      token,
+      userCode: currentUser.code,
+      userName: currentUser.name || "",
+      userRole: currentUser.role || "",
+      platform: "android-webview",
+      updatedAt: assalNow()
+    });
+  }catch(err){ console.error("ASSAL token save error:", err); }
+}
+
+window.assalRegisterDeviceToken = assalRegisterDeviceToken;
 
 function isMainAdmin(){
   return currentUser?.role === "main_admin";
@@ -3910,6 +4894,9 @@ async function sendCurrentInvoiceToServer(localIndex = selectedInvoiceIndex){
     senderCode: currentUser.code,
     senderName: currentUser.name,
     senderRole: currentUser.role,
+    ownerCode: currentUser.code,
+    ownerName: currentUser.name,
+    ownerRole: currentUser.role,
     uploadedAt: now,
     visibility: {
       mainAdmin: true,
@@ -3965,6 +4952,7 @@ async function sendCurrentInvoiceToServer(localIndex = selectedInvoiceIndex){
 
         await ref.child(sameDayMatch.serverKey).set(mergedPayload);
         markInvoiceAsSentLocally(localIndex, sameDayMatch.serverKey, now);
+        assalNotifyInvoiceChange("invoice_merged", currentInvoice || mergedPayload, { mergeMode:"max_qty" }, { force:true });
         showToast("تم دمج فاتورة اليوم مع السيرفر ✅");
         refreshServerInvoicesForRole({ silent:true });
         return;
@@ -3975,6 +4963,7 @@ async function sendCurrentInvoiceToServer(localIndex = selectedInvoiceIndex){
       await newRef.set(payload);
 
       markInvoiceAsSentLocally(localIndex, serverKey, now);
+      assalNotifyInvoiceChange("invoice_uploaded", currentInvoice || payload, {}, { force:true });
       showToast("تم إرسال فاتورة جديدة إلى السيرفر ✅");
       refreshServerInvoicesForRole({ silent:true });
       return;
@@ -3985,6 +4974,7 @@ async function sendCurrentInvoiceToServer(localIndex = selectedInvoiceIndex){
     await newRef.set(payload);
 
     markInvoiceAsSentLocally(localIndex, serverKey, now);
+    assalNotifyInvoiceChange("invoice_uploaded", currentInvoice || payload, {}, { force:true });
     showToast("تم إرسال الفاتورة إلى السيرفر ✅");
     refreshServerInvoicesForRole({ silent:true });
   }catch(err){
@@ -4004,14 +4994,28 @@ function loadServerInvoiceByKey(serverKey, ev){
   const inv = serverInvoicesCache.find(x => x.serverKey === serverKey);
   if(!inv) return;
 
-  currentInvoice = {
+  currentInvoice = assalNormalizeInvoiceOwner({
     id: inv.id || formatInvoiceName(),
     date: inv.date || new Date().toLocaleDateString("ar-EG"),
-    items: Array.isArray(inv.items) ? inv.items.map(it => ({ ...it })) : []
-  };
+    items: Array.isArray(inv.items) ? inv.items.map(it => ({ ...it })) : [],
+    serverKey: serverKey,
+    __serverKey: serverKey,
+    __fromServer: true,
+    serverUploadedAt: inv.uploadedAt || Date.now(),
+    uploadedAt: inv.uploadedAt || Date.now(),
+    senderCode: inv.senderCode || inv.ownerCode || "",
+    senderName: inv.senderName || inv.ownerName || "",
+    senderRole: inv.senderRole || inv.ownerRole || "",
+    ownerCode: inv.ownerCode || inv.senderCode || "",
+    ownerName: inv.ownerName || inv.senderName || "",
+    ownerRole: inv.ownerRole || inv.senderRole || "",
+    visibility: inv.visibility || { mainAdmin:true, secondaryAdmins:true, users:false }
+  });
   selectedInvoiceIndex = null;
+  assalSetInvoiceBaseline(currentInvoice);
   document.getElementById("invoiceId").textContent = currentInvoice.id;
   renderItems();
+  assalRenderChatState();
   showToast("تم تحميل فاتورة من السيرفر 📥");
 }
 
@@ -4560,17 +5564,23 @@ function markInvoiceAsSentLocally(localIndex, serverKey, uploadedAt){
     invoices[localIndex].serverStatus = "sent";
     invoices[localIndex].serverUploadedAt = safeNow;
     invoices[localIndex].serverKey = serverKey;
+    invoices[localIndex].__serverKey = serverKey;
     stampInvoiceOwner(invoices[localIndex]);
+    assalNormalizeInvoiceOwner(invoices[localIndex]);
     currentInvoice = invoices[localIndex];
   }else if(currentInvoice){
     currentInvoice.serverStatus = "sent";
     currentInvoice.serverUploadedAt = safeNow;
     currentInvoice.serverKey = serverKey;
+    currentInvoice.__serverKey = serverKey;
     stampInvoiceOwner(currentInvoice);
+    assalNormalizeInvoiceOwner(currentInvoice);
   }
 
+  assalSetInvoiceBaseline(currentInvoice);
   persistInvoices();
   renderInvoicesDropdown();
+  assalRenderChatState();
 }
 
 function toggleSidebarSelection(key){
@@ -4623,14 +5633,24 @@ function bindLongPressRow(row, options = {}){
 async function renameServerInvoice(serverKey, newName){
   const ref = getServerInvoicesRef();
   if(!ref || !serverKey) throw new Error("invalid-ref");
-  await ref.child(serverKey).child("id").set(newName);
   const found = serverInvoicesCache.find(x => x.serverKey === serverKey);
-  if(found) found.id = newName;
+  const oldName = found?.id || "";
+  await ref.child(serverKey).child("id").set(newName);
+  if(found){
+    found.id = newName;
+    found.serverKey = serverKey;
+    assalNotifyInvoiceChange("invoice_renamed", found, { oldName, newName }, { force:true });
+  }
 }
 
 async function deleteServerInvoice(serverKey){
   const ref = getServerInvoicesRef();
   if(!ref || !serverKey) throw new Error("invalid-ref");
+  const found = serverInvoicesCache.find(x => x.serverKey === serverKey);
+  if(found){
+    found.serverKey = serverKey;
+    assalNotifyInvoiceChange("invoice_deleted", found, { invoiceName: found.id || "" }, { force:true });
+  }
   await ref.child(serverKey).remove();
   serverInvoicesCache = serverInvoicesCache.filter(x => x.serverKey !== serverKey);
 }
@@ -5056,6 +6076,7 @@ function applyLoggedUserUI(){
   }
   refreshServerInvoicesForRole({ silent:true });
   refreshServerMergedFiles({ silent:true });
+  assalInitRealtimeModules();
 }
 
 function submitLogin(){
@@ -5631,6 +6652,7 @@ const existingIndex = (currentInvoice.items || []).findIndex(
           </td>`;
         tbody.appendChild(tr);
       });
+      assalRenderChatState();
     }
 
     function removeItem(i){
@@ -5665,9 +6687,12 @@ const existingIndex = (currentInvoice.items || []).findIndex(
     showToast("تم إنشاء فاتورة جديدة ✅");
   }
 
+  assalNormalizeInvoiceOwner(currentInvoice);
+  assalSetInvoiceBaseline(currentInvoice);
   document.getElementById("invoiceId").textContent = currentInvoice.id;
   renderItems();
   renderInvoicesDropdown();
+  assalRenderChatState();
 }
 
     
@@ -5909,15 +6934,21 @@ async function confirmRenameInvoice(){
     }
 
     if(__pendingRenameInvoiceIndex === null) return;
+    const oldName = invoices[__pendingRenameInvoiceIndex]?.id || "";
     invoices[__pendingRenameInvoiceIndex].id = newName;
 
     if(selectedInvoiceIndex === __pendingRenameInvoiceIndex && currentInvoice){
       currentInvoice.id = newName;
       document.getElementById("invoiceId").textContent = newName;
+      if(assalInvoiceHasServerKey(currentInvoice)){
+        assalNotifyInvoiceChange("invoice_renamed", currentInvoice, { oldName, newName }, { force:true });
+        assalSyncInvoiceToServer("invoice_renamed", { oldName, newName });
+      }
     }
 
     persistInvoices();
     renderInvoicesDropdown();
+    assalRenderChatState();
     closeRenameInvoiceModal();
     showToast("تم تحديث اسم الفاتورة ✅");
   }catch(err){
@@ -5967,7 +6998,11 @@ function renameEscEnterHandler(e){
     function saveInvoice(){
       if(!currentInvoice) return;
       stampInvoiceOwner(currentInvoice);
-      if(selectedInvoiceIndex !== null){
+      assalNormalizeInvoiceOwner(currentInvoice);
+      if(currentInvoice.__fromServer && assalInvoiceHasServerKey(currentInvoice)){
+        assalAfterInvoicePersisted("invoice_saved", {}, { force:false });
+        assalSyncInvoiceToServer("invoice_saved", {});
+      }else if(selectedInvoiceIndex !== null){
         invoices[selectedInvoiceIndex] = currentInvoice;
       } else {
         invoices.push(currentInvoice);
@@ -5976,6 +7011,8 @@ function renameEscEnterHandler(e){
       persistInvoices();
       syncCurrentInvoiceToOpenedMergeEntry();
       renderInvoicesDropdown();
+      assalRenderChatState();
+      assalAfterInvoicePersisted("invoice_saved", {});
       showToast("تم حفظ الفاتورة 💾");
     }
     
@@ -5984,7 +7021,10 @@ function renameEscEnterHandler(e){
     function autoSaveInvoice(){
   if(!currentInvoice) return;
   stampInvoiceOwner(currentInvoice);
-  if(selectedInvoiceIndex!==null){
+  assalNormalizeInvoiceOwner(currentInvoice);
+  if(currentInvoice.__fromServer && assalInvoiceHasServerKey(currentInvoice)){
+    // فاتورة مفتوحة من السيرفر: لا نحولها إلى فاتورة محلية، نزامنها ويا السيرفر فقط
+  }else if(selectedInvoiceIndex!==null){
     invoices[selectedInvoiceIndex] = currentInvoice;
   } else {
     invoices.push(currentInvoice);
@@ -5993,6 +7033,8 @@ function renameEscEnterHandler(e){
   persistInvoices();
   syncCurrentInvoiceToOpenedMergeEntry();
   renderInvoicesDropdown();
+  assalRenderChatState();
+  assalAfterInvoicePersisted("invoice_updated", {});
 }
 
     
@@ -6194,8 +7236,12 @@ function renameEscEnterHandler(e){
     function loadInvoice(i){
       selectedInvoiceIndex = i;
       currentInvoice = invoices[i];
+      assalNormalizeInvoiceOwner(currentInvoice);
+      if(currentInvoice?.serverKey) currentInvoice.__serverKey = currentInvoice.serverKey;
+      assalSetInvoiceBaseline(currentInvoice);
       document.getElementById("invoiceId").textContent = currentInvoice.id;
       renderItems();
+      assalRenderChatState();
       showToast("تم تحميل الفاتورة 📄");
     }
     
@@ -6203,7 +7249,11 @@ function renameEscEnterHandler(e){
     function deleteInvoice(i){
       const deleted = invoices[i];
       if(deleted){
+        assalNormalizeInvoiceOwner(deleted);
         selectedSidebarInvoiceKeys.delete(getLocalInvoiceSelectKey(deleted, i));
+        if(assalInvoiceHasServerKey(deleted)){
+          assalNotifyInvoiceChange("invoice_deleted", deleted, { invoiceName: deleted.id || "" }, { force:true });
+        }
       }
       invoices.splice(i,1);
       persistInvoices();
@@ -6212,6 +7262,7 @@ function renameEscEnterHandler(e){
       renderItems();
       selectedInvoiceIndex = null;
       renderInvoicesDropdown();
+      assalRenderChatState();
       showToast("تم حذف الفاتورة 🗑️");
     }
     
@@ -9561,6 +10612,105 @@ window.addEventListener('load', ()=>{
 
   syncTableHeight();
   setTimeout(syncTableHeight, 250);
+})();
+
+
+/* =========================
+   سكرول ذكي لقوائم الفواتير داخل الصفحة
+   - القائمة تعرض 3 فواتير، والباقي سكرول داخلي
+   - عند نهاية/بداية القائمة، السحب يكمل على الصفحة تلقائياً
+   ========================= */
+(function initSmartInvoiceSectionScroll(){
+  const SCROLL_SELECTOR = '.invoice-section-scroll, #importedPdfList';
+  const HEADER_OFFSET = 86;
+  const edge = 2;
+  const touchState = new WeakMap();
+
+  function isInvoiceScrollBox(el){
+    return el && el.matches && el.matches(SCROLL_SELECTOR);
+  }
+
+  function getScrollBox(target){
+    return target && target.closest ? target.closest(SCROLL_SELECTOR) : null;
+  }
+
+  function canInternalScroll(box){
+    return box && box.scrollHeight > box.clientHeight + 3;
+  }
+
+  function atTop(box){
+    return !box || box.scrollTop <= edge;
+  }
+
+  function atBottom(box){
+    return !box || (box.scrollTop + box.clientHeight) >= (box.scrollHeight - edge);
+  }
+
+  function passToPage(deltaY){
+    if(!deltaY) return;
+    window.scrollBy({ top: deltaY, left: 0, behavior: 'auto' });
+  }
+
+  // للماوس/التراك باد داخل المتصفح
+  document.addEventListener('wheel', function(e){
+    const box = getScrollBox(e.target);
+    if(!isInvoiceScrollBox(box) || !canInternalScroll(box)) return;
+
+    const dy = e.deltaY || 0;
+    if((dy > 0 && atBottom(box)) || (dy < 0 && atTop(box))){
+      e.preventDefault();
+      passToPage(dy);
+    }
+  }, { passive: false, capture: true });
+
+  // للموبايل و WebView
+  document.addEventListener('touchstart', function(e){
+    const box = getScrollBox(e.target);
+    if(!isInvoiceScrollBox(box)) return;
+    const t = e.touches && e.touches[0];
+    if(!t) return;
+    touchState.set(box, { y: t.clientY });
+  }, { passive: true, capture: true });
+
+  document.addEventListener('touchmove', function(e){
+    const box = getScrollBox(e.target);
+    if(!isInvoiceScrollBox(box) || !canInternalScroll(box)) return;
+
+    const t = e.touches && e.touches[0];
+    const st = touchState.get(box);
+    if(!t || !st) return;
+
+    const deltaY = st.y - t.clientY; // موجب = نزول، سالب = صعود
+    if((deltaY > 0 && atBottom(box)) || (deltaY < 0 && atTop(box))){
+      e.preventDefault();
+      passToPage(deltaY);
+      st.y = t.clientY;
+      touchState.set(box, st);
+    }
+  }, { passive: false, capture: true });
+
+  document.addEventListener('touchend', function(e){
+    const box = getScrollBox(e.target);
+    if(box) touchState.delete(box);
+  }, { passive: true, capture: true });
+
+  // من تضغط عنوان قسم الفواتير ينزل الصفحة لنفس القسم بدون ما يحتبس السكرول
+  document.addEventListener('click', function(e){
+    const title = e.target && e.target.closest ? e.target.closest('.server-section-title') : null;
+    if(!title) return;
+    const top = title.getBoundingClientRect().top + window.pageYOffset - HEADER_OFFSET;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  });
+
+  // من تضغط عنوان صندوق الفواتير السابقة أو الدمج ينزل على بداية الصندوق
+  document.addEventListener('click', function(e){
+    const panelTitle = e.target && e.target.closest ? e.target.closest('#sidebar .panel-title h3, #importedSidebar .panel-title h3') : null;
+    if(!panelTitle) return;
+    const box = panelTitle.closest('aside');
+    if(!box) return;
+    const top = box.getBoundingClientRect().top + window.pageYOffset - HEADER_OFFSET;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  });
 })();
 
 /* =========================
