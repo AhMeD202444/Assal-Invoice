@@ -3280,6 +3280,74 @@ body{
   }
 }
 
+
+
+/* =========================================================
+   ASSAL FINAL • Notification target highlight + chat repair
+   ========================================================= */
+.assal-target-flash{ animation: assalTargetFlash 1.45s ease-in-out 2; position:relative; z-index:2; }
+@keyframes assalTargetFlash{
+  0%{ box-shadow:0 0 0 0 rgba(33,212,253,.0); transform:translateY(0); }
+  18%{ box-shadow:0 0 0 4px rgba(33,212,253,.28),0 0 28px rgba(109,94,252,.35); transform:translateY(-1px); }
+  55%{ box-shadow:0 0 0 6px rgba(34,197,94,.18),0 0 34px rgba(33,212,253,.25); }
+  100%{ box-shadow:0 0 0 0 rgba(33,212,253,.0); transform:translateY(0); }
+}
+.assal-chat-msg.assal-new-msg{ animation: assalNewChatMsg .9s ease both; }
+@keyframes assalNewChatMsg{ from{opacity:.45;transform:translateY(8px) scale(.985)} to{opacity:1;transform:translateY(0) scale(1)} }
+.assal-notify-item{ cursor:pointer; transition:transform .2s ease,border-color .2s ease,background .2s ease; }
+.assal-notify-item:hover{ transform:translateY(-1px); border-color:rgba(33,212,253,.36); background:rgba(33,212,253,.08); }
+
+
+/* =========================================================
+   ASSAL STABLE FINAL • Swipe notification to delete
+   - يحافظ على شكل كارد الإشعار الأصلي بدون قص أو انهيار
+   - السحب من اليسار إلى اليمين يحذف الإشعار من Firebase
+   ========================================================= */
+.assal-notify-item{
+  position: relative !important;
+  min-height: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  transform: translateX(0) !important;
+  will-change: transform, opacity;
+  touch-action: pan-y !important;
+}
+.assal-notify-item.assal-swiping{
+  transition: none !important;
+}
+.assal-notify-item.assal-delete-ready{
+  border-color: rgba(239,68,68,.62) !important;
+  background: linear-gradient(180deg, rgba(239,68,68,.16), rgba(255,255,255,.045)) !important;
+  box-shadow: 0 0 0 1px rgba(239,68,68,.22), 0 10px 26px rgba(239,68,68,.12) !important;
+}
+.assal-notify-item.assal-deleting{
+  pointer-events: none !important;
+  transition: transform .22s ease, opacity .22s ease !important;
+}
+.assal-notify-item .assal-swipe-delete-mark{
+  position:absolute;
+  inset-block: 10px;
+  inset-inline-start: 10px;
+  width: 38px;
+  height: 38px;
+  display:grid;
+  place-items:center;
+  border-radius: 12px;
+  color:#fff;
+  background: linear-gradient(135deg,#ef4444,#b91c1c);
+  box-shadow: 0 8px 20px rgba(239,68,68,.28);
+  opacity:0;
+  transform: scale(.86);
+  pointer-events:none;
+  transition: opacity .16s ease, transform .16s ease;
+  z-index: 2;
+}
+.assal-notify-item.assal-delete-ready .assal-swipe-delete-mark{
+  opacity:1;
+  transform: scale(1);
+}
+
 </style>
 </head>
 <body>
@@ -3942,6 +4010,9 @@ const ASSAL_FCM_WORKER_SECRET = "Ah1234@Aa1234";
 let assalNotificationsCache = [];
 let assalNotificationsRef = null;
 let assalNotificationsBound = false;
+let assalNotificationsRetryTimer = null;
+let assalNotificationsListeningCode = "";
+let assalNotificationsLastError = "";
 let assalChatRef = null;
 let assalChatKey = "";
 let assalChatMessagesCache = [];
@@ -4072,7 +4143,12 @@ function assalActionLabel(action){
     invoice_saved: "حفظ تعديل فاتورة",
     invoice_renamed: "إعادة تسمية فاتورة",
     invoice_deleted: "حذف فاتورة",
-    chat_message: "رسالة جديدة داخل فاتورة"
+    item_added: "إضافة آيتم",
+    item_deleted: "حذف آيتم",
+    item_qty_increased: "زيادة عدد آيتم",
+    item_qty_decreased: "تقليل عدد آيتم",
+    item_qty_changed: "تعديل عدد آيتم",
+    chat_message: "رد جديد على فاتورة"
   };
   return map[action] || "حركة على فاتورة";
 }
@@ -4080,29 +4156,30 @@ function assalActionLabel(action){
 function assalBuildNotificationText(action, inv, details = {}){
   const actor = currentUser || {};
   const owner = assalGetInvoiceOwner(inv || {});
+  const actorName = String(actor.name || "مستخدم").trim();
   const invoiceName = String(inv?.id || details.invoiceName || "فاتورة").trim();
-  if(action === "chat_message"){
-    return `${actor.name || "مستخدم"} أرسل رسالة داخل ${invoiceName}`;
-  }
-  if(action === "invoice_renamed"){
-    return `${actor.name || "مستخدم"} غيّر اسم الفاتورة من "${details.oldName || "-"}" إلى "${details.newName || invoiceName}"`;
-  }
-  if(action === "invoice_deleted"){
-    return `${actor.name || "مستخدم"} حذف ${invoiceName}`;
-  }
-  if(action === "invoice_uploaded"){
-    return `${actor.name || "مستخدم"} رفع ${invoiceName} إلى السيرفر`;
-  }
-  if(action === "invoice_merged"){
-    return `${actor.name || "مستخدم"} دمج تحديثات ${invoiceName} على السيرفر`;
-  }
-  if(actor.role === "user"){
-    return `${actor.name || "فرع"} عدّل ${invoiceName}`;
-  }
-  if(owner.role === "user"){
-    return `${actor.name || "أدمن"} عدّل فاتورتك: ${invoiceName}`;
-  }
-  return `${actor.name || "مستخدم"} عدّل ${invoiceName}`;
+  const itemName = String(details.itemName || details.name || "آيتم").trim();
+  const oldQty = String(details.oldQty ?? "").trim();
+  const newQty = String(details.newQty ?? "").trim();
+  const preview = String(details.messagePreview || details.message || "").trim();
+
+  if(action === "chat_message") return `قام ${actorName} بالرد على الفاتورة: ${preview || invoiceName}`;
+  if(action === "item_deleted") return `قام ${actorName} بحذف الآيتم: ${itemName}`;
+  if(action === "item_qty_increased") return `قام ${actorName} بزيادة عدد ${itemName}${oldQty && newQty ? ` من ${oldQty} إلى ${newQty}` : ""}`;
+  if(action === "item_qty_decreased") return `قام ${actorName} بتقليل عدد ${itemName}${oldQty && newQty ? ` من ${oldQty} إلى ${newQty}` : ""}`;
+  if(action === "item_qty_changed") return `قام ${actorName} بتعديل عدد ${itemName}${oldQty && newQty ? ` من ${oldQty} إلى ${newQty}` : ""}`;
+  if(action === "item_added") return `قام ${actorName} بإضافة الآيتم: ${itemName}${newQty ? ` بعدد ${newQty}` : ""}`;
+  if(action === "invoice_renamed") return `قام ${actorName} بتغيير اسم الفاتورة من "${details.oldName || "-"}" إلى "${details.newName || invoiceName}"`;
+  if(action === "invoice_deleted") return `قام ${actorName} بحذف الفاتورة: ${invoiceName}`;
+  if(action === "invoice_uploaded") return `قام ${actorName} بإرسال الفاتورة إلى السيرفر: ${invoiceName}`;
+  if(action === "invoice_merged") return `قام ${actorName} بدمج تحديثات الفاتورة: ${invoiceName}`;
+  if(actor.role === "user") return `قام ${actorName} بتعديل الفاتورة: ${invoiceName}`;
+  if(owner.role === "user") return `قام ${actorName} بتعديل فاتورتك: ${invoiceName}`;
+  return `قام ${actorName} بتعديل الفاتورة: ${invoiceName}`;
+}
+
+function assalNotificationTargetForAction(action){
+  return action === "chat_message" ? "chat" : "invoice";
 }
 
 function assalRecipientsForInvoiceAction(inv, action){
@@ -4306,6 +4383,7 @@ async function assalCreateNotifications(action, inv, details = {}){
   const owner = assalGetInvoiceOwner(inv || {});
   const serverKey = assalGetInvoiceServerKey(inv);
   const invoiceName = String(inv?.id || details.invoiceName || "").trim();
+  const target = String(details.target || assalNotificationTargetForAction(action));
 
   const updates = {};
   recipients.forEach(r => {
@@ -4318,6 +4396,8 @@ async function assalCreateNotifications(action, inv, details = {}){
       read:false,
       invoiceKey: serverKey,
       invoiceName,
+      target,
+      chatKey: details.chatKey || (serverKey ? `server_${serverKey}` : ""),
       actorCode: currentUser.code || "",
       actorName: currentUser.name || "",
       actorRole: currentUser.role || "",
@@ -4340,6 +4420,8 @@ async function assalCreateNotifications(action, inv, details = {}){
         action,
         invoiceKey: serverKey,
         invoiceName,
+        target,
+        chatKey: details.chatKey || (serverKey ? `server_${serverKey}` : ""),
         actorCode: currentUser.code || "",
         actorName: currentUser.name || "",
         actorRole: currentUser.role || "",
@@ -4451,6 +4533,9 @@ function assalOpenNotificationsPanel(){
   panel.setAttribute("aria-hidden","false");
   document.documentElement.classList.add("no-scroll");
   document.body.classList.add("no-scroll");
+
+  // تحديث يدوي فوري عند فتح الجرس حتى لو listener نام بسبب كاش WebView أو تأخر Firebase.
+  assalRefreshNotificationsOnce({ silent:true });
 }
 
 function assalCloseNotificationsPanel(){
@@ -4462,23 +4547,56 @@ function assalCloseNotificationsPanel(){
   document.body.classList.remove("no-scroll");
 }
 
+function assalNormalizeNotificationItem(key, value){
+  const data = (value && typeof value === "object") ? value : {};
+  return {
+    key: String(key || ""),
+    ...data,
+    // Firebase أحياناً ترجع read كسلسلة أو قيمة ناقصة، فنعامل true فقط كمقروء.
+    read: data.read === true || data.read === "true"
+  };
+}
+
+function assalApplyNotificationsSnapshot(snap){
+  const list = [];
+  if(snap){
+    snap.forEach(child => {
+      const val = child.val() || {};
+      if(val && typeof val === "object"){
+        list.push(assalNormalizeNotificationItem(child.key, val));
+      }
+    });
+  }
+  list.sort((a,b)=> Number(b.createdAt || 0) - Number(a.createdAt || 0));
+  assalNotificationsCache = list;
+  assalRenderNotifications();
+}
+
 function assalRenderNotifications(){
   const list = document.getElementById("assalNotificationsList");
   const badge = document.getElementById("assalNotifyBadge");
   const sub = document.getElementById("assalNotifySubtitle");
+  const btn = document.getElementById("assalNotifyBtn");
   if(!list) return;
 
-  const unread = assalNotificationsCache.filter(n => !n.read).length;
+  const unread = assalNotificationsCache.filter(n => n.read !== true).length;
+  const total = assalNotificationsCache.length;
+
   if(badge){
     badge.textContent = unread > 99 ? "99+" : String(unread);
     badge.classList.toggle("show", unread > 0);
   }
+  if(btn){
+    btn.title = unread ? `الإشعارات - ${unread} غير مقروء` : `الإشعارات - ${total} محفوظة`;
+  }
   if(sub){
-    sub.textContent = unread ? `${unread} إشعار غير مقروء` : "كل الإشعارات مقروءة";
+    if(unread) sub.textContent = `${unread} إشعار غير مقروء`;
+    else if(total) sub.textContent = `${total} إشعار محفوظ`;
+    else sub.textContent = assalNotificationsLastError ? "تعذر تحديث الإشعارات، اضغط الجرس للتحديث" : "كل الإشعارات مقروءة";
   }
 
   if(!assalNotificationsCache.length){
-    list.innerHTML = `<div class="assal-notify-empty"><i class="fa-regular fa-bell"></i><br>لا توجد إشعارات بعد</div>`;
+    list.innerHTML = `<div class="assal-notify-empty"><i class="fa-regular fa-bell"></i><br>${assalNotificationsLastError ? "تعذر تحميل الإشعارات حالياً" : "لا توجد إشعارات بعد"}</div>`;
     return;
   }
 
@@ -4492,22 +4610,234 @@ function assalRenderNotifications(){
       </div>
     </div>
   `).join("");
+
+  list.querySelectorAll(".assal-notify-item").forEach(item => {
+    assalBindNotificationSwipeToDelete(item);
+
+    item.addEventListener("click", async ()=>{
+      if(item.dataset.assalSwipeBlockClick === "1"){
+        item.dataset.assalSwipeBlockClick = "0";
+        return;
+      }
+
+      const key = item.getAttribute("data-key") || "";
+      const notif = assalNotificationsCache.find(n => String(n.key || "") === key);
+      if(!notif) return;
+      if(notif.read !== true && currentUser?.code){
+        try{ await assalGetNotificationsRootRef()?.child(currentUser.code).child(key).update({ read:true }); }catch{}
+      }
+      assalOpenNotificationTarget(notif);
+    });
+  });
 }
 
-function assalStartNotificationsListener(){
-  if(!currentUser?.code) return;
+async function assalDeleteNotificationByKey(key){
+  const safeKey = String(key || "").trim();
+  const code = String(currentUser?.code || "").trim();
+  if(!safeKey || !code) return false;
+
   const root = assalGetNotificationsRootRef();
-  if(!root) return;
+  if(!root) return false;
+
+  try{
+    await root.child(code).child(safeKey).remove();
+    assalNotificationsCache = assalNotificationsCache.filter(n => String(n.key || "") !== safeKey);
+    assalRenderNotifications();
+    return true;
+  }catch(err){
+    console.error("ASSAL notification delete error:", err);
+    try{ showToast("تعذر حذف الإشعار ❌", true); }catch{}
+    return false;
+  }
+}
+
+function assalBindNotificationSwipeToDelete(item){
+  if(!item || item.dataset.assalSwipeBound === "1") return;
+  item.dataset.assalSwipeBound = "1";
+
+  if(!item.querySelector(".assal-swipe-delete-mark")){
+    const mark = document.createElement("div");
+    mark.className = "assal-swipe-delete-mark";
+    mark.innerHTML = '<i class="fa-regular fa-trash-can"></i>';
+    item.appendChild(mark);
+  }
+
+  let startX = 0;
+  let startY = 0;
+  let moveX = 0;
+  let dragging = false;
+  let horizontal = false;
+  let pointerId = null;
+  const threshold = 96;
+
+  function reset(animated = true){
+    item.classList.remove("assal-swiping", "assal-delete-ready");
+    item.style.transition = animated ? "transform .18s ease, opacity .18s ease" : "";
+    item.style.transform = "translateX(0)";
+    item.style.opacity = "";
+    setTimeout(()=>{
+      if(!item.classList.contains("assal-swiping")){
+        item.style.transition = "";
+      }
+    }, 210);
+  }
+
+  item.addEventListener("pointerdown", (e)=>{
+    if(e.button !== undefined && e.button !== 0) return;
+    if(item.classList.contains("assal-deleting")) return;
+
+    startX = e.clientX;
+    startY = e.clientY;
+    moveX = 0;
+    dragging = true;
+    horizontal = false;
+    pointerId = e.pointerId;
+    item.dataset.assalSwipeBlockClick = "0";
+    item.classList.add("assal-swiping");
+    item.style.transition = "none";
+    try{ item.setPointerCapture(pointerId); }catch{}
+  }, { passive:true });
+
+  item.addEventListener("pointermove", (e)=>{
+    if(!dragging || (pointerId !== null && e.pointerId !== pointerId)) return;
+
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    if(!horizontal){
+      if(Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if(Math.abs(dy) > Math.abs(dx)){
+        dragging = false;
+        horizontal = false;
+        pointerId = null;
+        reset(true);
+        return;
+      }
+      horizontal = dx > 0;
+      if(!horizontal){
+        dragging = false;
+        pointerId = null;
+        reset(true);
+        return;
+      }
+    }
+
+    if(e.cancelable) e.preventDefault();
+    moveX = Math.max(0, Math.min(dx, 150));
+    item.style.transform = `translateX(${moveX}px)`;
+    item.style.opacity = String(Math.max(.72, 1 - moveX / 420));
+    item.classList.toggle("assal-delete-ready", moveX >= threshold);
+  }, { passive:false });
+
+  function finish(e){
+    if(!dragging || (e && pointerId !== null && e.pointerId !== pointerId)) return;
+
+    const shouldDelete = moveX >= threshold;
+    dragging = false;
+    horizontal = false;
+    pointerId = null;
+
+    item.classList.remove("assal-swiping", "assal-delete-ready");
+
+    if(shouldDelete){
+      item.dataset.assalSwipeBlockClick = "1";
+      const key = item.getAttribute("data-key") || "";
+      item.classList.add("assal-deleting");
+      item.style.transition = "transform .22s ease, opacity .22s ease";
+      item.style.transform = "translateX(120%)";
+      item.style.opacity = "0";
+      setTimeout(()=> assalDeleteNotificationByKey(key), 180);
+    }else{
+      if(moveX > 12) item.dataset.assalSwipeBlockClick = "1";
+      reset(true);
+    }
+
+    moveX = 0;
+  }
+
+  item.addEventListener("pointerup", finish, { passive:true });
+  item.addEventListener("pointercancel", finish, { passive:true });
+}
+
+async function assalRefreshNotificationsOnce(options = {}){
+  const code = String(currentUser?.code || "").trim();
+  if(!code) return [];
+  const root = assalGetNotificationsRootRef();
+  if(!root){
+    if(!options.silent){
+      try{ showToast("Firebase غير جاهز للإشعارات ❌", true); }catch{}
+    }
+    return assalNotificationsCache;
+  }
+
+  try{
+    const snap = await root.child(code).once("value");
+    assalNotificationsLastError = "";
+    assalApplyNotificationsSnapshot(snap);
+    return assalNotificationsCache;
+  }catch(err){
+    assalNotificationsLastError = String(err?.message || err || "notifications_error");
+    console.error("ASSAL notifications refresh error:", err);
+    assalRenderNotifications();
+    if(!options.silent){
+      try{ showToast("تعذر تحديث الإشعارات الداخلية ❌", true); }catch{}
+    }
+    return assalNotificationsCache;
+  }
+}
+
+function assalStopNotificationsListener(){
+  clearTimeout(assalNotificationsRetryTimer);
+  assalNotificationsRetryTimer = null;
   if(assalNotificationsRef){
     try{ assalNotificationsRef.off(); }catch{}
   }
-  assalNotificationsRef = root.child(currentUser.code).orderByChild("createdAt").limitToLast(80);
-  assalNotificationsRef.on("value", snap => {
-    const list = [];
-    snap.forEach(child => list.push({ key: child.key, ...(child.val() || {}) }));
-    list.sort((a,b)=> Number(b.createdAt || 0) - Number(a.createdAt || 0));
-    assalNotificationsCache = list;
+  assalNotificationsRef = null;
+  assalNotificationsListeningCode = "";
+}
+
+function assalScheduleNotificationsListenerRetry(){
+  clearTimeout(assalNotificationsRetryTimer);
+  assalNotificationsRetryTimer = setTimeout(()=> assalStartNotificationsListener(true), 900);
+}
+
+function assalStartNotificationsListener(forceRestart = false){
+  const code = String(currentUser?.code || "").trim();
+  if(!code){
+    assalStopNotificationsListener();
+    assalNotificationsCache = [];
     assalRenderNotifications();
+    return;
+  }
+
+  const root = assalGetNotificationsRootRef();
+  if(!root){
+    assalNotificationsLastError = "firebase_not_ready";
+    assalRenderNotifications();
+    assalScheduleNotificationsListenerRetry();
+    return;
+  }
+
+  if(!forceRestart && assalNotificationsRef && assalNotificationsListeningCode === code){
+    assalRefreshNotificationsOnce({ silent:true });
+    return;
+  }
+
+  assalStopNotificationsListener();
+  assalNotificationsListeningCode = code;
+  assalNotificationsRef = root.child(code);
+
+  // قراءة أولية قبل تشغيل listener حتى تظهر الإشعارات القديمة فوراً داخل الجرس.
+  assalRefreshNotificationsOnce({ silent:true });
+
+  assalNotificationsRef.on("value", snap => {
+    assalNotificationsLastError = "";
+    assalApplyNotificationsSnapshot(snap);
+  }, err => {
+    assalNotificationsLastError = String(err?.message || err || "listener_error");
+    console.error("ASSAL notifications listener error:", err);
+    assalRenderNotifications();
+    assalScheduleNotificationsListenerRetry();
   });
 }
 
@@ -4537,6 +4867,17 @@ function assalBindRealtimeUIEvents(){
 
   document.addEventListener("keydown", (e)=>{
     if(e.key === "Escape") assalCloseNotificationsPanel();
+  });
+
+  // WebView أحياناً يوقف realtime listener بالخلفية؛ عند الرجوع للتطبيق نحدث الجرس ونربط listener من جديد.
+  document.addEventListener("visibilitychange", ()=>{
+    if(!document.hidden && currentUser?.code){
+      assalStartNotificationsListener(true);
+      assalRefreshNotificationsOnce({ silent:true });
+    }
+  });
+  window.addEventListener("focus", ()=>{
+    if(currentUser?.code) assalRefreshNotificationsOnce({ silent:true });
   });
 }
 
@@ -4591,33 +4932,45 @@ function assalStartChatListener(key){
   assalChatKey = key;
   assalChatMessagesCache = [];
   assalChatRef = root.child(key).child("messages").orderByChild("createdAt").limitToLast(120);
+
   assalChatRef.on("value", snap => {
     const list = [];
     snap.forEach(child => list.push({ key: child.key, ...(child.val() || {}) }));
     list.sort((a,b)=> Number(a.createdAt || 0) - Number(b.createdAt || 0));
     assalChatMessagesCache = list;
-    assalRenderChatMessages();
-  });
+    assalRenderChatMessages(true);
+  }, err => console.error("ASSAL chat value listener error:", err));
+
+  assalChatRef.on("child_added", snap => {
+    const msg = { key: snap.key, ...(snap.val() || {}) };
+    if(!msg.key) return;
+    if(!assalChatMessagesCache.some(x => x.key === msg.key)){
+      assalChatMessagesCache.push(msg);
+      assalChatMessagesCache.sort((a,b)=> Number(a.createdAt || 0) - Number(b.createdAt || 0));
+      assalRenderChatMessages(true, msg.key);
+    }
+  }, err => console.error("ASSAL chat child_added listener error:", err));
 }
 
-function assalRenderChatMessages(){
+function assalRenderChatMessages(autoScroll = true, highlightKey = ""){
   const box = document.getElementById("assalChatMessages");
   if(!box) return;
   if(!assalChatMessagesCache.length){
     box.innerHTML = `<div class="assal-chat-empty"><i class="fa-regular fa-comments"></i><br>لا توجد رسائل بعد داخل هذه الفاتورة</div>`;
     return;
   }
+  const wasNearBottom = (box.scrollHeight - box.scrollTop - box.clientHeight) < 90;
   box.innerHTML = assalChatMessagesCache.map(msg => {
     const mine = String(msg.senderCode || "") === String(currentUser?.code || "");
+    const isNew = highlightKey && String(msg.key || "") === String(highlightKey);
     return `
-      <div class="assal-chat-msg ${mine ? "mine" : ""}">
+      <div class="assal-chat-msg ${mine ? "mine" : ""} ${isNew ? "assal-new-msg" : ""}" data-chat-msg-key="${assalSafeText(msg.key || "")}">
         <div class="name">${assalSafeText(msg.senderName || "مستخدم")} • ${assalSafeText(assalRoleLabel(msg.senderRole || ""))}</div>
         <div class="text">${assalSafeText(msg.message || "")}</div>
         <div class="time">${assalTimeLabel(msg.createdAt)}</div>
-      </div>
-    `;
+      </div>`;
   }).join("");
-  box.scrollTop = box.scrollHeight;
+  if(autoScroll && (wasNearBottom || highlightKey)) box.scrollTop = box.scrollHeight;
 }
 
 async function assalSendChatMessage(){
@@ -4646,8 +4999,16 @@ async function assalSendChatMessage(){
     createdAt: assalNow()
   };
 
+  const btn = document.getElementById("assalChatSendBtn");
+  if(btn) btn.disabled = true;
   try{
-    await root.child(key).child("messages").push(payload);
+    const newMsgRef = root.child(key).child("messages").push();
+    await newMsgRef.set(payload);
+    if(!assalChatMessagesCache.some(x => x.key === newMsgRef.key)){
+      assalChatMessagesCache.push({ key:newMsgRef.key, ...payload });
+      assalChatMessagesCache.sort((a,b)=> Number(a.createdAt || 0) - Number(b.createdAt || 0));
+      assalRenderChatMessages(true, newMsgRef.key);
+    }
     await root.child(key).child("meta").update({
       invoiceKey: payload.invoiceKey,
       invoiceName: payload.invoiceName,
@@ -4660,10 +5021,13 @@ async function assalSendChatMessage(){
       updatedAt: assalNow()
     });
     input.value = "";
-    assalNotifyInvoiceChange("chat_message", currentInvoice, { messagePreview: msg.slice(0,160) }, { force:true });
+    assalNotifyInvoiceChange("chat_message", currentInvoice, { messagePreview: msg.slice(0,160), chatKey:key, target:"chat" }, { force:true });
   }catch(err){
     console.error("ASSAL chat error:", err);
     try{ showToast("فشل إرسال الرسالة ❌", true); }catch{}
+  }finally{
+    if(btn) btn.disabled = false;
+    input?.focus?.();
   }
 }
 
@@ -4679,10 +5043,67 @@ function assalBindChatEvents(){
   });
 }
 
+async function assalOpenNotificationTarget(data = {}){
+  const invoiceKey = String(data.invoiceKey || data.serverKey || data.details?.invoiceKey || "").trim();
+  const target = String(data.target || assalNotificationTargetForAction(data.action || "")).trim() || "invoice";
+  assalCloseNotificationsPanel();
+  if(invoiceKey) await assalOpenInvoiceByServerKey(invoiceKey);
+  setTimeout(()=>{
+    if(target === "chat"){
+      assalScrollAndFlash("assalInvoiceChatCard");
+      const input = document.getElementById("assalChatInput");
+      setTimeout(()=> input?.focus?.(), 650);
+    }else{
+      assalScrollAndFlash("itemsTable");
+    }
+  }, 450);
+}
+
+async function assalOpenInvoiceByServerKey(serverKey){
+  const key = String(serverKey || "").trim();
+  if(!key) return false;
+  if(currentInvoice && assalGetInvoiceServerKey(currentInvoice) === key){ assalRenderChatState(); return true; }
+  const localIndex = (invoices || []).findIndex(inv => String(inv?.serverKey || inv?.__serverKey || "") === key);
+  if(localIndex !== -1){ loadInvoice(localIndex); return true; }
+  let serverInvoice = (serverInvoicesCache || []).find(inv => String(inv?.serverKey || "") === key);
+  if(!serverInvoice && (isMainAdmin() || isSecondaryAdmin())){
+    try{ await refreshServerInvoicesForRole({ silent:true }); serverInvoice = (serverInvoicesCache || []).find(inv => String(inv?.serverKey || "") === key); }catch{}
+  }
+  if(serverInvoice){ loadServerInvoiceByKey(key); return true; }
+  try{
+    const ref = getServerInvoicesRef();
+    if(ref){
+      const snap = await ref.child(key).once("value");
+      const inv = snap.val();
+      if(inv){
+        serverInvoicesCache = [{ serverKey:key, ...inv }, ...(serverInvoicesCache || []).filter(x => String(x.serverKey || "") !== key)];
+        loadServerInvoiceByKey(key);
+        return true;
+      }
+    }
+  }catch(err){ console.warn("ASSAL open invoice direct read failed", err); }
+  try{ showToast("تعذر فتح الفاتورة المرتبطة بالإشعار ❌", true); }catch{}
+  return false;
+}
+
+function assalScrollAndFlash(elementId){
+  const el = document.getElementById(elementId);
+  if(!el) return;
+  const target = el.closest(".card") || el;
+  target.scrollIntoView({ behavior:"smooth", block:"center" });
+  target.classList.remove("assal-target-flash");
+  void target.offsetWidth;
+  target.classList.add("assal-target-flash");
+  setTimeout(()=> target.classList.remove("assal-target-flash"), 3300);
+}
+
+window.assalOpenNotificationTarget = assalOpenNotificationTarget;
+
 function assalInitRealtimeModules(){
   assalBindRealtimeUIEvents();
   assalBindChatEvents();
-  assalStartNotificationsListener();
+  assalStartNotificationsListener(true);
+  assalRefreshNotificationsOnce({ silent:true });
   assalRenderChatState();
   assalRegisterDeviceTokenFromAndroidBridge();
 }
@@ -4696,13 +5117,67 @@ function assalRegisterDeviceTokenFromAndroidBridge(){
   }catch(err){ console.warn("ASSAL Android bridge token not ready", err); }
 }
 
+function assalDeviceTokenKey(token){
+  return String(token || "").replace(/[.#$\[\]/]/g,"_");
+}
+
+async function assalRemoveSameDeviceTokenFromOtherUsers(root, token, currentCode){
+  const safeToken = String(token || "").trim();
+  const safeKey = assalDeviceTokenKey(safeToken);
+  const activeCode = String(currentCode || "").trim();
+
+  if(!root || !safeToken || !safeKey || !activeCode) return;
+
+  try{
+    const snap = await root.once("value");
+    const updates = {};
+
+    snap.forEach(userSnap => {
+      const userCode = String(userSnap.key || "").trim();
+      if(!userCode || userCode === activeCode) return;
+
+      const tokensObj = userSnap.val() || {};
+      if(!tokensObj || typeof tokensObj !== "object") return;
+
+      Object.entries(tokensObj).forEach(([tokenKey, tokenData]) => {
+        const storedToken = typeof tokenData === "string"
+          ? tokenData
+          : String(tokenData?.token || tokenData?.fcmToken || tokenData?.value || "").trim();
+
+        const sameKey = String(tokenKey || "") === safeKey;
+        const sameToken = storedToken && storedToken === safeToken;
+
+        if(sameKey || sameToken){
+          updates[`${userCode}/${tokenKey}`] = null;
+        }
+      });
+    });
+
+    if(Object.keys(updates).length){
+      await root.update(updates);
+      console.log("ASSAL removed duplicated device token from other users", Object.keys(updates).length);
+    }
+  }catch(err){
+    console.warn("ASSAL token cleanup warning:", err);
+  }
+}
+
 async function assalRegisterDeviceToken(token){
   if(!currentUser?.code || !token) return;
   const root = assalGetDeviceTokensRootRef();
   if(!root) return;
+
+  const safeToken = String(token || "").trim();
+  const safeKey = assalDeviceTokenKey(safeToken);
+  if(!safeToken || !safeKey) return;
+
   try{
-    await root.child(currentUser.code).child(token.replace(/[.#$\[\]/]/g,"_")).set({
-      token,
+    // مهم: نفس جهاز Android ممكن يدخل بأكثر من حساب أثناء الفحص.
+    // حتى لا يوصل Push لحساب غير مفتوح، نحذف نفس التوكن من باقي الحسابات ونثبته فقط للحساب الحالي.
+    await assalRemoveSameDeviceTokenFromOtherUsers(root, safeToken, currentUser.code);
+
+    await root.child(currentUser.code).child(safeKey).set({
+      token: safeToken,
       userCode: currentUser.code,
       userName: currentUser.name || "",
       userRole: currentUser.role || "",
@@ -6159,6 +6634,7 @@ function saveSession(code, startedAt = Date.now()){
 
 function clearSession(){
   localStorage.removeItem(AUTH_STORAGE_KEY);
+  if(typeof assalStopNotificationsListener === "function") assalStopNotificationsListener();
   currentUser = null;
   document.body.classList.remove("role-main", "role-secondary", "role-user");
 }
@@ -6752,73 +7228,46 @@ function validateItemFields(ctx="add"){
     showToast("أنشئ فاتورة جديدة أولاً ❌","danger");
     return;
   }
-
-  // ✅ تحقق صارم قبل أي شيء
   if(!validateItemFields("add")) return;
 
   const category = document.getElementById("categorySelect").value;
   const name     = document.getElementById("searchInput").value.trim();
   const qty      = document.getElementById("itemQty").value.trim() || "1";
   const note     = document.getElementById("itemNote").value.trim() || "";
+  if(!category || !name){ showToast("أدخل الصنف واسم القطعة ❌","danger"); return; }
 
-  if(!category || !name){
-    showToast("أدخل الصنف واسم القطعة ❌","danger");
-    return;
-  }
-
-  
-// نعدّله ليصير: نفس الصنف + نفس الاسم + نفس الملاحظات
-const existingIndex = (currentInvoice.items || []).findIndex(
-  (it) =>
-    it.category === category &&
-    it.name === name &&
-    (String(it.note || "").trim() === String(note || "").trim())
-);
-
-
-  if(existingIndex !== -1){
-    // افتح نافذة التأكيد
-    const modal = document.getElementById("confirmModal");
-    modal.style.display = "flex";
-
-    // نعم = عدّل نفس السطر
-    document.getElementById("confirmYes").onclick = ()=>{
-      currentInvoice.items[existingIndex].qty  = qty;
-      currentInvoice.items[existingIndex].note = note;
-
-      renderItems();
-      autoSaveInvoice();
-
-      modal.style.display = "none";
-      showToast("✏️ تم تعديل المادة وحفظ الفاتورة","info");
-
-      // تفريغ + فوكس
-      document.getElementById("searchInput").value="";
-      document.getElementById("itemQty").value="";
-      document.getElementById("itemNote").value="";
-      document.getElementById("searchInput").focus();
-    };
-
-    // لا = إغلاق فقط
-    document.getElementById("confirmNo").onclick = ()=>{
-      modal.style.display = "none";
-    };
-
-  } else {
-    // مادة جديدة
-    if(!Array.isArray(currentInvoice.items)) currentInvoice.items = [];
-    currentInvoice.items.push({category,name,qty,note});
-
-    renderItems();
-    autoSaveInvoice();
-
-    showToast("تمت إضافة المادة وحفظ الفاتورة ✅","success");
-
-    // تفريغ + فوكس
+  const existingIndex = (currentInvoice.items || []).findIndex((it) =>
+    it.category === category && it.name === name && (String(it.note || "").trim() === String(note || "").trim())
+  );
+  const clearInputs = ()=>{
     document.getElementById("searchInput").value="";
     document.getElementById("itemQty").value="";
     document.getElementById("itemNote").value="";
     document.getElementById("searchInput").focus();
+  };
+
+  if(existingIndex !== -1){
+    const modal = document.getElementById("confirmModal");
+    modal.style.display = "flex";
+    document.getElementById("confirmYes").onclick = ()=>{
+      const oldQty = String(currentInvoice.items[existingIndex].qty ?? "");
+      currentInvoice.items[existingIndex].qty  = qty;
+      currentInvoice.items[existingIndex].note = note;
+      const action = assalQtyChangeAction(oldQty, qty);
+      renderItems();
+      autoSaveInvoice(action, { itemName:name, category, oldQty, newQty:qty, note, target:"invoice" });
+      modal.style.display = "none";
+      showToast("✏️ تم تعديل المادة وحفظ الفاتورة","info");
+      clearInputs();
+    };
+    document.getElementById("confirmNo").onclick = ()=>{ modal.style.display = "none"; };
+  } else {
+    if(!Array.isArray(currentInvoice.items)) currentInvoice.items = [];
+    currentInvoice.items.push({category,name,qty,note});
+    renderItems();
+    autoSaveInvoice("item_added", { itemName:name, category, newQty:qty, note, target:"invoice" });
+    showToast("تمت إضافة المادة وحفظ الفاتورة ✅","success");
+    clearInputs();
   }
 }
 
@@ -6849,11 +7298,21 @@ const existingIndex = (currentInvoice.items || []).findIndex(
     }
 
     function removeItem(i){
+  if(!currentInvoice || !currentInvoice.items || !currentInvoice.items[i]) return;
+  const deleted = { ...currentInvoice.items[i] };
   currentInvoice.items.splice(i,1);
   renderItems();
-  autoSaveInvoice(); // ✅ إضافة
+  autoSaveInvoice("item_deleted", {
+    itemName: deleted.name || deleted.item || "آيتم",
+    category: deleted.category || "",
+    oldQty: deleted.qty || "",
+    note: deleted.note || "",
+    target:"invoice"
+  });
   showToast("تم حذف المادة وحفظ الفاتورة 🗑️");
 }
+
+
 
 
     /* =========================
@@ -7211,7 +7670,7 @@ function renameEscEnterHandler(e){
     
     
     
-    function autoSaveInvoice(){
+    function autoSaveInvoice(action = "invoice_updated", details = {}, options = {}){
   if(!currentInvoice) return;
   stampInvoiceOwner(currentInvoice);
   assalNormalizeInvoiceOwner(currentInvoice);
@@ -7227,7 +7686,7 @@ function renameEscEnterHandler(e){
   syncCurrentInvoiceToOpenedMergeEntry();
   renderInvoicesDropdown();
   assalRenderChatState();
-  assalAfterInvoicePersisted("invoice_updated", {});
+  assalAfterInvoicePersisted(action, details || {}, options || {});
 }
 
     
@@ -10180,6 +10639,16 @@ function palUsesAdminDualQty(){
     Array.isArray(currentInvoice.items)
   );
 }
+function assalQtyChangeAction(oldQty, newQty){
+  const oldNum = Number(String(oldQty ?? "").trim() || 0);
+  const newNum = Number(String(newQty ?? "").trim() || 0);
+  if(!isNaN(oldNum) && !isNaN(newNum)){
+    if(newNum > oldNum) return "item_qty_increased";
+    if(newNum < oldNum) return "item_qty_decreased";
+  }
+  return "item_qty_changed";
+}
+
 function palRender(){
   const host = document.getElementById('palList');
   host.innerHTML = "";
@@ -10193,10 +10662,10 @@ function palRender(){
     groups.get(k).push(it);
   });
 
-  const commitPalItem = (orig, patch, toastMsg="")=>{
+  const commitPalItem = (orig, patch, toastMsg="", action="invoice_updated", details={})=>{
     if(!currentInvoice || !currentInvoice.items || !currentInvoice.items[orig]) return;
     Object.assign(currentInvoice.items[orig], patch);
-    autoSaveInvoice();
+    autoSaveInvoice(action, details || {});
     __palDirty = true;
     if(toastMsg) showToast(toastMsg);
   };
@@ -10296,7 +10765,7 @@ function palRender(){
           const oldPrintVal = String(itemRef?._mainAdminPrintQty ?? '');
           const changedInData = (oldVal !== val || oldPrintVal !== val);
           if(changedInData){
-            commitPalItem(it.orig, { qty: val, _mainAdminPrintQty: val }, '');
+            commitPalItem(it.orig, { qty: val, _mainAdminPrintQty: val }, '', assalQtyChangeAction(oldVal, val), { itemName:itemRef?.name || it.name, category:itemRef?.category || it.category, oldQty:oldVal, newQty:val, note:itemRef?.note || it.note, target:'invoice' });
             renderItems();
           }
 
@@ -10355,7 +10824,7 @@ function palRender(){
         const saveQty = (notify=false)=>{
           const val = normalizeQty();
           if(String(currentInvoice.items[it.orig]?.qty || '1') === val) return;
-          commitPalItem(it.orig, { qty: val }, notify ? 'تم تعديل العدد ✅' : '');
+          commitPalItem(it.orig, { qty: val }, notify ? 'تم تعديل العدد ✅' : '', assalQtyChangeAction(prevQty, val), { itemName:currentInvoice.items[it.orig]?.name || it.name, category:currentInvoice.items[it.orig]?.category || it.category, oldQty:prevQty, newQty:val, note:currentInvoice.items[it.orig]?.note || it.note, target:'invoice' });
         };
 
         plusEl?.addEventListener('click', (e)=>{
@@ -10434,12 +10903,17 @@ function palRender(){
 function palDeleteOne(orig){
   if(!currentInvoice || !currentInvoice.items) return;
   if(!currentInvoice.items[orig]) return;
+  const deleted = { ...currentInvoice.items[orig] };
   currentInvoice.items.splice(orig, 1);
-  autoSaveInvoice();
+  autoSaveInvoice("item_deleted", {
+    itemName: deleted.name || deleted.item || "آيتم",
+    category: deleted.category || "",
+    oldQty: deleted.qty || "",
+    note: deleted.note || "",
+    target:"invoice"
+  });
   showToast("تم حذف المادة ✅");
-  __palDirty = true; // ← صار تعديل
-
-  // أعد بناء الخريطة لأن الفهارس تغيّرت
+  __palDirty = true;
   palBuildMap();
   palRender();
   renderItems();
@@ -10448,11 +10922,18 @@ function palDeleteOne(orig){
 function palBulkDelete(){
   if(!__palSel.size){ showToast("ما محدد شي للحذف ❌", true); return; }
   const arr = Array.from(__palSel).sort((a,b)=> b-a);
+  const deletedNames = [];
   arr.forEach(i=>{
-    if(currentInvoice.items[i]) currentInvoice.items.splice(i,1);
+    if(currentInvoice.items[i]){
+      deletedNames.push(currentInvoice.items[i].name || currentInvoice.items[i].item || "آيتم");
+      currentInvoice.items.splice(i,1);
+    }
   });
   __palSel.clear();
-  autoSaveInvoice();
+  autoSaveInvoice("item_deleted", {
+    itemName: deletedNames.length === 1 ? deletedNames[0] : `${deletedNames.length} آيتم`,
+    target:"invoice"
+  });
   showToast("تم حذف العناصر المحددة ✅");
   __palDirty = true; // ← صار تعديل
 
