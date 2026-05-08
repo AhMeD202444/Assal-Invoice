@@ -3103,8 +3103,8 @@ body{
   flex-direction:column;
   gap:2px;
 }
-.assal-chat-title strong{ font-size:14px; color:#f8fbff; }
-.assal-chat-title small{ color:var(--muted); font-size:11px; }
+.assal-chat-title strong{ font-size:13px; color:#f8fbff; }
+.assal-chat-title small{ color:var(--muted); font-size:10.5px; }
 .assal-chat-status{
   display:inline-flex;
   align-items:center;
@@ -3120,15 +3120,23 @@ body{
 }
 .assal-chat-status.ready{ color:#86efac; border-color:rgba(34,197,94,.30); background:rgba(34,197,94,.08); }
 .assal-chat-messages{
-  height:260px;
-  overflow:auto;
-  padding:10px;
+  /* ASSAL FINAL CHAT REPAIR: حجم أخف + 3 رسائل تقريباً والباقي سكرول داخلي */
+  height: auto;
+  max-height: 238px;
+  min-height: 96px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:8px;
   border:1px solid rgba(255,255,255,.10);
   border-radius:16px;
   background:rgba(0,0,0,.14);
   display:flex;
   flex-direction:column;
-  gap:8px;
+  gap:7px;
+  overscroll-behavior-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y !important;
+  scrollbar-gutter: stable;
 }
 .assal-chat-empty{
   margin:auto;
@@ -3139,11 +3147,12 @@ body{
 }
 .assal-chat-msg{
   width:min(84%,520px);
-  padding:10px 12px;
-  border-radius:16px;
+  padding:8px 10px;
+  border-radius:15px;
   background:rgba(255,255,255,.07);
   border:1px solid rgba(255,255,255,.10);
   align-self:flex-start;
+  flex:0 0 auto;
 }
 .assal-chat-msg.mine{
   align-self:flex-end;
@@ -3157,14 +3166,14 @@ body{
   font-weight:900;
 }
 .assal-chat-msg .text{
-  font-size:13px;
-  line-height:1.75;
+  font-size:12.5px;
+  line-height:1.65;
   color:#f8fbff;
   white-space:pre-wrap;
   word-break:break-word;
 }
 .assal-chat-msg .time{
-  margin-top:5px;
+  margin-top:4px;
   color:#8290aa;
   font-size:10px;
   text-align:end;
@@ -3176,8 +3185,8 @@ body{
   margin-top:10px;
 }
 .assal-chat-compose textarea{
-  min-height:46px;
-  max-height:120px;
+  min-height:42px;
+  max-height:96px;
   resize:vertical;
   text-align:start;
 }
@@ -3193,10 +3202,18 @@ body{
 }
 @media (max-width:576px){
   .assal-notify-drawer{ width:100%; }
-  .assal-chat-messages{ height:230px; }
+  .assal-chat-messages{ max-height:214px; min-height:92px; }
   .assal-chat-compose{ grid-template-columns:1fr; }
   .assal-chat-compose .btn{ width:100%; }
 }
+
+/* ASSAL FINAL CHAT REPAIR • سكرول داخلي واضح وناعم */
+.assal-chat-messages::-webkit-scrollbar{ width:8px !important; height:8px !important; }
+.assal-chat-messages::-webkit-scrollbar-track{ background:rgba(255,255,255,.045) !important; border-radius:999px !important; }
+.assal-chat-messages::-webkit-scrollbar-thumb{ background:linear-gradient(180deg,#93c5fd,#2563eb) !important; border-radius:999px !important; border:2px solid rgba(17,24,39,.86) !important; }
+.assal-chat-messages{ scrollbar-width:thin !important; scrollbar-color:rgba(96,165,250,.78) rgba(255,255,255,.045) !important; }
+.assal-chat-card{ scroll-margin-top: calc(var(--fixed-header-h, 58px) + 14px); }
+
 @media print{
   .assal-notify-panel,
   .assal-chat-card,
@@ -3346,6 +3363,61 @@ body{
 .assal-notify-item.assal-delete-ready .assal-swipe-delete-mark{
   opacity:1;
   transform: scale(1);
+}
+
+
+
+/* =========================================================
+   ASSAL CHAT FINAL TUNE • full width compact message cards
+   - بطاقات الرسائل بعرض خانة الرسائل تقريباً
+   - ارتفاع أقل وقراءة أوضح
+   - اسم المرسل بدون إضافة role مثل: - فرع
+   ========================================================= */
+.assal-chat-messages{
+  max-height: 214px !important;
+  min-height: 118px !important;
+  padding: 7px !important;
+  gap: 6px !important;
+  border-radius: 15px !important;
+}
+.assal-chat-msg,
+.assal-chat-msg.mine{
+  width: 100% !important;
+  max-width: none !important;
+  align-self: stretch !important;
+  padding: 7px 10px !important;
+  border-radius: 14px !important;
+  min-height: 0 !important;
+  box-shadow: 0 8px 18px rgba(0,0,0,.12) !important;
+}
+.assal-chat-msg .name{
+  font-size: 10.5px !important;
+  line-height: 1.35 !important;
+  margin-bottom: 2px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.assal-chat-msg .text{
+  font-size: 13px !important;
+  line-height: 1.42 !important;
+  margin: 0 !important;
+}
+.assal-chat-msg .time{
+  margin-top: 2px !important;
+  font-size: 9.5px !important;
+  line-height: 1.25 !important;
+  opacity: .85 !important;
+}
+@media (max-width:576px){
+  .assal-chat-messages{
+    max-height: 206px !important;
+    min-height: 112px !important;
+  }
+  .assal-chat-msg,
+  .assal-chat-msg.mine{
+    padding: 6px 9px !important;
+  }
 }
 
 </style>
@@ -4921,56 +4993,137 @@ function assalRenderChatState(){
   if(ready && key !== assalChatKey){
     assalStartChatListener(key);
   }else if(ready){
-    assalRenderChatMessages();
+    assalRenderChatMessages(true, "", { forceBottom:true });
   }
 }
 
 function assalStartChatListener(key){
   const root = assalGetChatsRootRef();
   if(!root || !key) return;
+
+  // مهم جداً: نستخدم Listener واحد فقط حتى ما يصير تكرار/استبدال للرسائل.
+  // سابقاً وجود value + child_added كان يسبب ترتيب غريب ورسائل تظهر مكان رسائل ثانية.
   if(assalChatRef){ try{ assalChatRef.off(); }catch{} }
+
   assalChatKey = key;
   assalChatMessagesCache = [];
-  assalChatRef = root.child(key).child("messages").orderByChild("createdAt").limitToLast(120);
+  assalChatRef = root.child(key).child("messages").orderByChild("createdAt");
 
   assalChatRef.on("value", snap => {
-    const list = [];
-    snap.forEach(child => list.push({ key: child.key, ...(child.val() || {}) }));
-    list.sort((a,b)=> Number(a.createdAt || 0) - Number(b.createdAt || 0));
-    assalChatMessagesCache = list;
-    assalRenderChatMessages(true);
-  }, err => console.error("ASSAL chat value listener error:", err));
+    const oldLastKey = assalChatMessagesCache.length
+      ? String(assalChatMessagesCache[assalChatMessagesCache.length - 1].key || "")
+      : "";
 
-  assalChatRef.on("child_added", snap => {
-    const msg = { key: snap.key, ...(snap.val() || {}) };
-    if(!msg.key) return;
-    if(!assalChatMessagesCache.some(x => x.key === msg.key)){
-      assalChatMessagesCache.push(msg);
-      assalChatMessagesCache.sort((a,b)=> Number(a.createdAt || 0) - Number(b.createdAt || 0));
-      assalRenderChatMessages(true, msg.key);
-    }
-  }, err => console.error("ASSAL chat child_added listener error:", err));
+    const list = [];
+    snap.forEach(child => {
+      const val = child.val() || {};
+      if(val && typeof val === "object"){
+        list.push({ key: child.key, ...val });
+      }
+    });
+
+    list.sort((a,b)=> {
+      const ta = Number(a.createdAt || 0);
+      const tb = Number(b.createdAt || 0);
+      if(ta !== tb) return ta - tb;
+      return String(a.key || "").localeCompare(String(b.key || ""));
+    });
+
+    assalChatMessagesCache = list;
+
+    const newLastKey = list.length ? String(list[list.length - 1].key || "") : "";
+    const highlightKey = (newLastKey && newLastKey !== oldLastKey) ? newLastKey : "";
+    assalRenderChatMessages(true, highlightKey, { forceBottom: true });
+  }, err => console.error("ASSAL chat value listener error:", err));
 }
 
-function assalRenderChatMessages(autoScroll = true, highlightKey = ""){
+function assalScrollChatToBottom(smooth = false){
   const box = document.getElementById("assalChatMessages");
   if(!box) return;
+  const go = ()=>{
+    try{
+      if(smooth && typeof box.scrollTo === "function"){
+        box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
+      }else{
+        box.scrollTop = box.scrollHeight;
+      }
+    }catch{
+      box.scrollTop = box.scrollHeight;
+    }
+  };
+  go();
+  requestAnimationFrame(go);
+  setTimeout(go, 80);
+}
+
+function assalBindSmartChatScroll(box){
+  if(!box || box.dataset.assalSmartScrollBound === "1") return;
+  box.dataset.assalSmartScrollBound = "1";
+
+  let touchStartY = 0;
+
+  function canScrollInside(deltaY){
+    const maxTop = Math.max(0, box.scrollHeight - box.clientHeight);
+    if(maxTop <= 1) return false;
+    if(deltaY > 0) return box.scrollTop < maxTop - 1;
+    if(deltaY < 0) return box.scrollTop > 1;
+    return false;
+  }
+
+  box.addEventListener("wheel", (e)=>{
+    if(canScrollInside(e.deltaY)){
+      e.stopPropagation();
+    }
+  }, { passive:true });
+
+  box.addEventListener("touchstart", (e)=>{
+    touchStartY = e.touches && e.touches.length ? e.touches[0].clientY : 0;
+  }, { passive:true });
+
+  box.addEventListener("touchmove", (e)=>{
+    if(!e.touches || !e.touches.length) return;
+    const currentY = e.touches[0].clientY;
+    const deltaY = touchStartY - currentY;
+    if(canScrollInside(deltaY)){
+      e.stopPropagation();
+    }
+  }, { passive:true });
+}
+
+function assalChatSenderDisplayName(name, role){
+  let display = String(name || "مستخدم").trim();
+  // لا نضيف نوع الحساب داخل بطاقة الرسالة حتى لا يظهر مثل: مكتب عسل الحي - فرع
+  display = display.replace(/\s*[•\-–—]\s*(فرع|مستخدم|أدمن رئيسي|أدمن ثانوي)\s*$/g, "").trim();
+  return display || "مستخدم";
+}
+
+function assalRenderChatMessages(autoScroll = true, highlightKey = "", options = {}){
+  const box = document.getElementById("assalChatMessages");
+  if(!box) return;
+
+  assalBindSmartChatScroll(box);
+
   if(!assalChatMessagesCache.length){
     box.innerHTML = `<div class="assal-chat-empty"><i class="fa-regular fa-comments"></i><br>لا توجد رسائل بعد داخل هذه الفاتورة</div>`;
     return;
   }
-  const wasNearBottom = (box.scrollHeight - box.scrollTop - box.clientHeight) < 90;
+
+  const wasNearBottom = (box.scrollHeight - box.scrollTop - box.clientHeight) < 110;
+
   box.innerHTML = assalChatMessagesCache.map(msg => {
     const mine = String(msg.senderCode || "") === String(currentUser?.code || "");
     const isNew = highlightKey && String(msg.key || "") === String(highlightKey);
     return `
       <div class="assal-chat-msg ${mine ? "mine" : ""} ${isNew ? "assal-new-msg" : ""}" data-chat-msg-key="${assalSafeText(msg.key || "")}">
-        <div class="name">${assalSafeText(msg.senderName || "مستخدم")} • ${assalSafeText(assalRoleLabel(msg.senderRole || ""))}</div>
+        <div class="name">${assalSafeText(assalChatSenderDisplayName(msg.senderName, msg.senderRole))}</div>
         <div class="text">${assalSafeText(msg.message || "")}</div>
         <div class="time">${assalTimeLabel(msg.createdAt)}</div>
       </div>`;
   }).join("");
-  if(autoScroll && (wasNearBottom || highlightKey)) box.scrollTop = box.scrollHeight;
+
+  if(autoScroll && (options.forceBottom || wasNearBottom || highlightKey)){
+    assalScrollChatToBottom(!!highlightKey);
+  }
 }
 
 async function assalSendChatMessage(){
@@ -5004,11 +5157,8 @@ async function assalSendChatMessage(){
   try{
     const newMsgRef = root.child(key).child("messages").push();
     await newMsgRef.set(payload);
-    if(!assalChatMessagesCache.some(x => x.key === newMsgRef.key)){
-      assalChatMessagesCache.push({ key:newMsgRef.key, ...payload });
-      assalChatMessagesCache.sort((a,b)=> Number(a.createdAt || 0) - Number(b.createdAt || 0));
-      assalRenderChatMessages(true, newMsgRef.key);
-    }
+    // لا نضيف الرسالة محلياً حتى لا يصير تضارب أو استبدال بالواجهة.
+    // Firebase value listener سيرجع الرسالة ويرسم كل المحادثة للطرفين بنفس الترتيب.
     await root.child(key).child("meta").update({
       invoiceKey: payload.invoiceKey,
       invoiceName: payload.invoiceName,
@@ -5051,6 +5201,7 @@ async function assalOpenNotificationTarget(data = {}){
   setTimeout(()=>{
     if(target === "chat"){
       assalScrollAndFlash("assalInvoiceChatCard");
+      assalScrollChatToBottom(true);
       const input = document.getElementById("assalChatInput");
       setTimeout(()=> input?.focus?.(), 650);
     }else{
@@ -5095,6 +5246,73 @@ function assalScrollAndFlash(elementId){
   void target.offsetWidth;
   target.classList.add("assal-target-flash");
   setTimeout(()=> target.classList.remove("assal-target-flash"), 3300);
+}
+
+/* ASSAL FINAL • فتح الفاتورة من قائمة الفواتير داخل التطبيق
+   من يضغط المستخدم على فاتورة من الأسفل/القائمة، يصعد بسكرول ناعم إلى خانة جدول العرض
+   ويعطي ومضة أنيقة للهدف بدون تكرار أو سكرول مزعج. */
+function assalScrollToOpenedInvoiceTable(){
+  clearTimeout(window.__assalOpenInvoiceScrollTimer);
+  window.__assalOpenInvoiceScrollTimer = setTimeout(()=>{
+    const table = document.getElementById("itemsTable");
+    const target = table?.closest(".card.table-wrap") || table?.closest(".card") || document.querySelector(".content");
+    if(!target) return;
+
+    let headerH = 58;
+    try{
+      const cssH = getComputedStyle(document.documentElement).getPropertyValue("--fixed-header-h");
+      const parsed = parseFloat(cssH);
+      if(!isNaN(parsed)) headerH = parsed;
+    }catch{}
+
+    const y = Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - headerH - 14);
+    try{
+      window.scrollTo({ top: y, behavior: "smooth" });
+    }catch{
+      window.scrollTo(0, y);
+    }
+
+    setTimeout(()=>{
+      target.classList.remove("assal-target-flash");
+      void target.offsetWidth;
+      target.classList.add("assal-target-flash");
+      setTimeout(()=> target.classList.remove("assal-target-flash"), 3300);
+    }, 420);
+  }, 90);
+}
+
+/* ASSAL FINAL • زر (+) أسفل الواجهة
+   عند إنشاء/فتح فاتورة اليوم يصعد بسكرول ناعم إلى قائمة الأصناف ويعمل وميض أنيق عليها. */
+function assalScrollToInvoiceCategoryAfterNewInvoice(){
+  clearTimeout(window.__assalNewInvoiceCategoryScrollTimer);
+  window.__assalNewInvoiceCategoryScrollTimer = setTimeout(()=>{
+    const catSelect = document.getElementById("catSelect");
+    const catBtn = document.getElementById("catBtn");
+    const target = catSelect || catBtn || document.querySelector(".category") || document.querySelector(".editor");
+    if(!target) return;
+
+    let headerH = 58;
+    try{
+      const cssH = getComputedStyle(document.documentElement).getPropertyValue("--fixed-header-h");
+      const parsed = parseFloat(cssH);
+      if(!isNaN(parsed)) headerH = parsed;
+    }catch{}
+
+    const y = Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - headerH - 14);
+    try{
+      window.scrollTo({ top: y, behavior: "smooth" });
+    }catch{
+      window.scrollTo(0, y);
+    }
+
+    setTimeout(()=>{
+      const flashTarget = catBtn || target;
+      flashTarget.classList.remove("assal-target-flash");
+      void flashTarget.offsetWidth;
+      flashTarget.classList.add("assal-target-flash");
+      setTimeout(()=> flashTarget.classList.remove("assal-target-flash"), 3300);
+    }, 430);
+  }, 120);
 }
 
 window.assalOpenNotificationTarget = assalOpenNotificationTarget;
@@ -5685,6 +5903,7 @@ function loadServerInvoiceByKey(serverKey, ev){
   renderItems();
   assalRenderChatState();
   showToast("تم تحميل فاتورة من السيرفر 📥");
+  assalScrollToOpenedInvoiceTable();
 }
 
 function getDateObjectFromInvoiceMeta(dateValue, uploadedAt){
@@ -7345,6 +7564,7 @@ function validateItemFields(ctx="add"){
   renderItems();
   renderInvoicesDropdown();
   assalRenderChatState();
+  assalScrollToInvoiceCategoryAfterNewInvoice();
 }
 
     
@@ -7895,6 +8115,7 @@ function renameEscEnterHandler(e){
       renderItems();
       assalRenderChatState();
       showToast("تم تحميل الفاتورة 📄");
+      assalScrollToOpenedInvoiceTable();
     }
     
 
