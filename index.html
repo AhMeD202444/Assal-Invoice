@@ -3477,12 +3477,23 @@ body{
 
 @media (max-width: 576px){
   #sidebar .invoice-section-scroll{
-    padding-inline: 7px !important;
+    padding: 2px 8px 2px 8px !important;
+    align-items: center !important;
   }
 
   #sidebar .invoice-section-scroll > .invoice-chip,
   #sidebar #invoicesDropdown > .invoice-chip{
-    width: 100% !important;
+    width: calc(100% - 4px) !important;
+    max-width: calc(100% - 4px) !important;
+    margin-inline: auto !important;
+    box-sizing: border-box !important;
+  }
+
+  #sidebar .invoice-section-scroll > .server-empty,
+  #sidebar #invoicesDropdown > .server-empty{
+    width: calc(100% - 4px) !important;
+    margin-inline: auto !important;
+    box-sizing: border-box !important;
   }
 }
 </style>
