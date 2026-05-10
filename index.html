@@ -10490,6 +10490,86 @@ function printInvoiceHTML() {
   .item-row .qty{ height: 30px; }
 }
 
+
+
+/* =========================================================
+   ASSAL FINAL • True mobile centering for invoice cards
+   - يجعل فواتير السيرفر/الفروع بنفس تمركز الفواتير المحلية
+   - يلغي تأثير direction:ltr الذي كان يسحب البطاقات بصرياً لليسار
+   - يحافظ على السكرول الداخلي ومسطرة السكرول الأنيقة
+   ========================================================= */
+#sidebar #invoicesDropdown{
+  width: 100% !important;
+  align-items: stretch !important;
+}
+
+#sidebar .invoice-section-scroll{
+  width: 100% !important;
+  direction: rtl !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: var(--invoice-section-gap, 8px) !important;
+  padding: 2px 8px !important;
+  margin-inline: 0 !important;
+  box-sizing: border-box !important;
+  scrollbar-gutter: stable both-edges !important;
+}
+
+#sidebar .invoice-section-scroll > *{
+  direction: rtl !important;
+}
+
+#sidebar .invoice-section-scroll > .invoice-chip,
+#sidebar #invoicesDropdown > .invoice-chip{
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  margin-inline: auto !important;
+  box-sizing: border-box !important;
+  transform: none;
+}
+
+#sidebar .invoice-section-scroll > .server-empty,
+#sidebar #invoicesDropdown > .server-empty{
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  margin-inline: auto !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 576px){
+  #sidebar{
+    padding-inline: 14px !important;
+  }
+
+  #sidebar #invoicesDropdown{
+    width: 100% !important;
+    align-items: stretch !important;
+  }
+
+  #sidebar .invoice-section-scroll{
+    direction: rtl !important;
+    padding: 2px 8px !important;
+    align-items: stretch !important;
+    scrollbar-gutter: stable both-edges !important;
+  }
+
+  #sidebar .invoice-section-scroll > .invoice-chip,
+  #sidebar #invoicesDropdown > .invoice-chip,
+  #sidebar .invoice-section-scroll > .server-empty,
+  #sidebar #invoicesDropdown > .server-empty{
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-inline: auto !important;
+    box-sizing: border-box !important;
+  }
+}
 </style>
     ${html}
   `, `فاتورة نقص/مرتجع - ${invId || invDate}`);
