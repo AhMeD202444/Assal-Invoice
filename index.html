@@ -3608,6 +3608,94 @@ body{
     text-overflow: ellipsis !important;
   }
 }
+
+
+/* =========================================================
+   ASSAL FINAL • Server/Merge invoice cards clean center fix
+   - فواتير السيرفر عند الفرع: اسم الفاتورة + الصح بنفس الصف، وتحت فقط عدد المواد
+   - منع الإحساس بأن البطاقة زاحفة لليسار داخل الهاتف
+   - توسيط فواتير الدمج عند الأدمن الرئيسي بنفس حل الفواتير المحلية
+   - لا يغير منطق Firebase أو الإشعارات
+   ========================================================= */
+.invoice-section-scroll,
+#importedPdfList{
+  box-sizing: border-box !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  padding-inline: 6px !important;
+}
+
+.invoice-section-scroll > .invoice-chip,
+#importedPdfList > .invoice-chip{
+  width: calc(100% - 8px) !important;
+  max-width: calc(100% - 8px) !important;
+  margin-inline: auto !important;
+  align-self: center !important;
+}
+
+.invoice-section-scroll.section-server > .invoice-chip,
+.invoice-section-scroll.section-branches > .invoice-chip,
+#importedPdfList > .invoice-chip{
+  transform: translateX(0) !important;
+}
+
+.server-local-meta{
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+.server-local-title-line{
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 7px !important;
+  min-width: 0 !important;
+  line-height: 1.35 !important;
+}
+
+.server-local-title-text{
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.server-local-title-line .sent-dot{
+  flex: 0 0 18px !important;
+  margin-inline-start: 2px !important;
+}
+
+.server-local-items-count{
+  display: block !important;
+  margin-top: 4px !important;
+  color: var(--muted) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+@media (max-width: 576px){
+  .invoice-section-scroll,
+  #importedPdfList{
+    padding-inline: 7px !important;
+  }
+  .invoice-section-scroll > .invoice-chip,
+  #importedPdfList > .invoice-chip{
+    width: calc(100% - 6px) !important;
+    max-width: calc(100% - 6px) !important;
+  }
+  .invoice-chip.server-local-chip{
+    min-height: 66px !important;
+  }
+  .server-local-title-text{
+    font-size: 12.5px !important;
+  }
+  .server-local-items-count{
+    font-size: 11px !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -5803,11 +5891,21 @@ function getLocalInvoiceEntries(options = {}){
 }
 
 function getLocalServerArchivedInvoiceEntries(){
-  return getLocalInvoiceEntries({ serverArchive:true }).sort((a,b)=>{
-    const ta = Number(a.inv?.serverUploadedAt || a.inv?.uploadedAt || 0);
-    const tb = Number(b.inv?.serverUploadedAt || b.inv?.uploadedAt || 0);
-    return tb - ta;
-  });
+  // ASSAL FINAL FIX • منع تكرار نفس فاتورة السيرفر داخل خانة فواتير السيرفر محلياً
+  // إذا صار أكثر من سجل لنفس serverKey لأي سبب، نعرض أحدث نسخة فقط حتى لا تظهر كأنها فاتورتين.
+  const seen = new Set();
+  return getLocalInvoiceEntries({ serverArchive:true })
+    .sort((a,b)=>{
+      const ta = Number(a.inv?.serverUploadedAt || a.inv?.uploadedAt || 0);
+      const tb = Number(b.inv?.serverUploadedAt || b.inv?.uploadedAt || 0);
+      return tb - ta;
+    })
+    .filter(({inv,index})=>{
+      const key = String(inv?.serverKey || inv?.__serverKey || inv?.localKey || index).trim();
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 function assalIsOwnServerInvoice(inv){
@@ -7294,6 +7392,22 @@ function markInvoiceAsSentLocally(localIndex, serverKey, uploadedAt){
       }
     }
   }
+
+  // ASSAL FINAL FIX • بعد الإرسال للسيرفر نتأكد ما بقى سجل مكرر لنفس serverKey داخل التخزين المحلي.
+  // نخلي النسخة الحالية فقط حتى خانة فواتير السيرفر ما تعرض الفاتورة مرتين.
+  try{
+    const safeKey = String(serverKey || currentInvoice?.serverKey || currentInvoice?.__serverKey || "").trim();
+    if(safeKey && Array.isArray(invoices)){
+      const keepIndex = selectedInvoiceIndex;
+      for(let idx = invoices.length - 1; idx >= 0; idx--){
+        const itemKey = String(invoices[idx]?.serverKey || invoices[idx]?.__serverKey || "").trim();
+        if(itemKey === safeKey && idx !== keepIndex){
+          invoices.splice(idx, 1);
+          if(selectedInvoiceIndex !== null && idx < selectedInvoiceIndex) selectedInvoiceIndex--;
+        }
+      }
+    }
+  }catch(err){ console.warn("ASSAL local duplicate cleanup warning:", err); }
 
   assalSetInvoiceBaseline(currentInvoice);
   persistInvoices();
@@ -8892,16 +9006,12 @@ function renameEscEnterHandler(e){
     const row = document.createElement("div");
     row.className = `invoice-chip server-chip server-local-chip ${selectedSidebarInvoiceKeys.has(selectKey) ? "is-selected" : ""}`.trim();
     row.innerHTML = `
-      <div class="chip-meta">
-        <strong class="invoice-title-line">
-          <span>${escapeHtml(inv.id || "فاتورة سيرفر")}</span>
+      <div class="chip-meta server-local-meta">
+        <strong class="invoice-title-line server-local-title-line">
+          <span class="server-local-title-text">${escapeHtml(inv.id || "فاتورة سيرفر")}</span>
           <span class="sent-dot" title="مخزونة محلياً ومرسلة للسيرفر"><i class="fa-solid fa-check"></i></span>
         </strong>
-        <small>
-          ${escapeHtml(formatInvoiceSecondaryLine(inv.date || "", inv.serverUploadedAt || inv.uploadedAt))}
-          • ${(Array.isArray(inv.items) ? inv.items.length : 0)} مادة
-          <span class="server-local-note"><i class="fa-solid fa-mobile-screen-button"></i> محلية</span>
-        </small>
+        <small class="server-local-items-count">${(Array.isArray(inv.items) ? inv.items.length : 0)} مادة</small>
       </div>
       <div class="chip-actions">
         <button class="btn-rename-custom server-resend-btn" title="إعادة الإرسال للسيرفر" aria-label="إعادة الإرسال للسيرفر"
