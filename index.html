@@ -1669,6 +1669,24 @@ select{
   background: linear-gradient(135deg, rgba(30,64,175,.30), rgba(37,99,235,.12));
   border-color: rgba(96,165,250,.26);
 }
+
+.server-section-title.section-server{
+  color:#bbf7d0;
+  background: linear-gradient(135deg, rgba(6,95,70,.34), rgba(16,185,129,.12));
+  border-color: rgba(52,211,153,.28);
+}
+.invoice-chip.server-local-chip{
+  border-style: solid;
+  background: linear-gradient(135deg, rgba(6,95,70,.12), rgba(255,255,255,.045));
+}
+.invoice-chip.server-local-chip .server-local-note{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  margin-inline-start:6px;
+  color:#bbf7d0;
+  font-weight:800;
+}
 .invoice-chip.is-selected{
   background: rgba(33,212,253,.16) !important;
   border-color: rgba(33,212,253,.55) !important;
@@ -4093,6 +4111,16 @@ let assalServerSyncTimer = null;
 let assalLastServerSyncSignature = "";
 let assalLastNotifyAtByKey = {};
 
+/* =========================================================
+   ASSAL • Realtime Server Invoices Listener
+   يسمع تغييرات فواتير السيرفر لحظياً حتى تحديثات الفروع تظهر عند الأدمنية بدون ريفرش.
+   ========================================================= */
+let assalServerInvoicesRealtimeRef = null;
+let assalServerInvoicesRealtimeBoundFor = "";
+let assalServerInvoicesRealtimeRetryTimer = null;
+let assalServerInvoicesPendingCurrent = null;
+let assalServerInvoicesPendingTimer = null;
+
 function assalSafeText(v){
   return String(v ?? "")
     .replace(/&/g,"&amp;")
@@ -4220,27 +4248,64 @@ function assalActionLabel(action){
     item_qty_increased: "زيادة عدد آيتم",
     item_qty_decreased: "تقليل عدد آيتم",
     item_qty_changed: "تعديل عدد آيتم",
+    item_note_changed: "تعديل ملاحظات آيتم",
+    item_updated: "تعديل آيتم",
     chat_message: "رد جديد على فاتورة"
   };
   return map[action] || "حركة على فاتورة";
 }
 
+function assalTrimText(value){
+  return String(value ?? "").trim();
+}
+
+function assalBuildItemLabel(details = {}){
+  const category = assalTrimText(details.category || details.itemCategory || details.cat);
+  const name = assalTrimText(details.itemName || details.name || details.item || details.itemTitle || details["Item Name"]);
+  const parts = [];
+
+  if(category && category.toLowerCase() !== "undefined" && category.toLowerCase() !== "null") parts.push(category);
+  if(name && name.toLowerCase() !== "undefined" && name.toLowerCase() !== "null" && name !== category) parts.push(name);
+
+  return parts.join(" ").trim() || "غير محدد";
+}
+
+function assalBuildItemsLabel(details = {}){
+  const items = Array.isArray(details.items) ? details.items : [];
+  if(items.length){
+    return items
+      .map(it => assalBuildItemLabel(it))
+      .filter(label => label && label !== "غير محدد")
+      .join("، ") || "غير محدد";
+  }
+  return assalBuildItemLabel(details);
+}
+
+function assalQtyTail(oldQty, newQty){
+  const oldVal = assalTrimText(oldQty);
+  const newVal = assalTrimText(newQty);
+  return oldVal && newVal ? ` من ${oldVal} إلى ${newVal}` : "";
+}
+
 function assalBuildNotificationText(action, inv, details = {}){
   const actor = currentUser || {};
   const owner = assalGetInvoiceOwner(inv || {});
-  const actorName = String(actor.name || "مستخدم").trim();
-  const invoiceName = String(inv?.id || details.invoiceName || "فاتورة").trim();
-  const itemName = String(details.itemName || details.name || "آيتم").trim();
-  const oldQty = String(details.oldQty ?? "").trim();
-  const newQty = String(details.newQty ?? "").trim();
-  const preview = String(details.messagePreview || details.message || "").trim();
+  const actorName = assalTrimText(actor.name || "مستخدم") || "مستخدم";
+  const invoiceName = assalTrimText(inv?.id || details.invoiceName || "فاتورة") || "فاتورة";
+  const itemLabel = assalBuildItemLabel(details);
+  const itemsLabel = assalBuildItemsLabel(details);
+  const oldQty = details.oldQty;
+  const newQty = details.newQty;
+  const preview = assalTrimText(details.messagePreview || details.message || "");
 
   if(action === "chat_message") return `قام ${actorName} بالرد على الفاتورة: ${preview || invoiceName}`;
-  if(action === "item_deleted") return `قام ${actorName} بحذف الآيتم: ${itemName}`;
-  if(action === "item_qty_increased") return `قام ${actorName} بزيادة عدد ${itemName}${oldQty && newQty ? ` من ${oldQty} إلى ${newQty}` : ""}`;
-  if(action === "item_qty_decreased") return `قام ${actorName} بتقليل عدد ${itemName}${oldQty && newQty ? ` من ${oldQty} إلى ${newQty}` : ""}`;
-  if(action === "item_qty_changed") return `قام ${actorName} بتعديل عدد ${itemName}${oldQty && newQty ? ` من ${oldQty} إلى ${newQty}` : ""}`;
-  if(action === "item_added") return `قام ${actorName} بإضافة الآيتم: ${itemName}${newQty ? ` بعدد ${newQty}` : ""}`;
+  if(action === "item_deleted") return `قام ${actorName} بحذف الايتم ${itemsLabel}`;
+  if(action === "item_qty_increased") return `قام ${actorName} بزيادة عدد الايتم ${itemLabel}${assalQtyTail(oldQty, newQty)}`;
+  if(action === "item_qty_decreased") return `قام ${actorName} بتقليل عدد الايتم ${itemLabel}${assalQtyTail(oldQty, newQty)}`;
+  if(action === "item_qty_changed") return `قام ${actorName} بتعديل عدد الايتم ${itemLabel}${assalQtyTail(oldQty, newQty)}`;
+  if(action === "item_note_changed") return `قام ${actorName} بتعديل ملاحظات الايتم ${itemLabel}`;
+  if(action === "item_updated") return `قام ${actorName} بتعديل الايتم ${itemLabel}`;
+  if(action === "item_added") return `قام ${actorName} بإضافة الايتم ${itemLabel}${assalTrimText(newQty) ? ` بعدد ${assalTrimText(newQty)}` : ""}`;
   if(action === "invoice_renamed") return `قام ${actorName} بتغيير اسم الفاتورة من "${details.oldName || "-"}" إلى "${details.newName || invoiceName}"`;
   if(action === "invoice_deleted") return `قام ${actorName} بحذف الفاتورة: ${invoiceName}`;
   if(action === "invoice_uploaded") return `قام ${actorName} بإرسال الفاتورة إلى السيرفر: ${invoiceName}`;
@@ -4523,9 +4588,56 @@ function assalNotifyInvoiceChange(action, inv = currentInvoice, details = {}, op
   }
 }
 
+function assalFindServerInvoiceCacheByKey(serverKey){
+  const key = String(serverKey || "").trim();
+  if(!key || !Array.isArray(serverInvoicesCache)) return null;
+  return serverInvoicesCache.find(x => String(x?.serverKey || x?.__serverKey || "").trim() === key) || null;
+}
+
+function assalOwnerFromSource(src){
+  if(!src || typeof src !== "object") return null;
+  const code = String(src.ownerCode || src.senderCode || "").trim();
+  const name = String(src.ownerName || src.senderName || "").trim();
+  const role = String(src.ownerRole || src.senderRole || "").trim();
+  if(!code && !name && !role) return null;
+  return { code, name, role };
+}
+
+function assalGetStableInvoiceOwner(inv){
+  const key = assalGetInvoiceServerKey(inv);
+  const cached = key ? assalFindServerInvoiceCacheByKey(key) : null;
+
+  // الفاتورة المرتبطة بالسيرفر لازم تبقى لصاحبها الأصلي.
+  // لذلك نفضّل نسخة السيرفر الموجودة بالكاش قبل نسخة الشاشة المفتوحة،
+  // حتى إذا كان الأدمن هو آخر من عدّل لا يتحول مالك الفاتورة إلى الأدمن.
+  const fromCache = assalOwnerFromSource(cached);
+  if(fromCache && (fromCache.code || fromCache.role)) return fromCache;
+
+  const fromInvoice = assalOwnerFromSource(inv);
+  if(fromInvoice && (fromInvoice.code || fromInvoice.role)) return fromInvoice;
+
+  return {
+    code: String(currentUser?.code || "").trim(),
+    name: String(currentUser?.name || "").trim(),
+    role: String(currentUser?.role || "").trim()
+  };
+}
+
+function assalApplyStableInvoiceOwner(inv, owner){
+  if(!inv || !owner) return inv;
+  inv.ownerCode = String(owner.code || "").trim();
+  inv.ownerName = String(owner.name || "").trim();
+  inv.ownerRole = String(owner.role || "").trim();
+  inv.senderCode = String(owner.code || "").trim();
+  inv.senderName = String(owner.name || "").trim();
+  inv.senderRole = String(owner.role || "").trim();
+  return inv;
+}
+
 function assalCleanInvoiceForServer(inv){
   assalNormalizeInvoiceOwner(inv);
-  const owner = assalGetInvoiceOwner(inv || {});
+  const owner = assalGetStableInvoiceOwner(inv || {});
+  assalApplyStableInvoiceOwner(inv, owner);
   const now = assalNow();
   return {
     id: String(inv?.id || formatInvoiceName()).trim(),
@@ -4945,11 +5057,17 @@ function assalBindRealtimeUIEvents(){
   document.addEventListener("visibilitychange", ()=>{
     if(!document.hidden && currentUser?.code){
       assalStartNotificationsListener(true);
+      assalStartServerInvoicesRealtimeListener(true);
       assalRefreshNotificationsOnce({ silent:true });
+      refreshServerInvoicesForRole({ silent:true });
     }
   });
   window.addEventListener("focus", ()=>{
-    if(currentUser?.code) assalRefreshNotificationsOnce({ silent:true });
+    if(currentUser?.code){
+      assalRefreshNotificationsOnce({ silent:true });
+      assalStartServerInvoicesRealtimeListener(false);
+      refreshServerInvoicesForRole({ silent:true });
+    }
   });
 }
 
@@ -5321,6 +5439,7 @@ function assalInitRealtimeModules(){
   assalBindRealtimeUIEvents();
   assalBindChatEvents();
   assalStartNotificationsListener(true);
+  assalStartServerInvoicesRealtimeListener(true);
   assalRefreshNotificationsOnce({ silent:true });
   assalRenderChatState();
   assalRegisterDeviceTokenFromAndroidBridge();
@@ -5484,6 +5603,158 @@ function persistInvoices(){
   localStorage.setItem(getLocalInvoicesKey(), JSON.stringify(invoices));
 }
 
+
+/* =========================================================
+   ASSAL • فواتير السيرفر المحلية
+   - بعد إرسال الفاتورة تبقى محفوظة محلياً لكن تختفي من الفواتير المحلية.
+   - تظهر داخل قسم "فواتير السيرفر" للأدمن الثانوي والمستخدم الفرعي.
+   - زر الاستيراد يجلب فقط فواتير نفس الحساب المرسلة إلى السيرفر.
+   ========================================================= */
+function isServerArchivedLocalInvoice(inv){
+  if(!inv || typeof inv !== 'object') return false;
+  const hasServerKey = String(inv.serverKey || inv.__serverKey || '').trim().length > 0;
+  return !!(
+    hasServerKey &&
+    (
+      inv.localServerArchive === true ||
+      inv.__localServerArchive === true ||
+      inv.serverStatus === 'sent'
+    )
+  );
+}
+
+function getLocalInvoiceEntries(options = {}){
+  const wantServerArchive = !!options.serverArchive;
+  return (Array.isArray(invoices) ? invoices : [])
+    .map((inv, index)=> ({ inv, index }))
+    .filter(({inv})=> wantServerArchive ? isServerArchivedLocalInvoice(inv) : !isServerArchivedLocalInvoice(inv));
+}
+
+function getLocalServerArchivedInvoiceEntries(){
+  return getLocalInvoiceEntries({ serverArchive:true }).sort((a,b)=>{
+    const ta = Number(a.inv?.serverUploadedAt || a.inv?.uploadedAt || 0);
+    const tb = Number(b.inv?.serverUploadedAt || b.inv?.uploadedAt || 0);
+    return tb - ta;
+  });
+}
+
+function assalIsOwnServerInvoice(inv){
+  if(!currentUser) return false;
+  const code = String(inv?.senderCode || inv?.ownerCode || '').trim();
+  return !!code && code === String(currentUser.code || '').trim();
+}
+
+function findLocalInvoiceIndexByServerKey(serverKey){
+  const key = String(serverKey || '').trim();
+  if(!key) return -1;
+  return (Array.isArray(invoices) ? invoices : []).findIndex(inv =>
+    String(inv?.serverKey || inv?.__serverKey || '').trim() === key
+  );
+}
+
+function normalizeServerInvoiceToLocalArchive(inv = {}, serverKey = ''){
+  const key = String(serverKey || inv.serverKey || inv.__serverKey || '').trim();
+  const uploadedAt = Number(inv.uploadedAt || inv.serverUploadedAt || Date.now());
+  const localInv = {
+    id: String(inv.id || inv.name || formatInvoiceName()).trim(),
+    date: inv.date || new Date(uploadedAt || Date.now()).toLocaleDateString('ar-EG'),
+    items: Array.isArray(inv.items) ? inv.items.map(it => ({
+      category: String(it.category || '').trim(),
+      name: String(it.name || it.item || '').trim(),
+      qty: String(it.qty ?? '').trim(),
+      note: String(it.note || '').trim()
+    })) : [],
+    serverKey: key,
+    __serverKey: key,
+    serverStatus: 'sent',
+    localServerArchive: true,
+    __localServerArchive: true,
+    serverUploadedAt: uploadedAt,
+    uploadedAt: uploadedAt,
+    importedFromServerAt: Date.now(),
+    senderCode: String(inv.senderCode || inv.ownerCode || currentUser?.code || '').trim(),
+    senderName: String(inv.senderName || inv.ownerName || currentUser?.name || '').trim(),
+    senderRole: String(inv.senderRole || inv.ownerRole || currentUser?.role || '').trim(),
+    ownerCode: String(inv.ownerCode || inv.senderCode || currentUser?.code || '').trim(),
+    ownerName: String(inv.ownerName || inv.senderName || currentUser?.name || '').trim(),
+    ownerRole: String(inv.ownerRole || inv.senderRole || currentUser?.role || '').trim(),
+    visibility: inv.visibility || { mainAdmin:true, secondaryAdmins:true, users:false }
+  };
+  assalNormalizeInvoiceOwner(localInv);
+  ensureInvoiceLocalKey(localInv);
+  assalSetInvoiceBaseline(localInv);
+  return localInv;
+}
+
+function upsertServerInvoiceIntoLocalArchive(inv = {}, options = {}){
+  const key = String(inv.serverKey || inv.__serverKey || options.serverKey || '').trim();
+  if(!key) return -1;
+  if(!options.force && !assalIsOwnServerInvoice(inv)) return -1;
+
+  const normalized = normalizeServerInvoiceToLocalArchive(inv, key);
+  const idx = findLocalInvoiceIndexByServerKey(key);
+
+  if(idx !== -1){
+    const oldLocalKey = invoices[idx]?.localKey || normalized.localKey;
+    const wasSelected = selectedInvoiceIndex === idx;
+    invoices[idx] = {
+      ...invoices[idx],
+      ...normalized,
+      localKey: oldLocalKey,
+      localServerArchive: true,
+      __localServerArchive: true
+    };
+    if(wasSelected && currentInvoice){
+      currentInvoice = invoices[idx];
+    }
+    return idx;
+  }
+
+  invoices.push(normalized);
+  return invoices.length - 1;
+}
+
+function syncOwnServerInvoicesToLocal(list = []){
+  if(!(isSecondaryAdmin() || isRegularUser())) return 0;
+  let changed = 0;
+  const openedKey = assalGetInvoiceServerKey(currentInvoice);
+
+  (Array.isArray(list) ? list : []).forEach(inv => {
+    if(!assalIsOwnServerInvoice(inv)) return;
+
+    const incomingKey = String(inv.serverKey || inv.__serverKey || '').trim();
+    if(openedKey && incomingKey && incomingKey === openedKey && typeof assalIsBusyEditingInvoiceUI === 'function' && assalIsBusyEditingInvoiceUI()){
+      // لا نستبدل الفاتورة المفتوحة أثناء الكتابة؛ نخليها تحديث مؤجل حتى يهدأ الإدخال.
+      assalServerInvoicesPendingCurrent = inv;
+      clearTimeout(assalServerInvoicesPendingTimer);
+      assalServerInvoicesPendingTimer = setTimeout(()=> assalApplyPendingOpenedServerInvoice(1), 900);
+      return;
+    }
+
+    const idx = upsertServerInvoiceIntoLocalArchive(inv, { force:true });
+    if(idx !== -1) changed += 1;
+  });
+  if(changed){
+    persistInvoices();
+  }
+  return changed;
+}
+
+async function importMySentServerInvoicesToLocal(options = {}){
+  if(!(isSecondaryAdmin() || isRegularUser())) return 0;
+  const list = await refreshServerInvoicesForRole({ silent:true });
+  const mineCount = (Array.isArray(list) ? list : []).filter(inv => assalIsOwnServerInvoice(inv)).length;
+  renderInvoicesDropdown();
+  if(!options.silent){
+    if(mineCount){
+      showToast(`تم استيراد/تحديث ${mineCount} فاتورة من السيرفر ✅`);
+    }else{
+      showToast('ماكو فواتير مرسلة باسم هذا الحساب في السيرفر');
+    }
+  }
+  return mineCount;
+}
+
 function getMergeBoxStorageKey(){
   if(!currentUser?.code) return `${LOCAL_MERGEBOX_PREFIX}guest`;
   return `${LOCAL_MERGEBOX_PREFIX}${currentUser.code}`;
@@ -5575,11 +5846,36 @@ function syncCurrentInvoiceToOpenedMergeEntry(){
   renderImportedPdfList();
 }
 
-function stampInvoiceOwner(inv){
+function stampInvoiceOwner(inv, options = {}){
   if(!inv || !currentUser) return inv;
-  inv.ownerCode = currentUser.code;
-  inv.ownerName = currentUser.name;
-  inv.ownerRole = currentUser.role;
+
+  const serverKey = assalGetInvoiceServerKey(inv);
+  const hasExistingOwner = !!String(inv.ownerCode || inv.senderCode || "").trim();
+  const shouldPreserveOwner = !!(
+    options.preserveOwner ||
+    (serverKey && hasExistingOwner) ||
+    inv.__fromServer ||
+    inv.localServerArchive ||
+    inv.__localServerArchive ||
+    inv.serverStatus === "sent"
+  );
+
+  if(shouldPreserveOwner){
+    // مهم جداً: الأدمن إذا عدّل فاتورة فرع، يصير آخر محرر فقط،
+    // أما مالك/مرسل الفاتورة فيبقى الفرع حتى لا تختفي من "فواتير الفروع".
+    assalApplyStableInvoiceOwner(inv, assalGetStableInvoiceOwner(inv));
+  }else{
+    inv.ownerCode = currentUser.code;
+    inv.ownerName = currentUser.name;
+    inv.ownerRole = currentUser.role;
+    inv.senderCode = currentUser.code;
+    inv.senderName = currentUser.name;
+    inv.senderRole = currentUser.role;
+  }
+
+  inv.lastEditorCode = currentUser.code || "";
+  inv.lastEditorName = currentUser.name || "";
+  inv.lastEditorRole = currentUser.role || "";
   ensureInvoiceLocalKey(inv);
   return inv;
 }
@@ -5602,9 +5898,253 @@ function escapeHtml(value){
     .replace(/'/g, "&#39;");
 }
 
+function assalCollectServerInvoicesFromSnapshot(snap){
+  const list = [];
+  try{
+    snap?.forEach?.(child => {
+      const val = child.val() || {};
+      if(val && typeof val === "object"){
+        list.push({ serverKey: child.key, ...val });
+      }
+    });
+  }catch(err){
+    console.warn("ASSAL collect server invoices warning:", err);
+  }
+  list.sort((a,b)=> Number(b.uploadedAt || b.updatedAt || 0) - Number(a.uploadedAt || a.updatedAt || 0));
+  return list;
+}
+
+function assalVisibleServerInvoicesForCurrentRole(rawList = []){
+  let list = Array.isArray(rawList) ? [...rawList] : [];
+
+  // الأدمن الثانوي والمستخدم الفرعي يحتفظون محلياً فقط بفواتيرهم المرسلة للسيرفر.
+  if(isSecondaryAdmin() || isRegularUser()){
+    syncOwnServerInvoicesToLocal(list);
+  }
+
+  if(isSecondaryAdmin()){
+    // الأدمن الثانوي يشاهد فواتير المستخدمين + فواتيره هو المرسلة للسيرفر.
+    list = list.filter(inv => inv.senderRole === "user" || assalIsOwnServerInvoice(inv));
+  }else if(isRegularUser()){
+    // المستخدم الفرعي يشاهد فقط فواتيره التي أرسلها بنفسه.
+    list = list.filter(inv => assalIsOwnServerInvoice(inv));
+  }
+
+  return list;
+}
+
+function assalIncomingServerInvoiceSignature(inv = {}){
+  const key = String(inv.serverKey || inv.__serverKey || "").trim();
+  const sig = String(inv.signature || assalGetInvoiceSignature(inv)).trim();
+  const name = String(inv.id || "").trim();
+  return `${key}:${sig}:${name}`;
+}
+
+function assalIsBusyEditingInvoiceUI(){
+  const palette = document.getElementById('paletteOverlay');
+  if(palette && palette.classList.contains('show')) return true;
+
+  const active = document.activeElement;
+  if(active){
+    const tag = String(active.tagName || '').toUpperCase();
+    const insideLogin = !!active.closest?.('#loginOverlay');
+    const insideNotify = !!active.closest?.('#assalNotificationsPanel');
+    if(!insideLogin && !insideNotify){
+      if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || active.isContentEditable) return true;
+    }
+  }
+
+  const renameModal = document.getElementById('renameInvoiceModal');
+  if(renameModal && renameModal.style.display === 'flex') return true;
+  const deleteModal = document.getElementById('deleteInvoiceModal');
+  if(deleteModal && deleteModal.style.display === 'flex') return true;
+  const sameDayModal = document.getElementById('sameDayServerModal');
+  if(sameDayModal && sameDayModal.style.display === 'flex') return true;
+  return false;
+}
+
+function assalNormalizeIncomingServerInvoiceForCurrent(incoming = {}, oldCurrent = {}){
+  const key = String(incoming.serverKey || incoming.__serverKey || oldCurrent.serverKey || oldCurrent.__serverKey || '').trim();
+  const uploadedAt = Number(incoming.uploadedAt || incoming.serverUploadedAt || oldCurrent.serverUploadedAt || oldCurrent.uploadedAt || Date.now());
+  const isOwnArchive = (isSecondaryAdmin() || isRegularUser()) && assalIsOwnServerInvoice(incoming);
+  const localArchive = !!(oldCurrent.localServerArchive || oldCurrent.__localServerArchive || isOwnArchive);
+
+  const updated = {
+    ...oldCurrent,
+    ...incoming,
+    id: String(incoming.id || oldCurrent.id || formatInvoiceName()).trim(),
+    date: incoming.date || oldCurrent.date || new Date(uploadedAt || Date.now()).toLocaleDateString('ar-EG'),
+    items: Array.isArray(incoming.items) ? incoming.items.map(it => ({
+      category: String(it.category || '').trim(),
+      name: String(it.name || it.item || '').trim(),
+      qty: String(it.qty ?? '').trim(),
+      note: String(it.note || '').trim()
+    })) : [],
+    serverKey: key,
+    __serverKey: key,
+    __fromServer: true,
+    serverStatus: 'sent',
+    localServerArchive: localArchive,
+    __localServerArchive: localArchive,
+    serverUploadedAt: uploadedAt,
+    uploadedAt: oldCurrent.uploadedAt || uploadedAt,
+    visibility: incoming.visibility || oldCurrent.visibility || { mainAdmin:true, secondaryAdmins:true, users:false }
+  };
+
+  assalNormalizeInvoiceOwner(updated);
+  return updated;
+}
+
+function assalTryApplyIncomingToOpenedInvoice(incoming = {}, options = {}){
+  if(!currentInvoice || !incoming) return false;
+  const key = String(incoming.serverKey || incoming.__serverKey || '').trim();
+  const openedKey = assalGetInvoiceServerKey(currentInvoice);
+  if(!key || !openedKey || key !== openedKey) return false;
+
+  // إذا هذا نفس الصدى الراجع من تعديل نفس الجهاز، لا نعيد رسم الشاشة حتى لا نربك الكتابة.
+  if(
+    options.source === 'realtime' &&
+    String(incoming.lastEditorCode || '') === String(currentUser?.code || '') &&
+    assalIncomingServerInvoiceSignature(incoming) === assalLastServerSyncSignature
+  ){
+    assalSetInvoiceBaseline(currentInvoice);
+    return false;
+  }
+
+  if(options.source === 'realtime' && assalIsBusyEditingInvoiceUI()){
+    assalServerInvoicesPendingCurrent = incoming;
+    clearTimeout(assalServerInvoicesPendingTimer);
+    assalServerInvoicesPendingTimer = setTimeout(()=> assalApplyPendingOpenedServerInvoice(1), 900);
+    return false;
+  }
+
+  const beforeSig = assalGetInvoiceSignature(currentInvoice);
+  const oldLocalKey = currentInvoice.localKey || '';
+  const updated = assalNormalizeIncomingServerInvoiceForCurrent(incoming, currentInvoice);
+  if(oldLocalKey) updated.localKey = oldLocalKey;
+
+  const localIdx = findLocalInvoiceIndexByServerKey(key);
+  if(localIdx !== -1){
+    const keepLocalKey = invoices[localIdx]?.localKey || updated.localKey;
+    invoices[localIdx] = {
+      ...invoices[localIdx],
+      ...updated,
+      localKey: keepLocalKey || updated.localKey,
+      localServerArchive: true,
+      __localServerArchive: true
+    };
+    currentInvoice = invoices[localIdx];
+    selectedInvoiceIndex = localIdx;
+    persistInvoices();
+  }else{
+    currentInvoice = updated;
+  }
+
+  assalSetInvoiceBaseline(currentInvoice);
+  const title = document.getElementById("invoiceId");
+  if(title) title.textContent = currentInvoice.id || "-";
+  renderItems();
+  assalRenderChatState();
+
+  const afterSig = assalGetInvoiceSignature(currentInvoice);
+  if(options.source === 'realtime' && beforeSig && afterSig && beforeSig !== afterSig){
+    console.log('ASSAL realtime invoice updated:', key);
+  }
+  return true;
+}
+
+function assalApplyPendingOpenedServerInvoice(tryNo = 1){
+  const pending = assalServerInvoicesPendingCurrent;
+  if(!pending) return false;
+
+  if(assalIsBusyEditingInvoiceUI() && tryNo < 8){
+    clearTimeout(assalServerInvoicesPendingTimer);
+    assalServerInvoicesPendingTimer = setTimeout(()=> assalApplyPendingOpenedServerInvoice(tryNo + 1), 900);
+    return false;
+  }
+
+  assalServerInvoicesPendingCurrent = null;
+  clearTimeout(assalServerInvoicesPendingTimer);
+  assalServerInvoicesPendingTimer = null;
+  return assalTryApplyIncomingToOpenedInvoice(pending, { source:'pending-realtime' });
+}
+
+function assalApplyServerInvoicesList(rawList = [], options = {}){
+  const list = assalVisibleServerInvoicesForCurrentRole(rawList);
+  serverInvoicesCache = list;
+  serverInvoicesLoaded = true;
+
+  const openedKey = assalGetInvoiceServerKey(currentInvoice);
+  if(openedKey){
+    const incoming = list.find(inv => String(inv.serverKey || inv.__serverKey || '') === String(openedKey));
+    if(incoming){
+      assalTryApplyIncomingToOpenedInvoice(incoming, options);
+    }
+  }
+
+  renderInvoicesDropdown();
+  return list;
+}
+
+function assalStopServerInvoicesRealtimeListener(){
+  clearTimeout(assalServerInvoicesRealtimeRetryTimer);
+  assalServerInvoicesRealtimeRetryTimer = null;
+  clearTimeout(assalServerInvoicesPendingTimer);
+  assalServerInvoicesPendingTimer = null;
+  assalServerInvoicesPendingCurrent = null;
+
+  if(assalServerInvoicesRealtimeRef){
+    try{ assalServerInvoicesRealtimeRef.off(); }catch{}
+  }
+  assalServerInvoicesRealtimeRef = null;
+  assalServerInvoicesRealtimeBoundFor = "";
+}
+
+function assalScheduleServerInvoicesRealtimeRetry(){
+  clearTimeout(assalServerInvoicesRealtimeRetryTimer);
+  assalServerInvoicesRealtimeRetryTimer = setTimeout(()=> assalStartServerInvoicesRealtimeListener(true), 1200);
+}
+
+function assalStartServerInvoicesRealtimeListener(forceRestart = false){
+  if(!currentUser || !(isMainAdmin() || isSecondaryAdmin() || isRegularUser())){
+    assalStopServerInvoicesRealtimeListener();
+    serverInvoicesCache = [];
+    serverInvoicesLoaded = true;
+    renderInvoicesDropdown();
+    return;
+  }
+
+  const ref = getServerInvoicesRef();
+  if(!ref){
+    assalScheduleServerInvoicesRealtimeRetry();
+    return;
+  }
+
+  const bindKey = `${String(currentUser.code || '')}:${String(currentUser.role || '')}`;
+  if(!forceRestart && assalServerInvoicesRealtimeRef && assalServerInvoicesRealtimeBoundFor === bindKey){
+    return;
+  }
+
+  assalStopServerInvoicesRealtimeListener();
+  assalServerInvoicesRealtimeBoundFor = bindKey;
+  assalServerInvoicesRealtimeRef = ref;
+
+  assalServerInvoicesRealtimeRef.on('value', snap => {
+    try{
+      const rawList = assalCollectServerInvoicesFromSnapshot(snap);
+      assalApplyServerInvoicesList(rawList, { source:'realtime', silent:true });
+    }catch(err){
+      console.error('ASSAL realtime server invoices apply error:', err);
+    }
+  }, err => {
+    console.error('ASSAL realtime server invoices listener error:', err);
+    assalScheduleServerInvoicesRealtimeRetry();
+  });
+}
+
 async function refreshServerInvoicesForRole(options = {}){
   if(!currentUser) return [];
-  if(!(isMainAdmin() || isSecondaryAdmin())){
+  if(!(isMainAdmin() || isSecondaryAdmin() || isRegularUser())){
     serverInvoicesCache = [];
     serverInvoicesLoaded = true;
     renderInvoicesDropdown();
@@ -5624,22 +6164,8 @@ async function refreshServerInvoicesForRole(options = {}){
 
   try{
     const snap = await ref.once("value");
-    let list = [];
-    snap.forEach(child => {
-      const val = child.val() || {};
-      list.push({ serverKey: child.key, ...val });
-    });
-
-    list.sort((a,b)=> (b.uploadedAt || 0) - (a.uploadedAt || 0));
-
-    if(isSecondaryAdmin()){
-      list = list.filter(inv => inv.senderRole === "user");
-    }
-
-    serverInvoicesCache = list;
-    serverInvoicesLoaded = true;
-    renderInvoicesDropdown();
-    return list;
+    const rawList = assalCollectServerInvoicesFromSnapshot(snap);
+    return assalApplyServerInvoicesList(rawList, { source:'manual', silent:!!options.silent });
   }catch(err){
     console.error("Server invoices load error:", err);
     serverInvoicesCache = [];
@@ -5879,6 +6405,16 @@ function loadServerInvoiceByKey(serverKey, ev){
 
   const inv = serverInvoicesCache.find(x => x.serverKey === serverKey);
   if(!inv) return;
+
+  if((isSecondaryAdmin() || isRegularUser()) && assalIsOwnServerInvoice(inv)){
+    const localIndex = upsertServerInvoiceIntoLocalArchive(inv, { force:true });
+    persistInvoices();
+    renderInvoicesDropdown();
+    if(localIndex !== -1){
+      loadLocalServerInvoiceArchive(localIndex);
+      return;
+    }
+  }
 
   currentInvoice = assalNormalizeInvoiceOwner({
     id: inv.id || formatInvoiceName(),
@@ -6449,7 +6985,10 @@ function markInvoiceAsSentLocally(localIndex, serverKey, uploadedAt){
 
   if(localIndex !== null && invoices[localIndex]){
     invoices[localIndex].serverStatus = "sent";
+    invoices[localIndex].localServerArchive = true;
+    invoices[localIndex].__localServerArchive = true;
     invoices[localIndex].serverUploadedAt = safeNow;
+    invoices[localIndex].uploadedAt = invoices[localIndex].uploadedAt || safeNow;
     invoices[localIndex].serverKey = serverKey;
     invoices[localIndex].__serverKey = serverKey;
     stampInvoiceOwner(invoices[localIndex]);
@@ -6457,11 +6996,26 @@ function markInvoiceAsSentLocally(localIndex, serverKey, uploadedAt){
     currentInvoice = invoices[localIndex];
   }else if(currentInvoice){
     currentInvoice.serverStatus = "sent";
+    currentInvoice.localServerArchive = true;
+    currentInvoice.__localServerArchive = true;
     currentInvoice.serverUploadedAt = safeNow;
+    currentInvoice.uploadedAt = currentInvoice.uploadedAt || safeNow;
     currentInvoice.serverKey = serverKey;
     currentInvoice.__serverKey = serverKey;
     stampInvoiceOwner(currentInvoice);
     assalNormalizeInvoiceOwner(currentInvoice);
+
+    if(localIndex === null){
+      const existingIdx = findLocalInvoiceIndexByServerKey(serverKey);
+      if(existingIdx === -1){
+        ensureInvoiceLocalKey(currentInvoice);
+        invoices.push(currentInvoice);
+        selectedInvoiceIndex = invoices.length - 1;
+      }else{
+        invoices[existingIdx] = currentInvoice;
+        selectedInvoiceIndex = existingIdx;
+      }
+    }
   }
 
   assalSetInvoiceBaseline(currentInvoice);
@@ -6521,12 +7075,23 @@ async function renameServerInvoice(serverKey, newName){
   const ref = getServerInvoicesRef();
   if(!ref || !serverKey) throw new Error("invalid-ref");
   const found = serverInvoicesCache.find(x => x.serverKey === serverKey);
-  const oldName = found?.id || "";
+  const localIdx = findLocalInvoiceIndexByServerKey(serverKey);
+  const oldName = found?.id || invoices[localIdx]?.id || "";
   await ref.child(serverKey).child("id").set(newName);
   if(found){
     found.id = newName;
     found.serverKey = serverKey;
     assalNotifyInvoiceChange("invoice_renamed", found, { oldName, newName }, { force:true });
+  }
+  if(localIdx !== -1){
+    invoices[localIdx].id = newName;
+    invoices[localIdx].localServerArchive = true;
+    invoices[localIdx].__localServerArchive = true;
+    if(selectedInvoiceIndex === localIdx && currentInvoice){
+      currentInvoice.id = newName;
+      document.getElementById("invoiceId").textContent = newName;
+    }
+    persistInvoices();
   }
 }
 
@@ -6534,12 +7099,27 @@ async function deleteServerInvoice(serverKey){
   const ref = getServerInvoicesRef();
   if(!ref || !serverKey) throw new Error("invalid-ref");
   const found = serverInvoicesCache.find(x => x.serverKey === serverKey);
-  if(found){
-    found.serverKey = serverKey;
-    assalNotifyInvoiceChange("invoice_deleted", found, { invoiceName: found.id || "" }, { force:true });
+  const localIdx = findLocalInvoiceIndexByServerKey(serverKey);
+  const notifyInv = found || invoices[localIdx] || null;
+  if(notifyInv){
+    notifyInv.serverKey = serverKey;
+    assalNotifyInvoiceChange("invoice_deleted", notifyInv, { invoiceName: notifyInv.id || "" }, { force:true });
   }
   await ref.child(serverKey).remove();
   serverInvoicesCache = serverInvoicesCache.filter(x => x.serverKey !== serverKey);
+  if(localIdx !== -1){
+    invoices.splice(localIdx, 1);
+    if(selectedInvoiceIndex === localIdx || String(currentInvoice?.serverKey || currentInvoice?.__serverKey || '') === String(serverKey)){
+      currentInvoice = null;
+      selectedInvoiceIndex = null;
+      document.getElementById("invoiceId").textContent = "-";
+      renderItems();
+      assalRenderChatState();
+    }else if(selectedInvoiceIndex !== null && selectedInvoiceIndex > localIdx){
+      selectedInvoiceIndex -= 1;
+    }
+    persistInvoices();
+  }
 }
 
 function openDeleteServerInvoiceModal(serverKey, ev){
@@ -6612,7 +7192,7 @@ function openRenameServerInvoiceModal(serverKey, ev){
   __pendingRenameServerKey = serverKey;
   const modal = document.getElementById('renameInvoiceModal');
   const input = document.getElementById('renameInvInput');
-  const inv = serverInvoicesCache.find(x => x.serverKey === serverKey);
+  const inv = serverInvoicesCache.find(x => x.serverKey === serverKey) || invoices[findLocalInvoiceIndexByServerKey(serverKey)];
   input.value = inv?.id || '';
   modal.style.display = 'flex';
   modal.setAttribute('aria-hidden', 'false');
@@ -6788,13 +7368,17 @@ function applyRoleUI(){
       importBtn.style.display = "grid";
       importBtn.title = "استيراد من السيرفر";
       importBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i>';
+    }else if(isSecondaryAdmin() || isRegularUser()){
+      importBtn.style.display = "grid";
+      importBtn.title = "استيراد فواتيري من السيرفر";
+      importBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i>';
     }else{
       importBtn.style.display = "none";
     }
   }
 
   if(importBtnWrap){
-    importBtnWrap.style.display = isMainAdmin() ? "flex" : "none";
+    importBtnWrap.style.display = (isMainAdmin() || isSecondaryAdmin() || isRegularUser()) ? "flex" : "none";
   }
 
   if(importedSidebar){
@@ -6854,6 +7438,7 @@ function saveSession(code, startedAt = Date.now()){
 function clearSession(){
   localStorage.removeItem(AUTH_STORAGE_KEY);
   if(typeof assalStopNotificationsListener === "function") assalStopNotificationsListener();
+  if(typeof assalStopServerInvoicesRealtimeListener === "function") assalStopServerInvoicesRealtimeListener();
   currentUser = null;
   document.body.classList.remove("role-main", "role-secondary", "role-user");
 }
@@ -7544,7 +8129,7 @@ function validateItemFields(ctx="add"){
   const defaultName = formatInvoiceName(); // الاسم الافتراضي: "فاتورة <اليوم> - <التاريخ>"
 
   // نبحث فقط عن فاتورة اليوم التي ما زالت تحمل الاسم الافتراضي (يعني غير مُعاد تسميتها)
-  const existingIndex = invoices.findIndex(inv => inv.date === today && inv.id === defaultName);
+  const existingIndex = invoices.findIndex(inv => !isServerArchivedLocalInvoice(inv) && inv.date === today && inv.id === defaultName);
 
   if(existingIndex !== -1){
     currentInvoice = invoices[existingIndex];
@@ -7872,6 +8457,12 @@ function renameEscEnterHandler(e){
       stampInvoiceOwner(currentInvoice);
       assalNormalizeInvoiceOwner(currentInvoice);
       if(currentInvoice.__fromServer && assalInvoiceHasServerKey(currentInvoice)){
+        currentInvoice.serverStatus = 'sent';
+        currentInvoice.localServerArchive = true;
+        currentInvoice.__localServerArchive = true;
+        if(selectedInvoiceIndex !== null && invoices[selectedInvoiceIndex]){
+          invoices[selectedInvoiceIndex] = currentInvoice;
+        }
         assalAfterInvoicePersisted("invoice_saved", {}, { force:false });
         assalSyncInvoiceToServer("invoice_saved", {});
       }else if(selectedInvoiceIndex !== null){
@@ -7895,7 +8486,13 @@ function renameEscEnterHandler(e){
   stampInvoiceOwner(currentInvoice);
   assalNormalizeInvoiceOwner(currentInvoice);
   if(currentInvoice.__fromServer && assalInvoiceHasServerKey(currentInvoice)){
-    // فاتورة مفتوحة من السيرفر: لا نحولها إلى فاتورة محلية، نزامنها ويا السيرفر فقط
+    currentInvoice.serverStatus = 'sent';
+    currentInvoice.localServerArchive = true;
+    currentInvoice.__localServerArchive = true;
+    if(selectedInvoiceIndex !== null && invoices[selectedInvoiceIndex]){
+      invoices[selectedInvoiceIndex] = currentInvoice;
+    }
+    // فاتورة مفتوحة من السيرفر: تبقى محفوظة محلياً وتزامن ويا السيرفر فقط
   }else if(selectedInvoiceIndex!==null){
     invoices[selectedInvoiceIndex] = currentInvoice;
   } else {
@@ -7908,16 +8505,14 @@ function renameEscEnterHandler(e){
   assalRenderChatState();
   assalAfterInvoicePersisted(action, details || {}, options || {});
 }
-
-    
-    
-
    function renderInvoicesDropdown(){
   const wrap = document.getElementById("invoicesDropdown");
   if(!wrap) return;
   wrap.innerHTML = "";
 
   let currentInvoiceSectionBody = wrap;
+  const localEntries = getLocalInvoiceEntries({ serverArchive:false });
+  const localServerEntries = getLocalServerArchivedInvoiceEntries();
 
   const appendEmpty = (msg)=>{
     const box = document.createElement("div");
@@ -7948,17 +8543,13 @@ function renameEscEnterHandler(e){
     const selectKey = getLocalInvoiceSelectKey(inv, i);
     row.className = `invoice-chip ${isMainAdmin() && selectedSidebarInvoiceKeys.has(selectKey) ? "is-selected" : ""}`.trim();
 
-    const sentMark = inv.serverStatus === "sent"
-      ? `<span class="sent-dot" title="مرسلة"><i class="fa-solid fa-check"></i></span>`
-      : "";
-
     let actionsHtml = "";
 
     if(canCurrentUserSendInvoices()){
       actionsHtml += `
-        <button class="btn-rename-custom server-send-btn ${inv.serverStatus === "sent" ? "is-sent" : ""}"
-                title="${inv.serverStatus === "sent" ? "إعادة إرسال" : "إرسال"}"
-                aria-label="إرسال"
+        <button class="btn-rename-custom server-send-btn"
+                title="إرسال للسيرفر"
+                aria-label="إرسال للسيرفر"
                 onclick="sendLocalInvoiceFromRow(${i}, event)">
           <i class="fa-solid fa-paper-plane"></i>
         </button>
@@ -7985,7 +8576,6 @@ function renameEscEnterHandler(e){
       <div class="chip-meta">
         <strong class="invoice-title-line">
           <span>${escapeHtml(inv.id || "فاتورة بدون اسم")}</span>
-          ${sentMark}
         </strong>
         <small>${escapeHtml(inv.date || "-")} • ${(Array.isArray(inv.items) ? inv.items.length : 0)} مادة</small>
       </div>
@@ -8012,6 +8602,51 @@ function renameEscEnterHandler(e){
     }else{
       row.onclick = ()=> loadInvoice(i);
     }
+
+    (currentInvoiceSectionBody || wrap).appendChild(row);
+  };
+
+  const makeLocalServerRow = (entry)=>{
+    const inv = entry.inv;
+    const i = entry.index;
+    const serverKey = String(inv.serverKey || inv.__serverKey || "");
+    const selectKey = `local-server:${serverKey || inv.localKey || i}`;
+    const row = document.createElement("div");
+    row.className = `invoice-chip server-chip server-local-chip ${selectedSidebarInvoiceKeys.has(selectKey) ? "is-selected" : ""}`.trim();
+    row.innerHTML = `
+      <div class="chip-meta">
+        <strong class="invoice-title-line">
+          <span>${escapeHtml(inv.id || "فاتورة سيرفر")}</span>
+          <span class="sent-dot" title="مخزونة محلياً ومرسلة للسيرفر"><i class="fa-solid fa-check"></i></span>
+        </strong>
+        <small>
+          ${escapeHtml(formatInvoiceSecondaryLine(inv.date || "", inv.serverUploadedAt || inv.uploadedAt))}
+          • ${(Array.isArray(inv.items) ? inv.items.length : 0)} مادة
+          <span class="server-local-note"><i class="fa-solid fa-mobile-screen-button"></i> محلية</span>
+        </small>
+      </div>
+      <div class="chip-actions">
+        <button class="btn-rename-custom" title="إعادة تسمية في السيرفر" aria-label="إعادة تسمية"
+                onclick="openRenameServerInvoiceModal('${serverKey}', event)">
+          <i class="fa-regular fa-pen-to-square"></i>
+        </button>
+        <button class="btn-danger-custom" title="حذف من السيرفر والجهاز" aria-label="حذف"
+                onclick="openDeleteServerInvoiceModal('${serverKey}', event)">
+          <i class="fa-regular fa-trash-can"></i>
+        </button>
+      </div>
+    `;
+
+    bindLongPressRow(row, {
+      onLongPress: ()=> toggleSidebarSelection(selectKey),
+      onClick: ()=>{
+        if(selectedSidebarInvoiceKeys.size){
+          toggleSidebarSelection(selectKey);
+          return;
+        }
+        loadLocalServerInvoiceArchive(i);
+      }
+    });
 
     (currentInvoiceSectionBody || wrap).appendChild(row);
   };
@@ -8056,8 +8691,8 @@ function renameEscEnterHandler(e){
     const branchInvoices = serverInvoicesCache.filter(inv => inv.senderRole === "user");
 
     appendSection("فواتير الأدمن المحلية", "section-shortage");
-    if(invoices.length){
-      invoices.forEach(makeLocalRow);
+    if(localEntries.length){
+      localEntries.forEach(({inv,index})=> makeLocalRow(inv, index));
     }else{
       appendEmpty("لا توجد فواتير الأدمن المحلية بعد");
     }
@@ -8079,15 +8714,22 @@ function renameEscEnterHandler(e){
   }
 
   if(isSecondaryAdmin()){
-    appendSection("فواتيرك المحلية - نقص عسل", "section-shortage");
-    if(invoices.length){
-      invoices.forEach(makeLocalRow);
+    appendSection("فواتيرك المحلية - قبل الإرسال", "section-shortage");
+    if(localEntries.length){
+      localEntries.forEach(({inv,index})=> makeLocalRow(inv, index));
     }else{
-      appendEmpty("لا توجد فواتير محلية بعد");
+      appendEmpty("لا توجد فواتير محلية غير مرسلة");
     }
 
-    appendSection("فواتير السيرفر - فروع عسل", "section-branches");
-    const branchOnlyInvoices = serverInvoicesCache.filter(inv => inv.senderRole === "user");
+    appendSection("فواتير السيرفر", "section-server");
+    if(localServerEntries.length){
+      localServerEntries.forEach(makeLocalServerRow);
+    }else{
+      appendEmpty(serverInvoicesLoaded ? "لا توجد فواتير مرسلة باسم هذا الحساب" : "اضغط استيراد لجلب فواتيرك من السيرفر...");
+    }
+
+    appendSection("فواتير الفروع للاطلاع", "section-branches");
+    const branchOnlyInvoices = serverInvoicesCache.filter(inv => inv.senderRole === "user" && !assalIsOwnServerInvoice(inv));
     if(branchOnlyInvoices.length){
       branchOnlyInvoices.forEach(makeServerRow);
     }else{
@@ -8096,8 +8738,25 @@ function renameEscEnterHandler(e){
     return;
   }
 
-  if(invoices.length){
-    invoices.forEach(makeLocalRow);
+  if(isRegularUser()){
+    appendSection("فواتيرك المحلية - قبل الإرسال", "section-shortage");
+    if(localEntries.length){
+      localEntries.forEach(({inv,index})=> makeLocalRow(inv, index));
+    }else{
+      appendEmpty("لا توجد فواتير محلية غير مرسلة");
+    }
+
+    appendSection("فواتير السيرفر", "section-server");
+    if(localServerEntries.length){
+      localServerEntries.forEach(makeLocalServerRow);
+    }else{
+      appendEmpty(serverInvoicesLoaded ? "لا توجد فواتير مرسلة باسم هذا الحساب" : "اضغط استيراد لجلب فواتيرك من السيرفر...");
+    }
+    return;
+  }
+
+  if(localEntries.length){
+    localEntries.forEach(({inv,index})=> makeLocalRow(inv, index));
   }else{
     appendEmpty("لا توجد فواتير محفوظة بعد");
   }
@@ -8117,6 +8776,26 @@ function renameEscEnterHandler(e){
       showToast("تم تحميل الفاتورة 📄");
       assalScrollToOpenedInvoiceTable();
     }
+
+
+function loadLocalServerInvoiceArchive(i, ev){
+  ev?.stopPropagation?.();
+  if(!invoices[i]) return;
+  selectedInvoiceIndex = i;
+  currentInvoice = invoices[i];
+  currentInvoice.serverStatus = 'sent';
+  currentInvoice.localServerArchive = true;
+  currentInvoice.__localServerArchive = true;
+  currentInvoice.__fromServer = true;
+  if(currentInvoice.serverKey) currentInvoice.__serverKey = currentInvoice.serverKey;
+  assalNormalizeInvoiceOwner(currentInvoice);
+  assalSetInvoiceBaseline(currentInvoice);
+  document.getElementById("invoiceId").textContent = currentInvoice.id;
+  renderItems();
+  assalRenderChatState();
+  showToast("تم تحميل فاتورة السيرفر من التخزين المحلي 📥");
+  assalScrollToOpenedInvoiceTable();
+}
     
 
     function deleteInvoice(i){
@@ -9836,6 +10515,11 @@ document.getElementById("btnImportPrev").addEventListener("click", async ()=>{
     return;
   }
 
+  if(isSecondaryAdmin() || isRegularUser()){
+    await importMySentServerInvoicesToLocal();
+    return;
+  }
+
   const p = document.getElementById("prevImportPicker");
   p.value = "";
   p.click();
@@ -11087,8 +11771,10 @@ function palRender(){
         noteEl.addEventListener('focus', ()=>{ prevNote = noteEl.value; });
         const saveNote = (notify=false)=>{
           const val = noteEl.value.trim();
-          if(String(currentInvoice.items[it.orig]?.note || '') === val) return;
-          commitPalItem(it.orig, { note: val }, notify ? 'تم تحديث الملاحظات ✅' : '');
+          const itemRef = currentInvoice.items[it.orig];
+          const oldNote = String(itemRef?.note || '');
+          if(oldNote === val) return;
+          commitPalItem(it.orig, { note: val }, notify ? 'تم تحديث الملاحظات ✅' : '', 'item_note_changed', { itemName:itemRef?.name || it.name, category:itemRef?.category || it.category, oldNote, newNote:val, oldQty:itemRef?.qty || it.qty, note:val, target:'invoice' });
         };
         noteEl.addEventListener('change', ()=> saveNote(true));
         noteEl.addEventListener('blur', ()=>{
@@ -11143,16 +11829,25 @@ function palDeleteOne(orig){
 function palBulkDelete(){
   if(!__palSel.size){ showToast("ما محدد شي للحذف ❌", true); return; }
   const arr = Array.from(__palSel).sort((a,b)=> b-a);
-  const deletedNames = [];
+  const deletedItems = [];
   arr.forEach(i=>{
     if(currentInvoice.items[i]){
-      deletedNames.push(currentInvoice.items[i].name || currentInvoice.items[i].item || "آيتم");
+      const deleted = { ...currentInvoice.items[i] };
+      deletedItems.push({
+        category: deleted.category || "",
+        itemName: deleted.name || deleted.item || "آيتم",
+        name: deleted.name || deleted.item || "آيتم",
+        oldQty: deleted.qty || "",
+        note: deleted.note || ""
+      });
       currentInvoice.items.splice(i,1);
     }
   });
   __palSel.clear();
   autoSaveInvoice("item_deleted", {
-    itemName: deletedNames.length === 1 ? deletedNames[0] : `${deletedNames.length} آيتم`,
+    itemName: deletedItems.length === 1 ? deletedItems[0].itemName : `${deletedItems.length} آيتم`,
+    category: deletedItems.length === 1 ? deletedItems[0].category : "",
+    items: deletedItems,
     target:"invoice"
   });
   showToast("تم حذف العناصر المحددة ✅");
