@@ -1928,6 +1928,10 @@ body.no-copy-ui [contenteditable="true"]{
   background: linear-gradient(135deg,#34d399,#059669) !important;
   box-shadow: 0 8px 20px rgba(16,185,129,.28);
 }
+.server-resend-btn{
+  background: linear-gradient(135deg,#fbbf24,#f59e0b) !important;
+  box-shadow: 0 8px 20px rgba(245,158,11,.24);
+}
 .server-import-btn{
   background: linear-gradient(135deg,#93c5fd,#2563eb) !important;
 }
@@ -4238,6 +4242,7 @@ function assalSignatureChanged(inv = currentInvoice){
 function assalActionLabel(action){
   const map = {
     invoice_uploaded: "رفع فاتورة للسيرفر",
+    invoice_resent: "إعادة إرسال فاتورة للسيرفر",
     invoice_merged: "دمج فاتورة اليوم",
     invoice_updated: "تعديل فاتورة",
     invoice_saved: "حفظ تعديل فاتورة",
@@ -4309,6 +4314,7 @@ function assalBuildNotificationText(action, inv, details = {}){
   if(action === "invoice_renamed") return `قام ${actorName} بتغيير اسم الفاتورة من "${details.oldName || "-"}" إلى "${details.newName || invoiceName}"`;
   if(action === "invoice_deleted") return `قام ${actorName} بحذف الفاتورة: ${invoiceName}`;
   if(action === "invoice_uploaded") return `قام ${actorName} بإرسال الفاتورة إلى السيرفر: ${invoiceName}`;
+  if(action === "invoice_resent") return `قام ${actorName} بإعادة إرسال الفاتورة إلى السيرفر: ${invoiceName}`;
   if(action === "invoice_merged") return `قام ${actorName} بدمج تحديثات الفاتورة: ${invoiceName}`;
   if(actor.role === "user") return `قام ${actorName} بتعديل الفاتورة: ${invoiceName}`;
   if(owner.role === "user") return `قام ${actorName} بتعديل فاتورتك: ${invoiceName}`;
@@ -6400,6 +6406,111 @@ function sendLocalInvoiceFromRow(i, ev){
   sendCurrentInvoiceToServer(i);
 }
 
+/* ASSAL FINAL • إعادة إرسال فاتورة السيرفر المحلية
+   الهدف: إذا انحذفت الفاتورة من السيرفر بالغلط، يبقى الفرع/الأدمن الثانوي قادر يعيد رفع نفس النسخة المحلية
+   بدون تكرار عشوائي، وبدون تغيير مالك الفاتورة الأصلي. */
+async function resendLocalServerInvoiceToServer(localIndex, ev){
+  ev?.stopPropagation?.();
+
+  if(!(isSecondaryAdmin() || isRegularUser())){
+    showToast("إعادة الإرسال متاحة لصاحب الفاتورة فقط ❌", true);
+    return;
+  }
+
+  const inv = (localIndex !== null && invoices[localIndex]) ? invoices[localIndex] : null;
+  if(!inv || !isServerArchivedLocalInvoice(inv)){
+    showToast("هذه الفاتورة ليست ضمن فواتير السيرفر المحلية ❌", true);
+    return;
+  }
+
+  assalNormalizeInvoiceOwner(inv);
+  if(!assalIsOwnServerInvoice(inv)){
+    showToast("لا يمكن إعادة إرسال فاتورة ليست باسم هذا الحساب ❌", true);
+    return;
+  }
+
+  if(!Array.isArray(inv.items) || !inv.items.length){
+    showToast("ماكو مواد داخل الفاتورة حتى تنرسل ❌", true);
+    return;
+  }
+
+  const ref = getServerInvoicesRef();
+  if(!ref){
+    showToast("أضف إعدادات Firebase الحقيقية أولاً ❌", true);
+    return;
+  }
+
+  const now = Date.now();
+  let serverKey = String(inv.serverKey || inv.__serverKey || "").trim();
+  const previousUploadedAt = Number(inv.serverUploadedAt || inv.uploadedAt || 0);
+
+  try{
+    let targetRef = null;
+    let existedOnServer = false;
+
+    if(serverKey){
+      targetRef = ref.child(serverKey);
+      const snap = await targetRef.once("value");
+      existedOnServer = snap.exists();
+    }else{
+      targetRef = ref.push();
+      serverKey = targetRef.key;
+    }
+
+    inv.serverKey = serverKey;
+    inv.__serverKey = serverKey;
+    inv.serverStatus = "sent";
+    inv.localServerArchive = true;
+    inv.__localServerArchive = true;
+
+    const payload = {
+      ...assalCleanInvoiceForServer(inv),
+      uploadedAt: existedOnServer
+        ? Number((await targetRef.once("value")).val()?.uploadedAt || previousUploadedAt || now)
+        : (previousUploadedAt || now),
+      updatedAt: now,
+      resentAt: now,
+      resentByCode: currentUser?.code || "",
+      resentByName: currentUser?.name || "",
+      resentByRole: currentUser?.role || "",
+      visibility: inv.visibility || { mainAdmin:true, secondaryAdmins:true, users:false },
+      signature: buildInvoiceItemsSignature(inv.items || [])
+    };
+
+    await targetRef.set(payload);
+
+    inv.serverUploadedAt = payload.uploadedAt || now;
+    inv.uploadedAt = inv.uploadedAt || payload.uploadedAt || now;
+    inv.importedFromServerAt = inv.importedFromServerAt || now;
+    invoices[localIndex] = inv;
+    if(selectedInvoiceIndex === localIndex || String(assalGetInvoiceServerKey(currentInvoice)) === serverKey){
+      currentInvoice = invoices[localIndex];
+      selectedInvoiceIndex = localIndex;
+      assalSetInvoiceBaseline(currentInvoice);
+      const title = document.getElementById("invoiceId");
+      if(title) title.textContent = currentInvoice.id || "-";
+      renderItems();
+      assalRenderChatState();
+    }
+
+    persistInvoices();
+
+    const cachedIdx = serverInvoicesCache.findIndex(x => String(x.serverKey || x.__serverKey || "") === serverKey);
+    const cachedPayload = { serverKey, __serverKey:serverKey, ...payload };
+    if(cachedIdx !== -1) serverInvoicesCache[cachedIdx] = { ...serverInvoicesCache[cachedIdx], ...cachedPayload };
+    else serverInvoicesCache.unshift(cachedPayload);
+
+    renderInvoicesDropdown();
+    assalNotifyInvoiceChange("invoice_resent", cachedPayload, { resend:true, resendAction:true, invoiceName: payload.id || inv.id || "" }, { force:true });
+    refreshServerInvoicesForRole({ silent:true });
+
+    showToast(existedOnServer ? "الفاتورة موجودة بالسيرفر وتم تحديثها ✅" : "تمت إعادة إرسال الفاتورة للسيرفر ✅");
+  }catch(err){
+    console.error("ASSAL resend server invoice error:", err);
+    showToast("فشل إعادة إرسال الفاتورة للسيرفر ❌", true);
+  }
+}
+
 function loadServerInvoiceByKey(serverKey, ev){
   if(ev) ev.stopPropagation();
 
@@ -7298,6 +7409,7 @@ function openImportedMergedEntry(index, ev){
   document.getElementById('invoiceId').textContent = currentInvoice.id;
   renderItems();
   showToast('تم فتح الملف المدموج للتعديل ✅');
+  assalScrollToOpenedInvoiceTable();
 }
 
 function setMergeProgress(percent, text, done = false){
@@ -8626,6 +8738,10 @@ function renameEscEnterHandler(e){
         </small>
       </div>
       <div class="chip-actions">
+        <button class="btn-rename-custom server-resend-btn" title="إعادة الإرسال للسيرفر" aria-label="إعادة الإرسال للسيرفر"
+                onclick="resendLocalServerInvoiceToServer(${i}, event)">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
         <button class="btn-rename-custom" title="إعادة تسمية في السيرفر" aria-label="إعادة تسمية"
                 onclick="openRenameServerInvoiceModal('${serverKey}', event)">
           <i class="fa-regular fa-pen-to-square"></i>
