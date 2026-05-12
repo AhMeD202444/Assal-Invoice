@@ -5320,6 +5320,8 @@ function assalBindRealtimeUIEvents(){
       assalStartServerInvoicesRealtimeListener(true);
       assalRefreshNotificationsOnce({ silent:true });
       refreshServerInvoicesForRole({ silent:true });
+      assalFlushPendingNotificationTarget();
+      assalPollAndroidPendingNotificationTarget(true);
     }
   });
   window.addEventListener("focus", ()=>{
@@ -5327,6 +5329,8 @@ function assalBindRealtimeUIEvents(){
       assalRefreshNotificationsOnce({ silent:true });
       assalStartServerInvoicesRealtimeListener(false);
       refreshServerInvoicesForRole({ silent:true });
+      assalFlushPendingNotificationTarget();
+      assalPollAndroidPendingNotificationTarget(true);
     }
   });
 }
@@ -5571,47 +5575,190 @@ function assalBindChatEvents(){
   });
 }
 
-async function assalOpenNotificationTarget(data = {}){
-  const invoiceKey = String(data.invoiceKey || data.serverKey || data.details?.invoiceKey || "").trim();
-  const target = String(data.target || assalNotificationTargetForAction(data.action || "")).trim() || "invoice";
-  assalCloseNotificationsPanel();
-  if(invoiceKey) await assalOpenInvoiceByServerKey(invoiceKey);
-  setTimeout(()=>{
-    if(target === "chat"){
-      assalScrollAndFlash("assalInvoiceChatCard");
-      assalScrollChatToBottom(true);
-      const input = document.getElementById("assalChatInput");
-      setTimeout(()=> input?.focus?.(), 650);
-    }else{
-      assalScrollAndFlash("itemsTable");
-    }
-  }, 450);
+let assalPendingNotificationTarget = null;
+let assalNotificationTargetTimer = null;
+let assalAndroidNotificationPollTimer = null;
+let assalAndroidNotificationPollCount = 0;
+let assalLastOpenedNotificationSignature = "";
+
+function assalCoerceNotificationPayload(raw){
+  if(!raw) return {};
+
+  if(typeof raw === "string"){
+    const text = raw.trim();
+    if(!text || text === "null" || text === "undefined") return {};
+
+    try{
+      const parsed = JSON.parse(text);
+      return assalCoerceNotificationPayload(parsed);
+    }catch{}
+
+    try{
+      const query = text.includes("?") ? text.slice(text.indexOf("?") + 1) : text;
+      const params = new URLSearchParams(query);
+      const obj = {};
+      params.forEach((value, key)=> obj[key] = value);
+      return obj;
+    }catch{}
+
+    return { invoiceKey:text };
+  }
+
+  if(typeof raw === "object"){
+    const data = raw.data && typeof raw.data === "object" ? raw.data : {};
+    const details = raw.details && typeof raw.details === "object" ? raw.details : {};
+    return { ...raw, ...data, details:{ ...details, ...(data.details && typeof data.details === "object" ? data.details : {}) } };
+  }
+
+  return {};
 }
 
-async function assalOpenInvoiceByServerKey(serverKey){
+function assalGetNotificationInvoiceKey(data = {}){
+  const details = data.details && typeof data.details === "object" ? data.details : {};
+  return String(
+    data.invoiceKey ||
+    data.serverKey ||
+    data.assal_invoice_key ||
+    data.assalInvoiceKey ||
+    data.invoice_key ||
+    data.server_key ||
+    data.key ||
+    details.invoiceKey ||
+    details.serverKey ||
+    ""
+  ).trim();
+}
+
+function assalGetNotificationTarget(data = {}){
+  const details = data.details && typeof data.details === "object" ? data.details : {};
+  return String(
+    data.target ||
+    data.assal_target ||
+    details.target ||
+    assalNotificationTargetForAction(data.action || details.action || "") ||
+    "invoice"
+  ).trim() || "invoice";
+}
+
+function assalSchedulePendingNotificationFlush(delay = 450){
+  clearTimeout(assalNotificationTargetTimer);
+  assalNotificationTargetTimer = setTimeout(()=> assalFlushPendingNotificationTarget(), delay);
+}
+
+function assalFlushPendingNotificationTarget(){
+  if(!assalPendingNotificationTarget) return false;
+  if(!currentUser?.code){
+    assalSchedulePendingNotificationFlush(650);
+    return false;
+  }
+  const pending = assalPendingNotificationTarget;
+  assalPendingNotificationTarget = null;
+  assalOpenNotificationTarget(pending);
+  return true;
+}
+
+async function assalOpenNotificationTarget(data = {}){
+  const payload = assalCoerceNotificationPayload(data);
+  const invoiceKey = assalGetNotificationInvoiceKey(payload);
+  const target = assalGetNotificationTarget(payload);
+  const signature = `${invoiceKey || "no-key"}:${target}:${payload.createdAt || payload.key || payload.notificationId || ""}`;
+
+  if(!currentUser?.code){
+    assalPendingNotificationTarget = payload;
+    assalSchedulePendingNotificationFlush(650);
+    return false;
+  }
+
+  // حماية من تكرار فتح نفس إشعار الأندرويد أكثر من مرة عند رجوع WebView من الخلفية.
+  if(signature && signature === assalLastOpenedNotificationSignature && invoiceKey){
+    return true;
+  }
+  if(invoiceKey) assalLastOpenedNotificationSignature = signature;
+
+  assalCloseNotificationsPanel();
+
+  const opened = invoiceKey ? await assalOpenInvoiceByServerKey(invoiceKey, { fromNotification:true }) : false;
+
+  if(opened){
+    setTimeout(()=>{
+      if(target === "chat"){
+        assalScrollAndFlash("assalInvoiceChatCard");
+        assalScrollChatToBottom(true);
+        const input = document.getElementById("assalChatInput");
+        setTimeout(()=> input?.focus?.(), 650);
+      }else{
+        assalScrollAndFlash("itemsTable");
+      }
+    }, 450);
+    return true;
+  }
+
+  if(invoiceKey){
+    try{ showToast("تعذر فتح الفاتورة المرتبطة بالإشعار ❌", true); }catch{}
+  }
+  return false;
+}
+
+async function assalOpenInvoiceByServerKey(serverKey, options = {}){
   const key = String(serverKey || "").trim();
   if(!key) return false;
-  if(currentInvoice && assalGetInvoiceServerKey(currentInvoice) === key){ assalRenderChatState(); return true; }
-  const localIndex = (invoices || []).findIndex(inv => String(inv?.serverKey || inv?.__serverKey || "") === key);
-  if(localIndex !== -1){ loadInvoice(localIndex); return true; }
-  let serverInvoice = (serverInvoicesCache || []).find(inv => String(inv?.serverKey || "") === key);
-  if(!serverInvoice && (isMainAdmin() || isSecondaryAdmin())){
-    try{ await refreshServerInvoicesForRole({ silent:true }); serverInvoice = (serverInvoicesCache || []).find(inv => String(inv?.serverKey || "") === key); }catch{}
+
+  if(currentInvoice && assalGetInvoiceServerKey(currentInvoice) === key){
+    assalRenderChatState();
+    return true;
   }
-  if(serverInvoice){ loadServerInvoiceByKey(key); return true; }
-  try{
-    const ref = getServerInvoicesRef();
-    if(ref){
-      const snap = await ref.child(key).once("value");
-      const inv = snap.val();
-      if(inv){
-        serverInvoicesCache = [{ serverKey:key, ...inv }, ...(serverInvoicesCache || []).filter(x => String(x.serverKey || "") !== key)];
-        loadServerInvoiceByKey(key);
+
+  const localIndex = (invoices || []).findIndex(inv => String(inv?.serverKey || inv?.__serverKey || "") === key);
+  if(localIndex !== -1){
+    loadLocalServerInvoiceArchive(localIndex);
+    return true;
+  }
+
+  let serverInvoice = (serverInvoicesCache || []).find(inv => String(inv?.serverKey || inv?.__serverKey || "") === key);
+
+  // نفس سلوك الأدمن الرئيسي لكل الحسابات:
+  // إذا ما موجود بالكاش المحلي، نقرأ الفاتورة مباشرة من السيرفر بالمفتاح القادم من الإشعار.
+  if(!serverInvoice){
+    try{
+      const ref = getServerInvoicesRef();
+      if(ref){
+        const snap = await ref.child(key).once("value");
+        const inv = snap.val();
+        if(inv){
+          serverInvoice = { serverKey:key, __serverKey:key, ...inv };
+          serverInvoicesCache = [serverInvoice, ...(serverInvoicesCache || []).filter(x => String(x.serverKey || x.__serverKey || "") !== key)];
+        }
+      }
+    }catch(err){ console.warn("ASSAL open invoice direct read failed", err); }
+  }
+
+  // إذا القراءة المباشرة تأخرت أو الكاش قديم، نجرب تحديث قائمة السيرفر للحسابات التي تملك صلاحية عرضها.
+  if(!serverInvoice){
+    try{
+      await refreshServerInvoicesForRole({ silent:true });
+      serverInvoice = (serverInvoicesCache || []).find(inv => String(inv?.serverKey || inv?.__serverKey || "") === key);
+    }catch{}
+  }
+
+  if(serverInvoice){
+    serverInvoice.serverKey = key;
+    serverInvoice.__serverKey = key;
+
+    // المستخدم والادمن الثانوي يخزنون فاتورتهم محلياً أيضاً حتى تفتح من الإشعار مثل الأدمن الرئيسي.
+    if((isSecondaryAdmin() || isRegularUser()) && assalIsOwnServerInvoice(serverInvoice)){
+      const idx = upsertServerInvoiceIntoLocalArchive(serverInvoice, { force:true, serverKey:key });
+      if(idx !== -1){
+        persistInvoices();
+        renderInvoicesDropdown();
+        loadLocalServerInvoiceArchive(idx);
         return true;
       }
     }
-  }catch(err){ console.warn("ASSAL open invoice direct read failed", err); }
-  try{ showToast("تعذر فتح الفاتورة المرتبطة بالإشعار ❌", true); }catch{}
+
+    loadServerInvoiceByKey(key);
+    return true;
+  }
+
   return false;
 }
 
@@ -5694,6 +5841,101 @@ function assalScrollToInvoiceCategoryAfterNewInvoice(){
 }
 
 window.assalOpenNotificationTarget = assalOpenNotificationTarget;
+window.assalHandleNotificationClick = assalOpenNotificationTarget;
+window.assalOnNotificationClick = assalOpenNotificationTarget;
+window.onAssalNotificationClick = assalOpenNotificationTarget;
+window.openAssalNotificationTarget = assalOpenNotificationTarget;
+window.assalSetPendingNotificationTarget = function(data){
+  assalPendingNotificationTarget = assalCoerceNotificationPayload(data);
+  return assalFlushPendingNotificationTarget();
+};
+
+function assalTryReadAndroidNotificationPayload(){
+  const bridge = window.AssalAndroid;
+  if(!bridge) return {};
+
+  const methods = [
+    "consumePendingNotificationData",
+    "getPendingNotificationData",
+    "getInitialNotificationData",
+    "getNotificationPayload",
+    "getPendingNotificationPayload",
+    "getLastNotificationData"
+  ];
+
+  for(const method of methods){
+    try{
+      if(typeof bridge[method] === "function"){
+        const raw = bridge[method]();
+        const payload = assalCoerceNotificationPayload(raw);
+        if(assalGetNotificationInvoiceKey(payload) || payload.target || payload.action || payload.chatKey) return payload;
+      }
+    }catch(err){ console.warn("ASSAL Android notification bridge not ready", method, err); }
+  }
+
+  return {};
+}
+
+function assalTryOpenNotificationFromUrl(){
+  try{
+    const params = new URLSearchParams(window.location.search || "");
+    const payload = {};
+    ["invoiceKey","serverKey","assal_invoice_key","target","chatKey","action"].forEach(k=>{
+      if(params.has(k)) payload[k] = params.get(k);
+    });
+    if(assalGetNotificationInvoiceKey(payload) || payload.target || payload.action){
+      assalOpenNotificationTarget(payload);
+      return true;
+    }
+  }catch{}
+  return false;
+}
+
+async function assalOpenLatestUnreadNotificationIfAndroidRequested(){
+  try{
+    const bridge = window.AssalAndroid;
+    if(!bridge || typeof bridge.wasOpenedFromNotification !== "function") return false;
+    const openedFromNotification = String(bridge.wasOpenedFromNotification() || "").toLowerCase();
+    if(!(openedFromNotification === "true" || openedFromNotification === "1" || openedFromNotification === "yes")) return false;
+
+    await assalRefreshNotificationsOnce({ silent:true });
+    const latest = (assalNotificationsCache || []).find(n => n && n.read !== true && assalGetNotificationInvoiceKey(n));
+    if(latest){
+      assalOpenNotificationTarget(latest);
+      return true;
+    }
+  }catch(err){ console.warn("ASSAL latest notification fallback failed", err); }
+  return false;
+}
+
+function assalPollAndroidPendingNotificationTarget(force = false){
+  if(!force && assalAndroidNotificationPollTimer) return;
+  clearInterval(assalAndroidNotificationPollTimer);
+  assalAndroidNotificationPollCount = 0;
+
+  const tick = async ()=>{
+    assalAndroidNotificationPollCount += 1;
+    const payload = assalTryReadAndroidNotificationPayload();
+    if(assalGetNotificationInvoiceKey(payload) || payload.target || payload.action){
+      clearInterval(assalAndroidNotificationPollTimer);
+      assalAndroidNotificationPollTimer = null;
+      assalOpenNotificationTarget(payload);
+      return;
+    }
+
+    if(assalAndroidNotificationPollCount === 3){
+      assalOpenLatestUnreadNotificationIfAndroidRequested();
+    }
+
+    if(assalAndroidNotificationPollCount >= 12){
+      clearInterval(assalAndroidNotificationPollTimer);
+      assalAndroidNotificationPollTimer = null;
+    }
+  };
+
+  tick();
+  assalAndroidNotificationPollTimer = setInterval(tick, 650);
+}
 
 function assalInitRealtimeModules(){
   assalBindRealtimeUIEvents();
@@ -5703,6 +5945,9 @@ function assalInitRealtimeModules(){
   assalRefreshNotificationsOnce({ silent:true });
   assalRenderChatState();
   assalRegisterDeviceTokenFromAndroidBridge();
+  assalFlushPendingNotificationTarget();
+  assalTryOpenNotificationFromUrl();
+  assalPollAndroidPendingNotificationTarget(true);
 }
 
 function assalRegisterDeviceTokenFromAndroidBridge(){
