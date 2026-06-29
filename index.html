@@ -3696,6 +3696,115 @@ body{
   }
 }
 
+
+
+/* =========================================================
+   ASSAL FINAL • Header local import + compact 5-invoice sections
+   - زر استيراد محلي صغير بجانب زر السيرفر في هيدر خانة الفواتير
+   - كل خانة تعرض 5 فواتير فقط والباقي سكرول
+   - تقليل ارتفاع بطاقات الفواتير لتوفير مساحة عرض/قراءة أكثر
+   ========================================================= */
+:root{
+  --invoice-section-card-h: 54px !important;
+  --invoice-section-gap: 6px !important;
+}
+
+.main-local-import-btn{
+  background: linear-gradient(135deg,#34d399,#059669) !important;
+  color:#ecfdf5 !important;
+  box-shadow: 0 8px 18px rgba(16,185,129,.24) !important;
+}
+.main-local-import-btn:hover{
+  filter: brightness(1.06);
+  box-shadow: 0 10px 22px rgba(16,185,129,.32) !important;
+}
+
+#sidebar .panel-title > div{
+  align-items:center !important;
+}
+
+#sidebar .invoice-section-scroll,
+#importedPdfList{
+  max-height: calc((var(--invoice-section-card-h) * 5) + (var(--invoice-section-gap) * 4) + 8px) !important;
+  gap: var(--invoice-section-gap) !important;
+  padding-block: 2px !important;
+  margin-bottom: 9px !important;
+}
+
+#sidebar .invoice-section-scroll.is-empty{
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+#sidebar .invoice-section-scroll > .invoice-chip,
+#sidebar #invoicesDropdown > .invoice-chip,
+#importedPdfList > .invoice-chip,
+#sidebar .invoice-chip{
+  min-height: var(--invoice-section-card-h) !important;
+  padding: 7px 9px !important;
+  border-radius: 11px !important;
+}
+
+#sidebar .invoice-chip .chip-meta,
+#importedPdfList .invoice-chip .chip-meta{
+  gap: 1px !important;
+  min-width: 0 !important;
+}
+
+#sidebar .invoice-chip .chip-meta strong,
+#importedPdfList .invoice-chip .chip-meta strong{
+  font-size: 12.5px !important;
+  line-height: 1.25 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: block !important;
+  max-width: 100% !important;
+}
+
+#sidebar .invoice-chip .chip-meta small,
+#importedPdfList .invoice-chip .chip-meta small{
+  font-size: 10.8px !important;
+  line-height: 1.25 !important;
+  margin-top: 1px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+#sidebar .invoice-chip .chip-actions,
+#importedPdfList .invoice-chip .chip-actions{
+  gap: 5px !important;
+  flex: 0 0 auto !important;
+}
+
+#sidebar .invoice-chip .btn-rename-custom,
+#sidebar .invoice-chip .btn-danger-custom,
+#importedPdfList .invoice-chip .btn-rename-custom,
+#importedPdfList .invoice-chip .btn-danger-custom{
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+}
+
+#sidebar .server-section-title{
+  padding: 7px 9px !important;
+  margin: 8px 0 5px !important;
+}
+
+@media (max-width: 576px){
+  :root{ --invoice-section-card-h: 56px !important; --invoice-section-gap: 6px !important; }
+  #sidebar .invoice-chip .btn-rename-custom,
+  #sidebar .invoice-chip .btn-danger-custom,
+  #importedPdfList .invoice-chip .btn-rename-custom,
+  #importedPdfList .invoice-chip .btn-danger-custom{
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -4015,8 +4124,11 @@ body{
 
   <!-- زر استيراد + مُلتقط ملف مخفي -->
   <div style="display:flex; gap:8px;">
-    <button class="icon-btn" id="btnImportPrev" title="استيراد فاتورة (Excel/CSV)">
-      <i class="fa-solid fa-file-arrow-down"></i>
+    <button class="icon-btn" id="btnImportPrev" title="استيراد من السيرفر">
+      <i class="fa-solid fa-cloud-arrow-down"></i>
+    </button>
+    <button class="icon-btn main-local-import-btn" id="btnMainAdminLocalImport" title="استيراد محلي (Excel/CSV)" style="display:none;">
+      <i class="fa-solid fa-file-excel"></i>
     </button>
     <input id="prevImportPicker" type="file"
            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.csv,text/csv"
@@ -4378,6 +4490,8 @@ let assalServerInvoicesRealtimeBoundFor = "";
 let assalServerInvoicesRealtimeRetryTimer = null;
 let assalServerInvoicesPendingCurrent = null;
 let assalServerInvoicesPendingTimer = null;
+let assalMainAdminLocalSyncTimer = null;
+
 
 function assalSafeText(v){
   return String(v ?? "")
@@ -4899,7 +5013,8 @@ function assalCleanInvoiceForServer(inv){
   const owner = assalGetStableInvoiceOwner(inv || {});
   assalApplyStableInvoiceOwner(inv, owner);
   const now = assalNow();
-  return {
+  const isMainLocal = (typeof assalIsMainAdminLocalInvoice === "function") && assalIsMainAdminLocalInvoice(inv);
+  const payload = {
     id: String(inv?.id || formatInvoiceName()).trim(),
     date: inv?.date || new Date().toLocaleDateString("ar-EG"),
     items: Array.isArray(inv?.items) ? inv.items.map(it => ({
@@ -4914,11 +5029,22 @@ function assalCleanInvoiceForServer(inv){
     ownerCode: owner.code || "",
     ownerName: owner.name || "",
     ownerRole: owner.role || "",
+    createdAt: Number(inv?.createdAt || inv?.uploadedAt || now),
     updatedAt: now,
     lastEditorCode: currentUser?.code || "",
     lastEditorName: currentUser?.name || "",
     lastEditorRole: currentUser?.role || ""
   };
+
+  if(isMainLocal){
+    payload.mainAdminLocal = true;
+    payload.__mainAdminLocal = true;
+    payload.serverLocalType = "main_admin_local";
+    payload.localKey = String(inv?.localKey || "").trim();
+    payload.visibility = inv?.visibility || { mainAdmin:true, secondaryAdmins:false, users:false };
+  }
+
+  return payload;
 }
 
 async function assalSyncInvoiceToServer(action = "invoice_updated", details = {}){
@@ -4935,8 +5061,8 @@ async function assalSyncInvoiceToServer(action = "invoice_updated", details = {}
     const old = serverInvoicesCache.find(x => String(x.serverKey || "") === String(serverKey));
     const updatePayload = {
       ...payload,
-      uploadedAt: old?.uploadedAt || inv.serverUploadedAt || inv.uploadedAt || Date.now(),
-      visibility: old?.visibility || inv.visibility || { mainAdmin:true, secondaryAdmins:true, users:false },
+      uploadedAt: old?.uploadedAt || inv.serverUploadedAt || inv.uploadedAt || inv.createdAt || Date.now(),
+      visibility: payload.visibility || old?.visibility || inv.visibility || { mainAdmin:true, secondaryAdmins:true, users:false },
       signature: assalGetInvoiceSignature(inv)
     };
     await ref.child(serverKey).update(updatePayload);
@@ -4952,6 +5078,9 @@ async function assalSyncInvoiceToServer(action = "invoice_updated", details = {}
 }
 
 function assalScheduleServerSync(action = "invoice_updated", details = {}){
+  if(assalIsMainAdminLocalInvoice(currentInvoice)){
+    assalEnsureMainAdminLocalSyncMeta(currentInvoice, { touch:true });
+  }
   if(!assalInvoiceHasServerKey(currentInvoice)) return;
   clearTimeout(assalServerSyncTimer);
   assalServerSyncTimer = setTimeout(()=> assalSyncInvoiceToServer(action, details), 450);
@@ -4959,6 +5088,11 @@ function assalScheduleServerSync(action = "invoice_updated", details = {}){
 
 function assalAfterInvoicePersisted(action = "invoice_updated", details = {}, options = {}){
   if(!currentInvoice) return;
+
+  if(assalIsMainAdminLocalInvoice(currentInvoice)){
+    assalEnsureMainAdminLocalSyncMeta(currentInvoice, { touch:true });
+  }
+
   const changed = options.force ? true : assalSignatureChanged(currentInvoice);
   if(!changed) return;
 
@@ -6108,6 +6242,248 @@ function persistInvoices(){
   localStorage.setItem(getLocalInvoicesKey(), JSON.stringify(invoices));
 }
 
+/* =========================================================
+   ASSAL • فواتير الأدمن المحلية المتزامنة تلقائياً
+   - تخص الأدمن الرئيسي فقط.
+   - تبقى ظاهرة ضمن "فواتير الأدمن المحلية" ولا تدخل في أرشيف فواتير السيرفر.
+   - أي حفظ/تعديل يحدّث نفس السجل على السيرفر عبر serverKey ثابت.
+   ========================================================= */
+function assalInvoiceSortTime(inv = {}){
+  return Number(
+    inv.updatedAt ||
+    inv.serverUpdatedAt ||
+    inv.resentAt ||
+    inv.uploadedAt ||
+    inv.serverUploadedAt ||
+    inv.importedFromServerAt ||
+    inv.createdAt ||
+    0
+  );
+}
+
+function assalSortInvoiceEntriesNewest(entries = []){
+  return [...entries].sort((a,b)=>{
+    const tb = assalInvoiceSortTime(b.inv || b);
+    const ta = assalInvoiceSortTime(a.inv || a);
+    if(tb !== ta) return tb - ta;
+    return String(b.inv?.id || b.id || '').localeCompare(String(a.inv?.id || a.id || ''), 'ar');
+  });
+}
+
+function assalIsMainAdminLocalInvoice(inv){
+  if(!isMainAdmin() || !inv || typeof inv !== 'object') return false;
+  if(isServerArchivedLocalInvoice(inv)) return false;
+  if(inv.__mergedEntryId) return false;
+
+  const role = String(inv.ownerRole || inv.senderRole || currentUser?.role || '').trim();
+  return !!(
+    inv.mainAdminLocal === true ||
+    inv.__mainAdminLocal === true ||
+    inv.serverLocalType === 'main_admin_local' ||
+    role === 'main_admin'
+  );
+}
+
+function assalIsMainAdminLocalServerInvoice(inv){
+  if(!inv || typeof inv !== 'object') return false;
+  const role = String(inv.senderRole || inv.ownerRole || '').trim();
+  return !!(
+    inv.mainAdminLocal === true ||
+    inv.__mainAdminLocal === true ||
+    inv.serverLocalType === 'main_admin_local' ||
+    role === 'main_admin'
+  );
+}
+
+function assalEnsureMainAdminLocalSyncMeta(inv, options = {}){
+  if(!assalIsMainAdminLocalInvoice(inv)) return false;
+
+  const now = Date.now();
+  ensureInvoiceLocalKey(inv);
+
+  inv.mainAdminLocal = true;
+  inv.__mainAdminLocal = true;
+  inv.serverLocalType = 'main_admin_local';
+  inv.localServerArchive = false;
+  inv.__localServerArchive = false;
+  inv.__fromServer = false;
+  inv.serverStatus = 'main_admin_local';
+  inv.visibility = inv.visibility || { mainAdmin:true, secondaryAdmins:false, users:false };
+  inv.createdAt = Number(inv.createdAt || inv.uploadedAt || now);
+  if(options.touch !== false) inv.updatedAt = now;
+
+  if(!String(inv.ownerCode || inv.senderCode || '').trim() && currentUser){
+    inv.ownerCode = currentUser.code || '';
+    inv.ownerName = currentUser.name || '';
+    inv.ownerRole = currentUser.role || 'main_admin';
+    inv.senderCode = currentUser.code || '';
+    inv.senderName = currentUser.name || '';
+    inv.senderRole = currentUser.role || 'main_admin';
+  }
+
+  if(!String(inv.serverKey || inv.__serverKey || '').trim()){
+    const ref = getServerInvoicesRef();
+    if(ref){
+      const newRef = ref.push();
+      inv.serverKey = newRef.key;
+      inv.__serverKey = newRef.key;
+      inv.serverUploadedAt = inv.serverUploadedAt || inv.createdAt || now;
+      inv.uploadedAt = inv.uploadedAt || inv.createdAt || now;
+    }
+  }else{
+    inv.__serverKey = inv.serverKey || inv.__serverKey;
+  }
+
+  return !!String(inv.serverKey || inv.__serverKey || '').trim();
+}
+
+async function assalSyncMainAdminLocalInvoiceRecord(inv, action = 'invoice_updated', details = {}){
+  if(!assalIsMainAdminLocalInvoice(inv)) return false;
+  if(!assalEnsureMainAdminLocalSyncMeta(inv, { touch:true })) return false;
+
+  const ref = getServerInvoicesRef();
+  const serverKey = String(inv.serverKey || inv.__serverKey || '').trim();
+  if(!ref || !serverKey) return false;
+
+  const payload = {
+    ...assalCleanInvoiceForServer(inv),
+    uploadedAt: Number(inv.serverUploadedAt || inv.uploadedAt || inv.createdAt || Date.now()),
+    updatedAt: Number(inv.updatedAt || Date.now()),
+    visibility: inv.visibility || { mainAdmin:true, secondaryAdmins:false, users:false },
+    signature: assalGetInvoiceSignature(inv)
+  };
+
+  try{
+    await ref.child(serverKey).update(payload);
+    const cachedPayload = { serverKey, __serverKey:serverKey, ...payload };
+    const idx = serverInvoicesCache.findIndex(x => String(x.serverKey || x.__serverKey || '') === serverKey);
+    if(idx !== -1) serverInvoicesCache[idx] = { ...serverInvoicesCache[idx], ...cachedPayload };
+    else serverInvoicesCache.unshift(cachedPayload);
+    assalSetInvoiceBaseline(inv);
+    return true;
+  }catch(err){
+    console.error('ASSAL main admin local invoice sync error:', err);
+    try{ showToast('تعذر مزامنة فاتورة الأدمن المحلية ❌', true); }catch{}
+    return false;
+  }
+}
+
+function assalNormalizeMainAdminServerInvoiceToLocal(inv = {}, serverKey = ''){
+  const key = String(serverKey || inv.serverKey || inv.__serverKey || '').trim();
+  const now = Date.now();
+  const uploadedAt = Number(inv.uploadedAt || inv.serverUploadedAt || inv.createdAt || now);
+  const updatedAt = Number(inv.updatedAt || inv.serverUpdatedAt || uploadedAt || now);
+  const localInv = {
+    id: String(inv.id || inv.name || formatInvoiceName()).trim(),
+    date: inv.date || new Date(uploadedAt || now).toLocaleDateString('ar-EG'),
+    items: Array.isArray(inv.items) ? inv.items.map(it => ({
+      category: String(it.category || '').trim(),
+      name: String(it.name || it.item || '').trim(),
+      qty: String(it.qty ?? '').trim(),
+      note: String(it.note || '').trim()
+    })) : [],
+    localKey: String(inv.localKey || '').trim(),
+    serverKey: key,
+    __serverKey: key,
+    serverStatus: 'main_admin_local',
+    mainAdminLocal: true,
+    __mainAdminLocal: true,
+    serverLocalType: 'main_admin_local',
+    localServerArchive: false,
+    __localServerArchive: false,
+    __fromServer: false,
+    createdAt: Number(inv.createdAt || uploadedAt || now),
+    updatedAt,
+    serverUploadedAt: uploadedAt,
+    uploadedAt,
+    importedFromServerAt: now,
+    senderCode: String(inv.senderCode || inv.ownerCode || currentUser?.code || '').trim(),
+    senderName: String(inv.senderName || inv.ownerName || currentUser?.name || '').trim(),
+    senderRole: String(inv.senderRole || inv.ownerRole || 'main_admin').trim(),
+    ownerCode: String(inv.ownerCode || inv.senderCode || currentUser?.code || '').trim(),
+    ownerName: String(inv.ownerName || inv.senderName || currentUser?.name || '').trim(),
+    ownerRole: String(inv.ownerRole || inv.senderRole || 'main_admin').trim(),
+    lastEditorCode: String(inv.lastEditorCode || '').trim(),
+    lastEditorName: String(inv.lastEditorName || '').trim(),
+    lastEditorRole: String(inv.lastEditorRole || '').trim(),
+    visibility: inv.visibility || { mainAdmin:true, secondaryAdmins:false, users:false }
+  };
+  assalNormalizeInvoiceOwner(localInv);
+  ensureInvoiceLocalKey(localInv);
+  assalSetInvoiceBaseline(localInv);
+  return localInv;
+}
+
+function upsertMainAdminLocalServerInvoice(inv = {}, options = {}){
+  if(!isMainAdmin() || !assalIsMainAdminLocalServerInvoice(inv)) return -1;
+  const key = String(inv.serverKey || inv.__serverKey || options.serverKey || '').trim();
+  if(!key) return -1;
+
+  const normalized = assalNormalizeMainAdminServerInvoiceToLocal(inv, key);
+  const idx = findLocalInvoiceIndexByServerKey(key);
+
+  if(idx !== -1){
+    const oldLocalKey = invoices[idx]?.localKey || normalized.localKey;
+    const oldUpdated = assalInvoiceSortTime(invoices[idx]);
+    const newUpdated = assalInvoiceSortTime(normalized);
+    if(!options.force && oldUpdated > newUpdated) return idx;
+
+    const wasSelected = selectedInvoiceIndex === idx;
+    invoices[idx] = {
+      ...invoices[idx],
+      ...normalized,
+      localKey: oldLocalKey || normalized.localKey,
+      localServerArchive: false,
+      __localServerArchive: false,
+      __fromServer: false
+    };
+    if(wasSelected && currentInvoice){
+      currentInvoice = invoices[idx];
+    }
+    return idx;
+  }
+
+  invoices.push(normalized);
+  return invoices.length - 1;
+}
+
+function syncMainAdminLocalServerInvoicesToLocal(list = []){
+  if(!isMainAdmin()) return 0;
+  let changed = 0;
+  const openedKey = assalGetInvoiceServerKey(currentInvoice);
+
+  (Array.isArray(list) ? list : []).forEach(inv => {
+    if(!assalIsMainAdminLocalServerInvoice(inv)) return;
+
+    const incomingKey = String(inv.serverKey || inv.__serverKey || '').trim();
+    if(openedKey && incomingKey && incomingKey === openedKey && typeof assalIsBusyEditingInvoiceUI === 'function' && assalIsBusyEditingInvoiceUI()){
+      assalServerInvoicesPendingCurrent = inv;
+      clearTimeout(assalServerInvoicesPendingTimer);
+      assalServerInvoicesPendingTimer = setTimeout(()=> assalApplyPendingOpenedServerInvoice(1), 900);
+      return;
+    }
+
+    const idx = upsertMainAdminLocalServerInvoice(inv, { force:true });
+    if(idx !== -1) changed += 1;
+  });
+
+  if(changed){
+    persistInvoices();
+  }
+  return changed;
+}
+
+function openMainAdminLocalImportPicker(){
+  if(!isMainAdmin()){
+    showToast('الاستيراد المحلي متاح للأدمن الرئيسي فقط ❌', true);
+    return;
+  }
+  const picker = document.getElementById('prevImportPicker');
+  if(!picker) return;
+  picker.value = '';
+  picker.click();
+}
+
 
 /* =========================================================
    ASSAL • فواتير السيرفر المحلية
@@ -6130,9 +6506,11 @@ function isServerArchivedLocalInvoice(inv){
 
 function getLocalInvoiceEntries(options = {}){
   const wantServerArchive = !!options.serverArchive;
-  return (Array.isArray(invoices) ? invoices : [])
-    .map((inv, index)=> ({ inv, index }))
-    .filter(({inv})=> wantServerArchive ? isServerArchivedLocalInvoice(inv) : !isServerArchivedLocalInvoice(inv));
+  return assalSortInvoiceEntriesNewest(
+    (Array.isArray(invoices) ? invoices : [])
+      .map((inv, index)=> ({ inv, index }))
+      .filter(({inv})=> wantServerArchive ? isServerArchivedLocalInvoice(inv) : !isServerArchivedLocalInvoice(inv))
+  );
 }
 
 function getLocalServerArchivedInvoiceEntries(){
@@ -6425,12 +6803,17 @@ function assalCollectServerInvoicesFromSnapshot(snap){
   }catch(err){
     console.warn("ASSAL collect server invoices warning:", err);
   }
-  list.sort((a,b)=> Number(b.uploadedAt || b.updatedAt || 0) - Number(a.uploadedAt || a.updatedAt || 0));
+  list.sort((a,b)=> Number(b.updatedAt || b.uploadedAt || b.createdAt || 0) - Number(a.updatedAt || a.uploadedAt || a.createdAt || 0));
   return list;
 }
 
 function assalVisibleServerInvoicesForCurrentRole(rawList = []){
   let list = Array.isArray(rawList) ? [...rawList] : [];
+
+  // الأدمن الرئيسي: فواتيره المحلية تنجلب تلقائياً من السيرفر وتبقى ضمن قسم فواتير الأدمن المحلية.
+  if(isMainAdmin()){
+    syncMainAdminLocalServerInvoicesToLocal(list);
+  }
 
   // الأدمن الثانوي والمستخدم الفرعي يحتفظون محلياً فقط بفواتيرهم المرسلة للسيرفر.
   if(isSecondaryAdmin() || isRegularUser()){
@@ -6481,8 +6864,9 @@ function assalIsBusyEditingInvoiceUI(){
 function assalNormalizeIncomingServerInvoiceForCurrent(incoming = {}, oldCurrent = {}){
   const key = String(incoming.serverKey || incoming.__serverKey || oldCurrent.serverKey || oldCurrent.__serverKey || '').trim();
   const uploadedAt = Number(incoming.uploadedAt || incoming.serverUploadedAt || oldCurrent.serverUploadedAt || oldCurrent.uploadedAt || Date.now());
+  const isMainLocal = isMainAdmin() && (assalIsMainAdminLocalServerInvoice(incoming) || oldCurrent.mainAdminLocal === true || oldCurrent.__mainAdminLocal === true);
   const isOwnArchive = (isSecondaryAdmin() || isRegularUser()) && assalIsOwnServerInvoice(incoming);
-  const localArchive = !!(oldCurrent.localServerArchive || oldCurrent.__localServerArchive || isOwnArchive);
+  const localArchive = isMainLocal ? false : !!(oldCurrent.localServerArchive || oldCurrent.__localServerArchive || isOwnArchive);
 
   const updated = {
     ...oldCurrent,
@@ -6497,13 +6881,18 @@ function assalNormalizeIncomingServerInvoiceForCurrent(incoming = {}, oldCurrent
     })) : [],
     serverKey: key,
     __serverKey: key,
-    __fromServer: true,
-    serverStatus: 'sent',
+    __fromServer: isMainLocal ? false : true,
+    serverStatus: isMainLocal ? 'main_admin_local' : 'sent',
+    mainAdminLocal: isMainLocal ? true : (incoming.mainAdminLocal || oldCurrent.mainAdminLocal),
+    __mainAdminLocal: isMainLocal ? true : (incoming.__mainAdminLocal || oldCurrent.__mainAdminLocal),
+    serverLocalType: isMainLocal ? 'main_admin_local' : (incoming.serverLocalType || oldCurrent.serverLocalType),
     localServerArchive: localArchive,
     __localServerArchive: localArchive,
     serverUploadedAt: uploadedAt,
     uploadedAt: oldCurrent.uploadedAt || uploadedAt,
-    visibility: incoming.visibility || oldCurrent.visibility || { mainAdmin:true, secondaryAdmins:true, users:false }
+    createdAt: Number(incoming.createdAt || oldCurrent.createdAt || uploadedAt || Date.now()),
+    updatedAt: Number(incoming.updatedAt || oldCurrent.updatedAt || uploadedAt || Date.now()),
+    visibility: incoming.visibility || oldCurrent.visibility || (isMainLocal ? { mainAdmin:true, secondaryAdmins:false, users:false } : { mainAdmin:true, secondaryAdmins:true, users:false })
   };
 
   assalNormalizeInvoiceOwner(updated);
@@ -6541,12 +6930,14 @@ function assalTryApplyIncomingToOpenedInvoice(incoming = {}, options = {}){
   const localIdx = findLocalInvoiceIndexByServerKey(key);
   if(localIdx !== -1){
     const keepLocalKey = invoices[localIdx]?.localKey || updated.localKey;
+    const keepAsMainLocal = isMainAdmin() && (updated.mainAdminLocal === true || updated.__mainAdminLocal === true || updated.serverLocalType === 'main_admin_local');
     invoices[localIdx] = {
       ...invoices[localIdx],
       ...updated,
       localKey: keepLocalKey || updated.localKey,
-      localServerArchive: true,
-      __localServerArchive: true
+      localServerArchive: keepAsMainLocal ? false : true,
+      __localServerArchive: keepAsMainLocal ? false : true,
+      __fromServer: keepAsMainLocal ? false : updated.__fromServer
     };
     currentInvoice = invoices[localIdx];
     selectedInvoiceIndex = localIdx;
@@ -7986,6 +8377,7 @@ function getSelectedServerInvoicesForMerge(){
 function applyRoleUI(){
   const sidebarTitleEl = document.querySelector("#sidebar .panel-title h3");
   const importBtn = document.getElementById("btnImportPrev");
+  const localImportBtn = document.getElementById("btnMainAdminLocalImport");
   const importBtnWrap = importBtn?.parentElement;
   const importedSidebar = document.getElementById("importedSidebar");
   const importMergeServerBtn = document.getElementById('btnImportMergeServer');
@@ -8012,6 +8404,12 @@ function applyRoleUI(){
     }else{
       importBtn.style.display = "none";
     }
+  }
+
+  if(localImportBtn){
+    localImportBtn.style.display = isMainAdmin() ? "grid" : "none";
+    localImportBtn.title = "استيراد محلي (Excel/CSV)";
+    localImportBtn.innerHTML = '<i class="fa-solid fa-file-excel"></i>';
   }
 
   if(importBtnWrap){
@@ -8774,7 +9172,11 @@ function validateItemFields(ctx="add"){
     showToast("فاتورة اليوم موجودة، تم تحميلها ✅");
   } else {
     // ماكو فاتورة اليوم بالاسم الافتراضي ⇒ أنشئ واحدة جديدة
-    currentInvoice = stampInvoiceOwner({ id: defaultName, date: today, items: [] });
+    const now = Date.now();
+    currentInvoice = stampInvoiceOwner({ id: defaultName, date: today, items: [], createdAt: now, updatedAt: now });
+    if(isMainAdmin()){
+      assalEnsureMainAdminLocalSyncMeta(currentInvoice, { touch:true });
+    }
     invoices.push(currentInvoice);
     selectedInvoiceIndex = invoices.length - 1;
     showToast("تم إنشاء فاتورة جديدة ✅");
@@ -8806,7 +9208,11 @@ function openDeleteInvoiceModal(i, ev){
   __pendingDeleteServerKey = null;
   __pendingDeleteImportedIndex = null;
   __pendingDeleteImportedServerKey = null;
-  setDeleteModalContent('حذف الفاتورة؟', 'سيتم حذف الفاتورة نهائياً من الجهاز.');
+  const inv = invoices[i];
+  const desc = assalIsMainAdminLocalInvoice(inv) && String(inv?.serverKey || inv?.__serverKey || '').trim()
+    ? 'سيتم حذف الفاتورة من الجهاز ومن السيرفر حتى لا ترجع عند فتح جهاز آخر.'
+    : 'سيتم حذف الفاتورة نهائياً من الجهاز.';
+  setDeleteModalContent('حذف الفاتورة؟', desc);
   const modal = document.getElementById('deleteInvoiceModal');
   modal.style.display = 'flex';
   modal.setAttribute('aria-hidden','false');
@@ -8874,6 +9280,21 @@ async function confirmDeleteInvoice(){
     }
 
     if(__pendingDeleteInvoiceIndex===null) return;
+    const deletedLocalInvoice = invoices[__pendingDeleteInvoiceIndex];
+    const deletedMainAdminServerKey = assalIsMainAdminLocalInvoice(deletedLocalInvoice)
+      ? String(deletedLocalInvoice?.serverKey || deletedLocalInvoice?.__serverKey || '').trim()
+      : '';
+
+    if(deletedMainAdminServerKey){
+      try{
+        const ref = getServerInvoicesRef();
+        await ref?.child(deletedMainAdminServerKey).remove();
+        serverInvoicesCache = serverInvoicesCache.filter(inv => String(inv.serverKey || inv.__serverKey || '') !== deletedMainAdminServerKey);
+      }catch(err){
+        console.warn('ASSAL main admin local server delete warning:', err);
+      }
+    }
+
     invoices.splice(__pendingDeleteInvoiceIndex, 1);
     persistInvoices();
     currentInvoice = null;
@@ -8882,7 +9303,7 @@ async function confirmDeleteInvoice(){
     renderItems();
     renderInvoicesDropdown();
     closeDeleteInvoiceModal();
-    showToast("تم حذف الفاتورة 🗑️");
+    showToast(deletedMainAdminServerKey ? "تم حذف الفاتورة من الجهاز والسيرفر 🗑️" : "تم حذف الفاتورة 🗑️");
   }catch(err){
     console.error(err);
     showToast("تعذر حذف الفاتورة ❌", true);
@@ -9029,9 +9450,17 @@ async function confirmRenameInvoice(){
 
     if(__pendingRenameInvoiceIndex === null) return;
     const oldName = invoices[__pendingRenameInvoiceIndex]?.id || "";
-    invoices[__pendingRenameInvoiceIndex].id = newName;
+    const renamedLocalInv = invoices[__pendingRenameInvoiceIndex];
+    renamedLocalInv.id = newName;
 
-    if(selectedInvoiceIndex === __pendingRenameInvoiceIndex && currentInvoice){
+    if(assalIsMainAdminLocalInvoice(renamedLocalInv)){
+      assalEnsureMainAdminLocalSyncMeta(renamedLocalInv, { touch:true });
+      if(selectedInvoiceIndex === __pendingRenameInvoiceIndex && currentInvoice){
+        currentInvoice = renamedLocalInv;
+        document.getElementById("invoiceId").textContent = newName;
+      }
+      await assalSyncMainAdminLocalInvoiceRecord(renamedLocalInv, "invoice_renamed", { oldName, newName });
+    }else if(selectedInvoiceIndex === __pendingRenameInvoiceIndex && currentInvoice){
       currentInvoice.id = newName;
       document.getElementById("invoiceId").textContent = newName;
       if(assalInvoiceHasServerKey(currentInvoice)){
@@ -9093,7 +9522,10 @@ function renameEscEnterHandler(e){
       if(!currentInvoice) return;
       stampInvoiceOwner(currentInvoice);
       assalNormalizeInvoiceOwner(currentInvoice);
-      if(currentInvoice.__fromServer && assalInvoiceHasServerKey(currentInvoice)){
+      if(assalIsMainAdminLocalInvoice(currentInvoice)){
+        assalEnsureMainAdminLocalSyncMeta(currentInvoice, { touch:true });
+      }
+      if(currentInvoice.__fromServer && assalInvoiceHasServerKey(currentInvoice) && !assalIsMainAdminLocalInvoice(currentInvoice)){
         currentInvoice.serverStatus = 'sent';
         currentInvoice.localServerArchive = true;
         currentInvoice.__localServerArchive = true;
@@ -9122,7 +9554,10 @@ function renameEscEnterHandler(e){
   if(!currentInvoice) return;
   stampInvoiceOwner(currentInvoice);
   assalNormalizeInvoiceOwner(currentInvoice);
-  if(currentInvoice.__fromServer && assalInvoiceHasServerKey(currentInvoice)){
+  if(assalIsMainAdminLocalInvoice(currentInvoice)){
+    assalEnsureMainAdminLocalSyncMeta(currentInvoice, { touch:true });
+  }
+  if(currentInvoice.__fromServer && assalInvoiceHasServerKey(currentInvoice) && !assalIsMainAdminLocalInvoice(currentInvoice)){
     currentInvoice.serverStatus = 'sent';
     currentInvoice.localServerArchive = true;
     currentInvoice.__localServerArchive = true;
@@ -9324,10 +9759,11 @@ function renameEscEnterHandler(e){
   };
 
   if(isMainAdmin()){
-    const shortageInvoices = serverInvoicesCache.filter(inv => inv.senderRole === "secondary_admin");
-    const branchInvoices = serverInvoicesCache.filter(inv => inv.senderRole === "user");
+    const shortageInvoices = assalSortInvoiceEntriesNewest(serverInvoicesCache.filter(inv => inv.senderRole === "secondary_admin"));
+    const branchInvoices = assalSortInvoiceEntriesNewest(serverInvoicesCache.filter(inv => inv.senderRole === "user"));
 
     appendSection("فواتير الأدمن المحلية", "section-shortage");
+
     if(localEntries.length){
       localEntries.forEach(({inv,index})=> makeLocalRow(inv, index));
     }else{
@@ -9366,7 +9802,7 @@ function renameEscEnterHandler(e){
     }
 
     appendSection("فواتير الفروع للاطلاع", "section-branches");
-    const branchOnlyInvoices = serverInvoicesCache.filter(inv => inv.senderRole === "user" && !assalIsOwnServerInvoice(inv));
+    const branchOnlyInvoices = assalSortInvoiceEntriesNewest(serverInvoicesCache.filter(inv => inv.senderRole === "user" && !assalIsOwnServerInvoice(inv)));
     if(branchOnlyInvoices.length){
       branchOnlyInvoices.forEach(makeServerRow);
     }else{
@@ -9405,6 +9841,12 @@ function renameEscEnterHandler(e){
       selectedInvoiceIndex = i;
       currentInvoice = invoices[i];
       assalNormalizeInvoiceOwner(currentInvoice);
+      if(assalIsMainAdminLocalInvoice(currentInvoice)){
+        currentInvoice.localServerArchive = false;
+        currentInvoice.__localServerArchive = false;
+        currentInvoice.__fromServer = false;
+        currentInvoice.serverStatus = 'main_admin_local';
+      }
       if(currentInvoice?.serverKey) currentInvoice.__serverKey = currentInvoice.serverKey;
       assalSetInvoiceBaseline(currentInvoice);
       document.getElementById("invoiceId").textContent = currentInvoice.id;
@@ -11227,7 +11669,8 @@ function downloadBlobFallback(filename, blob){
     // زر استيراد فاتورة إلى "الفواتير السابقة"
 document.getElementById("btnImportPrev").addEventListener("click", async ()=>{
   if(isMainAdmin()){
-    await refreshServerInvoicesForRole();
+    await refreshServerInvoicesForRole({ silent:true });
+    renderInvoicesDropdown();
     showToast("تم تحديث فواتير السيرفر ✅");
     return;
   }
@@ -11240,6 +11683,10 @@ document.getElementById("btnImportPrev").addEventListener("click", async ()=>{
   const p = document.getElementById("prevImportPicker");
   p.value = "";
   p.click();
+});
+
+document.getElementById("btnMainAdminLocalImport")?.addEventListener("click", ()=>{
+  openMainAdminLocalImportPicker();
 });
 
 document.getElementById("prevImportPicker").addEventListener("change", async (e)=>{
@@ -11273,12 +11720,18 @@ document.getElementById("prevImportPicker").addEventListener("change", async (e)
 
     // نصنع فاتورة جديدة من الملف المستورد
    const today = new Date().toLocaleDateString("ar-EG");
+const importNow = Date.now();
 const inv   = stampInvoiceOwner({
   id: formatInvoiceName(),   // نفس شكل "فاتورة الأحد - ٢٠٢٥/٠١/٠٣"
   date: today,
-  items: mapped
+  items: mapped,
+  createdAt: importNow,
+  updatedAt: importNow
 });
 
+    if(isMainAdmin()){
+      assalEnsureMainAdminLocalSyncMeta(inv, { touch:true });
+    }
 
     // نحفظها ضمن الفواتير ونعرضها فورًا قابلة للتعديل
     invoices.push(inv);
@@ -11290,8 +11743,15 @@ const inv   = stampInvoiceOwner({
 
     renderInvoicesDropdown();
     renderItems();
+    assalRenderChatState();
 
-    showToast("تم استيراد الفاتورة وجاهزة للتعديل ✅");
+    if(isMainAdmin() && assalInvoiceHasServerKey(inv)){
+      await assalSyncInvoiceToServer("invoice_imported", { source:"local_file", fileName:file.name || "" });
+      await refreshServerInvoicesForRole({ silent:true });
+      showToast("تم استيراد الفاتورة ومزامنتها للسيرفر ✅");
+    }else{
+      showToast("تم استيراد الفاتورة وجاهزة للتعديل ✅");
+    }
   }catch(err){
     console.error(err);
     showToast("تعذر استيراد الملف ❌", true);
