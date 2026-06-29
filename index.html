@@ -3810,6 +3810,72 @@ body{
     min-width: 32px !important;
   }
 }
+
+
+/* =========================================================
+   ASSAL FINAL • Merge progress full-width + elegant scroll target
+   - يجعل بادج "جاري الدمج" بعرض خانة الدمج
+   - يعطي خانة الدمج ومضة ناعمة عند بدء/ظهور نتيجة الدمج
+   - واجهة فقط: لا يغير منطق الدمج أو الرفع أو الديون
+   ========================================================= */
+#importedPdfList .merge-progress-card{
+  width: calc(100% - 8px) !important;
+  max-width: calc(100% - 8px) !important;
+  margin: 3px auto 8px !important;
+  box-sizing: border-box !important;
+  align-self: center !important;
+  flex: 0 0 auto !important;
+  min-height: 54px !important;
+  border-radius: 13px !important;
+  padding: 10px 12px 9px !important;
+  background:
+    radial-gradient(120% 140% at 100% -20%, rgba(33,212,253,.18), transparent 46%),
+    linear-gradient(135deg, rgba(15,23,42,.96), rgba(30,41,59,.96)) !important;
+  border: 1px solid rgba(96,165,250,.30) !important;
+  box-shadow: 0 12px 28px rgba(15,23,42,.28), inset 0 1px 0 rgba(255,255,255,.06) !important;
+}
+#importedPdfList .merge-progress-head{
+  width:100% !important;
+  margin-bottom: 7px !important;
+}
+#importedPdfList .merge-progress-head span{
+  min-width:0 !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+}
+#importedPdfList .merge-progress-bar{
+  height: 9px !important;
+}
+#importedPdfList .merge-progress-fill{
+  position: relative !important;
+  overflow: hidden !important;
+}
+#importedPdfList .merge-progress-fill::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.36), transparent);
+  transform: translateX(100%);
+  animation: assalMergeProgressShine 1.05s ease-in-out infinite;
+}
+.merge-progress-card.is-done .merge-progress-fill::after{
+  animation: none !important;
+  opacity: 0;
+}
+@keyframes assalMergeProgressShine{
+  from{ transform: translateX(110%); }
+  to{ transform: translateX(-110%); }
+}
+#importedSidebar.assal-merge-target-flash{
+  animation: assalMergeTargetPulse 1.15s ease 0s 2;
+}
+@keyframes assalMergeTargetPulse{
+  0%{ box-shadow: var(--shadow); border-color: var(--stroke); }
+  35%{ box-shadow: 0 0 0 3px rgba(251,191,36,.20), 0 16px 34px rgba(251,191,36,.14); border-color: rgba(251,191,36,.55); }
+  100%{ box-shadow: var(--shadow); border-color: var(--stroke); }
+}
+
 </style>
 </head>
 <body>
@@ -4055,8 +4121,8 @@ body{
     <h3 id="deleteInvTitle" style="margin:0 0 6px 0;">حذف الفاتورة؟</h3>
     <p id="deleteInvDesc" style="margin:0 0 14px 0; color:#aab0c0;">سيتم حذف الفاتورة نهائياً من الجهاز.</p>
     <div style="display:flex; gap:10px; justify-content:center;">
-      <button id="delInvYes" class="btn green"><i class="fa-solid fa-check"></i> نعم</button>
-      <button id="delInvNo"  class="btn amber"><i class="fa-solid fa-xmark"></i> لا</button>
+      <button id="delInvYes" type="button" class="btn green"><i class="fa-solid fa-check"></i> نعم</button>
+      <button id="delInvNo"  type="button" class="btn amber"><i class="fa-solid fa-xmark"></i> لا</button>
     </div>
   </div>
 </div>
@@ -4372,6 +4438,11 @@ body{
     let currentCategory = "";                                              // الصنف الحالي المختار
     let importedPdfFiles = [];                                             // ملفات الدمج/الملفات المستوردة
     let selectedSidebarInvoiceKeys = new Set();                            // الفواتير المحددة بضغط مطول
+    let selectedSidebarInvoiceKeyOrder = [];                                // ترتيب تحديد فواتير السايدبار حتى يظهر زر الدمج على آخر فاتورة محددة
+    let lastSelectedSidebarInvoiceKey = "";                                  // آخر فاتورة تم تحديدها فعلياً في السايدبار
+    let selectedMergeBoxKeys = new Set();                                  // ملفات خانة الدمج المحددة بضغط مطول
+    let selectedMergeBoxKeyOrder = [];                                      // ترتيب التحديد حتى يظهر زر الدمج على آخر ملف محدد فعلاً
+    let lastSelectedMergeBoxKey = "";                                      // آخر ملف تم تحديده في خانة الدمج
     let serverInvoicesCache = [];                                          // فواتير السيرفر
     let serverInvoicesLoaded = false;                                      // هل تم تحميل فواتير السيرفر؟
     let serverMergedFilesCache = [];                                       // ملفات الدمج المرفوعة للسيرفر
@@ -5113,10 +5184,12 @@ function assalAfterInvoicePersisted(action = "invoice_updated", details = {}, op
 function assalOpenNotificationsPanel(){
   const panel = document.getElementById("assalNotificationsPanel");
   if(!panel) return;
+  assalRememberGlobalModalScroll();
   panel.classList.add("show");
   panel.setAttribute("aria-hidden","false");
   document.documentElement.classList.add("no-scroll");
   document.body.classList.add("no-scroll");
+  assalRestoreGlobalModalScroll();
 
   // تحديث يدوي فوري عند فتح الجرس حتى لو listener نام بسبب كاش WebView أو تأخر Firebase.
   assalRefreshNotificationsOnce({ silent:true });
@@ -5125,10 +5198,12 @@ function assalOpenNotificationsPanel(){
 function assalCloseNotificationsPanel(){
   const panel = document.getElementById("assalNotificationsPanel");
   if(!panel) return;
+  const savedY = assalGetCurrentPageScrollY();
   panel.classList.remove("show");
   panel.setAttribute("aria-hidden","true");
   document.documentElement.classList.remove("no-scroll");
   document.body.classList.remove("no-scroll");
+  assalRestoreGlobalModalScroll(savedY);
 }
 
 function assalNormalizeNotificationItem(key, value){
@@ -6576,29 +6651,33 @@ async function assalBootstrapMainAdminLocalInvoicesToServer(options = {}){
     assalRepairMainAdminLocalInvoicesMeta({ persist:true });
 
     for(const inv of (Array.isArray(invoices) ? invoices : [])){
-      if(!assalIsMainAdminLocalInvoice(inv)) continue;
+      try{
+        if(!assalIsMainAdminLocalInvoice(inv)) continue;
 
-      const localKey = String(inv.localKey || '').trim();
-      const serverKey = String(inv.serverKey || inv.__serverKey || '').trim();
+        const localKey = String(inv.localKey || '').trim();
+        const serverKey = String(inv.serverKey || inv.__serverKey || '').trim();
 
-      if(!serverKey && localKey){
-        const match = assalFindMainAdminServerInvoiceByLocalKey(serverList, localKey);
-        if(match){
-          inv.serverKey = String(match.serverKey || match.__serverKey || '').trim();
-          inv.__serverKey = inv.serverKey;
-          inv.serverUploadedAt = Number(match.uploadedAt || match.serverUploadedAt || inv.serverUploadedAt || inv.createdAt || Date.now());
-          inv.uploadedAt = inv.uploadedAt || inv.serverUploadedAt;
+        if(!serverKey && localKey){
+          const match = assalFindMainAdminServerInvoiceByLocalKey(serverList, localKey);
+          if(match){
+            inv.serverKey = String(match.serverKey || match.__serverKey || '').trim();
+            inv.__serverKey = inv.serverKey;
+            inv.serverUploadedAt = Number(match.uploadedAt || match.serverUploadedAt || inv.serverUploadedAt || inv.createdAt || Date.now());
+            inv.uploadedAt = inv.uploadedAt || inv.serverUploadedAt;
+          }
         }
-      }
 
-      assalEnsureMainAdminLocalSyncMeta(inv, { touch:false });
-      const ok = await assalSyncMainAdminLocalInvoiceRecord(
-        inv,
-        'main_admin_local_startup_sync',
-        { reason:'startup_auto_upload' },
-        { touch:false }
-      );
-      if(ok) synced += 1;
+        assalEnsureMainAdminLocalSyncMeta(inv, { touch:false });
+        const ok = await assalSyncMainAdminLocalInvoiceRecord(
+          inv,
+          'main_admin_local_startup_sync',
+          { reason:'startup_auto_upload' },
+          { touch:false }
+        );
+        if(ok) synced += 1;
+      }catch(oneErr){
+        console.warn('ASSAL startup single invoice sync warning:', oneErr);
+      }
     }
 
     persistInvoices();
@@ -6615,6 +6694,10 @@ async function assalBootstrapMainAdminLocalInvoicesToServer(options = {}){
     if(!options.silent && synced){
       showToast(`تمت مزامنة ${synced} فاتورة أدمن محلية ✅`);
     }
+    return synced;
+  }catch(err){
+    console.warn('ASSAL main admin startup sync warning:', err);
+    try{ renderInvoicesDropdown(); }catch{}
     return synced;
   }finally{
     assalMainAdminLocalStartupSyncRunning = false;
@@ -7309,20 +7392,14 @@ function openSameDayServerModal(){
     const sendNewBtn = document.getElementById('sameDaySendNewBtn');
     const cancelBtn = document.getElementById('sameDayCancelBtn');
 
-    modal.style.display = 'flex';
-    modal.setAttribute('aria-hidden', 'false');
-    document.documentElement.classList.add('no-scroll');
-    document.body.classList.add('no-scroll');
+    const savedY = assalShowModalKeepScroll(modal);
     attachBackdropGuards(modal, '.auth-card');
 
     let settled = false;
     const finish = (result)=>{
       if(settled) return;
       settled = true;
-      modal.style.display = 'none';
-      modal.setAttribute('aria-hidden', 'true');
-      document.documentElement.classList.remove('no-scroll');
-      document.body.classList.remove('no-scroll');
+      assalHideModalKeepScroll(modal, savedY);
       detachBackdropGuards(modal);
       document.removeEventListener('keydown', escHandler);
       mergeBtn.onclick = null;
@@ -8046,29 +8123,35 @@ async function assalAutoSyncMergedEntryToServer(index, options = {}){
   }
 }
 
-async function importMergedEntriesFromServer(){
+async function importMergedEntriesFromServer(options = {}){
+  const silent = !!options.silent;
   if(!isMainAdmin()){
-    showToast('استيراد ملفات السيرفر متاح للأدمن الرئيسي فقط ❌', true);
-    return;
+    if(!silent) showToast('استيراد ملفات السيرفر متاح للأدمن الرئيسي فقط ❌', true);
+    return 0;
   }
 
   const ref = getServerMergedFilesRef();
   if(!ref){
-    showToast('أضف إعدادات Firebase الحقيقية أولاً ❌', true);
-    return;
+    if(!silent) showToast('أضف إعدادات Firebase الحقيقية أولاً ❌', true);
+    return 0;
   }
 
-  const list = await refreshServerMergedFiles({ silent:false });
+  const list = await refreshServerMergedFiles({ silent:true });
   if(!list.length){
-    showToast('لا توجد ملفات دمج على السيرفر');
-    return;
+    if(!silent) showToast('لا توجد ملفات دمج على السيرفر');
+    return 0;
   }
 
   let importedCount = 0;
   let replacedCount = 0;
   let skippedCount = 0;
 
-  const orderedList = [...list].reverse();
+  // الأحدث أولاً حسب آخر تعديل/رفع/إنشاء
+  const orderedList = [...list].sort((a,b)=>{
+    const tb = Number(b.updatedAt || b.uploadedAt || b.createdAt || 0);
+    const ta = Number(a.updatedAt || a.uploadedAt || a.createdAt || 0);
+    return tb - ta;
+  });
 
   for(const file of orderedList){
     const serverName = String(file.id || file.name || autoMainMergeBoxName()).trim();
@@ -8110,20 +8193,35 @@ async function importMergedEntriesFromServer(){
     importedCount++;
   }
 
+  // نحافظ على المحلي غير المرفوع، ونرتب ملفات الدمج المدموجة بالأحدث أولاً بدون حذف ملفات Excel/CSV المستوردة يدوياً.
+  importedPdfFiles.sort((a,b)=>{
+    const aMerged = isMergedImportEntry(a) ? 1 : 0;
+    const bMerged = isMergedImportEntry(b) ? 1 : 0;
+    if(aMerged !== bMerged) return bMerged - aMerged;
+    const tb = Number(b.createdAt || b.serverUploadedAt || 0);
+    const ta = Number(a.createdAt || a.serverUploadedAt || 0);
+    return tb - ta;
+  });
+
+  clearMergeBoxSelections({ render:false });
   persistMergeBoxEntries();
   renderImportedPdfList();
 
-  if(importedCount || replacedCount){
-    const parts = [];
-    if(importedCount) parts.push(`تم استيراد ${importedCount} ملف`);
-    if(replacedCount) parts.push(`تم تحديث ${replacedCount} ملف`);
-    if(skippedCount) parts.push(`تم تجاهل ${skippedCount} ملف`);
-    showToast(`${parts.join(' • ')} ✅`);
-    return;
+  if(!silent){
+    if(importedCount || replacedCount){
+      const parts = [];
+      if(importedCount) parts.push(`تم استيراد ${importedCount} ملف`);
+      if(replacedCount) parts.push(`تم تحديث ${replacedCount} ملف`);
+      if(skippedCount) parts.push(`تم تجاهل ${skippedCount} ملف`);
+      showToast(`${parts.join(' • ')} ✅`);
+    }else{
+      showToast('لم يتم استيراد أي ملف');
+    }
   }
 
-  showToast('لم يتم استيراد أي ملف');
+  return importedCount + replacedCount;
 }
+
 
 
 function showReplaceOrCloseModal(title, message, yesText = 'استبدال', noText = 'إغلاق'){
@@ -8148,9 +8246,9 @@ function showReplaceOrCloseModal(title, message, yesText = 'استبدال', noT
       noClass: noBtn.className
     };
 
+    const savedY = assalRememberGlobalModalScroll();
     const close = (result)=>{
-      modal.style.display = 'none';
-      document.body.classList.remove('no-scroll');
+      assalHideModalKeepScroll(modal, savedY);
 
       titleEl.textContent = prev.title;
       msgEl.textContent = prev.msg;
@@ -8176,8 +8274,7 @@ function showReplaceOrCloseModal(title, message, yesText = 'استبدال', noT
     noBtn.onclick = ()=> close(false);
     modal.onclick = (e)=>{ if(e.target === modal) close(false); };
 
-    document.body.classList.add('no-scroll');
-    modal.style.display = 'flex';
+    assalShowModalKeepScroll(modal);
   });
 }
 
@@ -8278,20 +8375,14 @@ async function openUserStatsModal(ev){
     <div>آخر تحديث للسيرفر: <b>${escapeHtml(new Date().toLocaleString('ar-EG'))}</b></div>
   `;
 
-  modal.style.display = 'flex';
-  modal.setAttribute('aria-hidden', 'false');
-  document.documentElement.classList.add('no-scroll');
-  document.body.classList.add('no-scroll');
+  assalShowModalKeepScroll(modal);
   attachBackdropGuards(modal, '.auth-card');
 }
 
 function closeUserStatsModal(){
   const modal = document.getElementById('userStatsModal');
   if(!modal) return;
-  modal.style.display = 'none';
-  modal.setAttribute('aria-hidden', 'true');
-  document.documentElement.classList.remove('no-scroll');
-  document.body.classList.remove('no-scroll');
+  assalHideModalKeepScroll(modal);
   detachBackdropGuards(modal);
 }
 
@@ -8365,16 +8456,60 @@ function markInvoiceAsSentLocally(localIndex, serverKey, uploadedAt){
   assalRenderChatState();
 }
 
+function repairSidebarSelectionState(validKeys = null){
+  const allowed = validKeys instanceof Set ? validKeys : null;
+
+  if(allowed){
+    for(const key of Array.from(selectedSidebarInvoiceKeys)){
+      if(!allowed.has(key)) selectedSidebarInvoiceKeys.delete(key);
+    }
+  }
+
+  selectedSidebarInvoiceKeyOrder = (Array.isArray(selectedSidebarInvoiceKeyOrder) ? selectedSidebarInvoiceKeyOrder : [])
+    .filter(key => selectedSidebarInvoiceKeys.has(key) && (!allowed || allowed.has(key)));
+
+  for(const key of Array.from(selectedSidebarInvoiceKeys)){
+    if(!selectedSidebarInvoiceKeyOrder.includes(key)) selectedSidebarInvoiceKeyOrder.push(key);
+  }
+
+  lastSelectedSidebarInvoiceKey = selectedSidebarInvoiceKeyOrder.length
+    ? selectedSidebarInvoiceKeyOrder[selectedSidebarInvoiceKeyOrder.length - 1]
+    : "";
+}
+
 function toggleSidebarSelection(key){
-  if(selectedSidebarInvoiceKeys.has(key)) selectedSidebarInvoiceKeys.delete(key);
-  else selectedSidebarInvoiceKeys.add(key);
+  key = String(key || '').trim();
+  if(!key) return;
+
+  if(selectedSidebarInvoiceKeys.has(key)){
+    selectedSidebarInvoiceKeys.delete(key);
+    selectedSidebarInvoiceKeyOrder = selectedSidebarInvoiceKeyOrder.filter(x => x !== key);
+  }else{
+    selectedSidebarInvoiceKeys.add(key);
+    selectedSidebarInvoiceKeyOrder = selectedSidebarInvoiceKeyOrder.filter(x => x !== key);
+    selectedSidebarInvoiceKeyOrder.push(key); // آخر فاتورة اختارها المستخدم فعلياً
+  }
+
+  repairSidebarSelectionState();
   renderInvoicesDropdown();
 }
 
-function clearSidebarSelections(){
-  if(!selectedSidebarInvoiceKeys.size) return;
+function clearSidebarSelections(options = {}){
+  if(!selectedSidebarInvoiceKeys.size && !selectedSidebarInvoiceKeyOrder.length && !lastSelectedSidebarInvoiceKey) return;
   selectedSidebarInvoiceKeys.clear();
-  renderInvoicesDropdown();
+  selectedSidebarInvoiceKeyOrder = [];
+  lastSelectedSidebarInvoiceKey = "";
+  if(options.render !== false) renderInvoicesDropdown();
+}
+
+function mergeSelectedSidebarInvoicesInline(ev){
+  ev?.preventDefault?.();
+  ev?.stopPropagation?.();
+  if(selectedSidebarInvoiceKeys.size < 2){
+    showToast('حدد فاتورتين أو أكثر بضغط مطول أولاً ❌', true);
+    return;
+  }
+  document.getElementById('btnMergeInstant')?.click();
 }
 
 function bindLongPressRow(row, options = {}){
@@ -8464,6 +8599,7 @@ async function deleteServerInvoice(serverKey){
 }
 
 function openDeleteServerInvoiceModal(serverKey, ev){
+  ev?.preventDefault?.();
   ev?.stopPropagation?.();
   __pendingDeleteInvoiceIndex = null;
   __pendingDeleteServerKey = serverKey;
@@ -8471,10 +8607,7 @@ function openDeleteServerInvoiceModal(serverKey, ev){
   __pendingDeleteImportedServerKey = null;
   setDeleteModalContent('حذف الفاتورة؟', 'سيتم حذف الفاتورة نهائياً من الجهاز ومن السيرفر.');
   const modal = document.getElementById('deleteInvoiceModal');
-  modal.style.display = 'flex';
-  modal.setAttribute('aria-hidden','false');
-  document.documentElement.classList.add('no-scroll');
-  document.body.classList.add('no-scroll');
+  assalOpenDeleteModalAtCurrentScroll(modal);
   attachBackdropGuards(modal, '.auth-card');
   document.getElementById('delInvYes').onclick = confirmDeleteInvoice;
   document.getElementById('delInvNo').onclick  = closeDeleteInvoiceModal;
@@ -8496,6 +8629,7 @@ async function deleteMergedServerFile(serverKey){
 }
 
 function openDeleteMergeEntryModal(i, ev){
+  ev?.preventDefault?.();
   ev?.stopPropagation?.();
   const entry = importedPdfFiles[i];
   if(!isMergedImportEntry(entry)){
@@ -8517,10 +8651,7 @@ function openDeleteMergeEntryModal(i, ev){
   );
 
   const modal = document.getElementById('deleteInvoiceModal');
-  modal.style.display = 'flex';
-  modal.setAttribute('aria-hidden','false');
-  document.documentElement.classList.add('no-scroll');
-  document.body.classList.add('no-scroll');
+  assalOpenDeleteModalAtCurrentScroll(modal);
   attachBackdropGuards(modal, '.auth-card');
   document.getElementById('delInvYes').onclick = confirmDeleteInvoice;
   document.getElementById('delInvNo').onclick  = closeDeleteInvoiceModal;
@@ -8535,14 +8666,15 @@ function openRenameServerInvoiceModal(serverKey, ev){
   const input = document.getElementById('renameInvInput');
   const inv = serverInvoicesCache.find(x => x.serverKey === serverKey) || invoices[findLocalInvoiceIndexByServerKey(serverKey)];
   input.value = inv?.id || '';
-  modal.style.display = 'flex';
-  modal.setAttribute('aria-hidden', 'false');
-  document.documentElement.classList.add('no-scroll');
-  document.body.classList.add('no-scroll');
+  const renameSavedY = assalShowModalKeepScroll(modal);
   attachBackdropGuards(modal, '.auth-card');
   document.getElementById('renameInvYes').onclick = confirmRenameInvoice;
   document.getElementById('renameInvNo').onclick  = closeRenameInvoiceModal;
-  setTimeout(()=>{ input.focus(); input.select?.(); }, 10);
+  setTimeout(()=>{
+    input.focus();
+    input.select?.();
+    assalRestoreGlobalModalScroll(renameSavedY);
+  }, 10);
   document.addEventListener('keydown', renameEscEnterHandler);
 }
 
@@ -8621,8 +8753,9 @@ function pushMergedEntryToMergeBox(mergedItems, customName){
   importedPdfFiles.unshift(entry);
   persistMergeBoxEntries();
   renderImportedPdfList();
+  assalScrollToMergeBox({ delay: 90, flash: false });
   assalScheduleMergedEntryAutoServerSyncById(entry.mergeEntryId, { delay: 550, silent: false, reason: 'merge_created' });
-  return entry;
+  return { entry };
 }
 
 function openImportedMergedEntry(index, ev){
@@ -8643,6 +8776,49 @@ function openImportedMergedEntry(index, ev){
   assalScrollToOpenedInvoiceTable();
 }
 
+
+
+/* ASSAL FINAL • سكرول أنيق إلى خانة الدمج
+   يستخدم عند بدء الدمج وعند ظهور الناتج، بدون تغيير منطق الدمج نفسه. */
+function assalScrollToMergeBox(options = {}){
+  const sidebar = document.getElementById('importedSidebar');
+  const list = document.getElementById('importedPdfList');
+  const target = sidebar || list;
+  if(!target) return;
+
+  clearTimeout(window.__assalMergeBoxScrollTimer);
+  const delay = Number(options.delay || 0);
+  window.__assalMergeBoxScrollTimer = setTimeout(()=>{
+    try{
+      if(list) list.scrollTop = 0;
+    }catch{}
+
+    let headerH = 58;
+    try{
+      const cssH = getComputedStyle(document.documentElement).getPropertyValue('--fixed-header-h');
+      const parsed = parseFloat(cssH);
+      if(!isNaN(parsed)) headerH = parsed;
+    }catch{}
+
+    const y = Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - headerH - 12);
+    try{
+      window.scrollTo({ top: y, behavior: options.instant ? 'auto' : 'smooth' });
+    }catch{
+      window.scrollTo(0, y);
+    }
+
+    // الوميض تم إيقافه عمداً: نبقي السكرول الناعم ونفس شريط الدمج بدون فلاش مزعج.
+    if(options.flash === true && options.allowFlash === true && sidebar){
+      setTimeout(()=>{
+        sidebar.classList.remove('assal-merge-target-flash');
+        void sidebar.offsetWidth;
+        sidebar.classList.add('assal-merge-target-flash');
+        setTimeout(()=> sidebar.classList.remove('assal-merge-target-flash'), 1200);
+      }, Number(options.flashDelay || 420));
+    }
+  }, delay);
+}
+
 function setMergeProgress(percent, text, done = false){
   mergeProgressState = { active:true, percent:Math.max(0, Math.min(100, percent)), text:text || 'جاري الدمج...', done:!!done };
   renderImportedPdfList();
@@ -8658,6 +8834,7 @@ function runFakeMergeProgress(label){
     const steps = [8, 16, 24, 33, 42, 51, 62, 73, 84, 93, 100];
     let i = 0;
     setMergeProgress(0, label || 'جاري الدمج...', false);
+    assalScrollToMergeBox({ delay: 70, flash: false });
     const timer = setInterval(()=>{
       const pct = steps[i++];
       if(typeof pct === 'undefined'){
@@ -8900,10 +9077,12 @@ function applyLoggedUserUI(){
   if(isMainAdmin()){
     assalBootstrapMainAdminLocalInvoicesToServer({ silent:true })
       .catch(err => console.error('ASSAL main admin startup sync error:', err));
+    importMergedEntriesFromServer({ silent:true, source:'startup' })
+      .catch(err => console.error('ASSAL startup merged files import error:', err));
   }else{
     refreshServerInvoicesForRole({ silent:true });
+    refreshServerMergedFiles({ silent:true });
   }
-  refreshServerMergedFiles({ silent:true });
   assalInitRealtimeModules();
 }
 
@@ -9407,19 +9586,25 @@ function validateItemFields(ctx="add"){
 
   if(existingIndex !== -1){
     const modal = document.getElementById("confirmModal");
-    modal.style.display = "flex";
-    document.getElementById("confirmYes").onclick = ()=>{
+    const savedY = assalShowModalKeepScroll(modal);
+    document.getElementById("confirmYes").onclick = (ev)=>{
+      ev?.preventDefault?.();
+      ev?.stopPropagation?.();
       const oldQty = String(currentInvoice.items[existingIndex].qty ?? "");
       currentInvoice.items[existingIndex].qty  = qty;
       currentInvoice.items[existingIndex].note = note;
       const action = assalQtyChangeAction(oldQty, qty);
       renderItems();
       autoSaveInvoice(action, { itemName:name, category, oldQty, newQty:qty, note, target:"invoice" });
-      modal.style.display = "none";
+      assalHideModalKeepScroll(modal, savedY);
       showToast("✏️ تم تعديل المادة وحفظ الفاتورة","info");
       clearInputs();
     };
-    document.getElementById("confirmNo").onclick = ()=>{ modal.style.display = "none"; };
+    document.getElementById("confirmNo").onclick = (ev)=>{
+      ev?.preventDefault?.();
+      ev?.stopPropagation?.();
+      assalHideModalKeepScroll(modal, savedY);
+    };
   } else {
     if(!Array.isArray(currentInvoice.items)) currentInvoice.items = [];
     currentInvoice.items.push({category,name,qty,note});
@@ -9534,9 +9719,112 @@ let __pendingDeleteInvoiceIndex = null;
 let __pendingDeleteServerKey = null;
 let __pendingDeleteImportedIndex = null;
 let __pendingDeleteImportedServerKey = null;
+let __deleteModalSavedScrollY = 0;
+
+function assalRememberDeleteModalScroll(){
+  try{
+    __deleteModalSavedScrollY = Math.max(
+      Number(window.pageYOffset || 0),
+      Number(document.documentElement?.scrollTop || 0),
+      Number(document.body?.scrollTop || 0)
+    );
+  }catch(_){
+    __deleteModalSavedScrollY = Number(window.pageYOffset || 0);
+  }
+}
+
+function assalRestoreDeleteModalScroll(){
+  const y = Number.isFinite(Number(__deleteModalSavedScrollY)) ? Math.max(0, Number(__deleteModalSavedScrollY)) : 0;
+  const restore = ()=>{
+    try{ window.scrollTo({ top:y, left:0, behavior:'auto' }); }
+    catch(_){ try{ window.scrollTo(0, y); }catch(__){} }
+    try{ if(document.documentElement) document.documentElement.scrollTop = y; }catch(_){}
+    try{ if(document.body) document.body.scrollTop = y; }catch(_){}
+  };
+  restore();
+  requestAnimationFrame(()=>{
+    restore();
+    setTimeout(restore, 0);
+    setTimeout(restore, 90);
+  });
+}
+
+function assalOpenDeleteModalAtCurrentScroll(modal){
+  assalRememberDeleteModalScroll();
+  if(!modal) return;
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden','false');
+  document.documentElement.classList.add('no-scroll');
+  document.body.classList.add('no-scroll');
+  assalRestoreDeleteModalScroll();
+}
+
+
+/* ===== ASSAL • Global Modal Scroll Preserve =====
+   يحافظ على مكان الصفحة عند فتح/إغلاق أي نافذة تأكيد/تسمية/إحصائيات بدون تغيير منطقها. */
+let __assalGlobalModalSavedScrollY = 0;
+function assalGetCurrentPageScrollY(){
+  try{
+    return Math.max(
+      Number(window.pageYOffset || 0),
+      Number(document.documentElement?.scrollTop || 0),
+      Number(document.body?.scrollTop || 0)
+    );
+  }catch(_){
+    return Number(window.pageYOffset || 0);
+  }
+}
+function assalRememberGlobalModalScroll(){
+  __assalGlobalModalSavedScrollY = assalGetCurrentPageScrollY();
+  return __assalGlobalModalSavedScrollY;
+}
+function assalRestoreGlobalModalScroll(savedY){
+  const y = Number.isFinite(Number(savedY)) ? Math.max(0, Number(savedY))
+    : (Number.isFinite(Number(__assalGlobalModalSavedScrollY)) ? Math.max(0, Number(__assalGlobalModalSavedScrollY)) : assalGetCurrentPageScrollY());
+  const restore = ()=>{
+    try{ window.scrollTo({ top:y, left:0, behavior:'auto' }); }
+    catch(_){ try{ window.scrollTo(0, y); }catch(__){} }
+    try{ if(document.documentElement) document.documentElement.scrollTop = y; }catch(_){ }
+    try{ if(document.body) document.body.scrollTop = y; }catch(_){ }
+  };
+  restore();
+  requestAnimationFrame(()=>{
+    restore();
+    setTimeout(restore, 0);
+    setTimeout(restore, 90);
+  });
+}
+function assalShowModalKeepScroll(modal){
+  const y = assalRememberGlobalModalScroll();
+  if(modal){
+    try{ modal.dataset.assalSavedScrollY = String(y); }catch(_){}
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden','false');
+  }
+  document.documentElement.classList.add('no-scroll');
+  document.body.classList.add('no-scroll');
+  assalRestoreGlobalModalScroll(y);
+  return y;
+}
+function assalHideModalKeepScroll(modal, savedY){
+  const storedY = modal && modal.dataset ? Number(modal.dataset.assalSavedScrollY) : NaN;
+  const y = Number.isFinite(Number(savedY)) ? Number(savedY)
+    : (Number.isFinite(storedY) ? storedY : assalGetCurrentPageScrollY());
+  __assalGlobalModalSavedScrollY = y;
+  if(modal){
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden','true');
+    try{ delete modal.dataset.assalSavedScrollY; }catch(_){}
+  }
+  document.documentElement.classList.remove('no-scroll');
+  document.body.classList.remove('no-scroll');
+  assalRestoreGlobalModalScroll(y);
+}
+
 
 function openDeleteInvoiceModal(i, ev){
-  if(ev) ev.stopPropagation();
+  ev?.preventDefault?.();
+  ev?.stopPropagation?.();
   __pendingDeleteInvoiceIndex = i;
   __pendingDeleteServerKey = null;
   __pendingDeleteImportedIndex = null;
@@ -9547,12 +9835,7 @@ function openDeleteInvoiceModal(i, ev){
     : 'سيتم حذف الفاتورة نهائياً من الجهاز.';
   setDeleteModalContent('حذف الفاتورة؟', desc);
   const modal = document.getElementById('deleteInvoiceModal');
-  modal.style.display = 'flex';
-  modal.setAttribute('aria-hidden','false');
-
-  // 🔒 قفل الصفحة بالكامل (html + body)
-  document.documentElement.classList.add('no-scroll');
-  document.body.classList.add('no-scroll');
+  assalOpenDeleteModalAtCurrentScroll(modal);
 
   // 🛡️ امنع لمس/سحب/نقر الخلفية، واسمح داخل الكارت
   attachBackdropGuards(modal, '.auth-card');
@@ -9577,7 +9860,10 @@ function openDeleteInvoiceModal(i, ev){
 
 
 
-async function confirmDeleteInvoice(){
+async function confirmDeleteInvoice(ev){
+  ev?.preventDefault?.();
+  ev?.stopPropagation?.();
+  assalRememberDeleteModalScroll();
   try{
     if(__pendingDeleteImportedIndex !== null){
       const entry = importedPdfFiles[__pendingDeleteImportedIndex];
@@ -9643,7 +9929,10 @@ async function confirmDeleteInvoice(){
   }
 }
 
-function closeDeleteInvoiceModal(){
+function closeDeleteInvoiceModal(ev){
+  ev?.preventDefault?.();
+  ev?.stopPropagation?.();
+  const keepY = Number.isFinite(Number(__deleteModalSavedScrollY)) ? Number(__deleteModalSavedScrollY) : Number(window.pageYOffset || 0);
   const modal = document.getElementById('deleteInvoiceModal');
   modal.style.display = 'none';
   modal.setAttribute('aria-hidden','true');
@@ -9665,7 +9954,10 @@ function closeDeleteInvoiceModal(){
 
   // (اختياري) إذا أبقيت ESC مفعّل فوق، فكّه هنا:
   document.removeEventListener('keydown', escClose);
+  __deleteModalSavedScrollY = keepY;
+  assalRestoreDeleteModalScroll();
 }
+
 
 
 
@@ -9697,12 +9989,7 @@ function openRenameInvoiceModal(i, ev){
   const inv = invoices[i];
 
   input.value = inv?.id || "";
-  modal.style.display = 'flex';
-  modal.setAttribute('aria-hidden', 'false');
-
-  // 🔒 قفل الصفحة بالكامل (مثل نافذة الحذف)
-  document.documentElement.classList.add('no-scroll');
-  document.body.classList.add('no-scroll');
+  const renameSavedY = assalShowModalKeepScroll(modal);
 
   // 🛡️ امنع لمس/سحب/نقر الخلفية — واسمح داخل الكارت فقط
   attachBackdropGuards(modal, '.auth-card');
@@ -9715,6 +10002,7 @@ function openRenameInvoiceModal(i, ev){
   setTimeout(()=>{
     input.focus();
     input.select?.();
+    assalRestoreGlobalModalScroll(renameSavedY);
   }, 10);
 
   // دعم Enter/ESC
@@ -9730,11 +10018,7 @@ function openRenameImportedEntryModal(i, ev){
   const entry = importedPdfFiles[i];
 
   input.value = entry?.name || "";
-  modal.style.display = 'flex';
-  modal.setAttribute('aria-hidden', 'false');
-
-  document.documentElement.classList.add('no-scroll');
-  document.body.classList.add('no-scroll');
+  const renameSavedY = assalShowModalKeepScroll(modal);
   attachBackdropGuards(modal, '.auth-card');
 
   document.getElementById('renameInvYes').onclick = confirmRenameInvoice;
@@ -9743,6 +10027,7 @@ function openRenameImportedEntryModal(i, ev){
   setTimeout(()=>{
     input.focus();
     input.select?.();
+    assalRestoreGlobalModalScroll(renameSavedY);
   }, 10);
 
   document.addEventListener('keydown', renameEscEnterHandler);
@@ -9814,14 +10099,11 @@ async function confirmRenameInvoice(){
   }
 }
 
-function closeRenameInvoiceModal(){
+function closeRenameInvoiceModal(ev){
+  ev?.preventDefault?.();
+  ev?.stopPropagation?.();
   const modal = document.getElementById('renameInvoiceModal');
-  modal.style.display = 'none';
-  modal.setAttribute('aria-hidden','true');
-
-  // 🔓 فتح الصفحة بالكامل
-  document.documentElement.classList.remove('no-scroll');
-  document.body.classList.remove('no-scroll');
+  assalHideModalKeepScroll(modal);
 
   // 🧹 فكّ الحرس
   detachBackdropGuards(modal);
@@ -9964,9 +10246,15 @@ function renameEscEnterHandler(e){
   const makeLocalRow = (inv, i)=>{
     const row = document.createElement("div");
     const selectKey = getLocalInvoiceSelectKey(inv, i);
-    row.className = `invoice-chip ${isMainAdmin() && selectedSidebarInvoiceKeys.has(selectKey) ? "is-selected" : ""}`.trim();
+    const isSidebarSelected = isMainAdmin() && selectedSidebarInvoiceKeys.has(selectKey);
+    const showSidebarInlineMerge = isSidebarSelected && selectedSidebarInvoiceKeys.size >= 2 && lastSelectedSidebarInvoiceKey === selectKey;
+    row.className = `invoice-chip ${isSidebarSelected ? "is-selected" : ""}`.trim();
 
-    let actionsHtml = "";
+    let actionsHtml = showSidebarInlineMerge ? `
+        <button class="icon-btn instant-merge-btn sidebar-merge-selected-inline-btn" title="دمج الفواتير المحددة" aria-label="دمج الفواتير المحددة" onclick="mergeSelectedSidebarInvoicesInline(event)">
+          <i class="fa-solid fa-layer-group"></i>
+        </button>
+      ` : "";
 
     if(canCurrentUserSendInvoices()){
       actionsHtml += `
@@ -10035,7 +10323,14 @@ function renameEscEnterHandler(e){
     const serverKey = String(inv.serverKey || inv.__serverKey || "");
     const selectKey = `local-server:${serverKey || inv.localKey || i}`;
     const row = document.createElement("div");
-    row.className = `invoice-chip server-chip server-local-chip ${selectedSidebarInvoiceKeys.has(selectKey) ? "is-selected" : ""}`.trim();
+    const isSidebarSelected = selectedSidebarInvoiceKeys.has(selectKey);
+    const showSidebarInlineMerge = isSidebarSelected && selectedSidebarInvoiceKeys.size >= 2 && lastSelectedSidebarInvoiceKey === selectKey;
+    const inlineMergeBtn = showSidebarInlineMerge ? `
+          <button class="icon-btn instant-merge-btn sidebar-merge-selected-inline-btn" title="دمج الفواتير المحددة" aria-label="دمج الفواتير المحددة" onclick="mergeSelectedSidebarInvoicesInline(event)">
+            <i class="fa-solid fa-layer-group"></i>
+          </button>
+    ` : '';
+    row.className = `invoice-chip server-chip server-local-chip ${isSidebarSelected ? "is-selected" : ""}`.trim();
     row.innerHTML = `
       <div class="chip-meta server-local-meta">
         <strong class="invoice-title-line server-local-title-line">
@@ -10045,6 +10340,7 @@ function renameEscEnterHandler(e){
         <small class="server-local-items-count">${(Array.isArray(inv.items) ? inv.items.length : 0)} مادة</small>
       </div>
       <div class="chip-actions">
+        ${inlineMergeBtn}
         <button class="btn-rename-custom server-resend-btn" title="إعادة الإرسال للسيرفر" aria-label="إعادة الإرسال للسيرفر"
                 onclick="resendLocalServerInvoiceToServer(${i}, event)">
           <i class="fa-solid fa-rotate-right"></i>
@@ -10077,13 +10373,21 @@ function renameEscEnterHandler(e){
   const makeServerRow = (inv)=>{
     const row = document.createElement("div");
     const selectKey = `server:${inv.serverKey}`;
-    row.className = `invoice-chip server-chip ${selectedSidebarInvoiceKeys.has(selectKey) ? "is-selected" : ""}`.trim();
+    const isSidebarSelected = selectedSidebarInvoiceKeys.has(selectKey);
+    const showSidebarInlineMerge = isSidebarSelected && selectedSidebarInvoiceKeys.size >= 2 && lastSelectedSidebarInvoiceKey === selectKey;
+    const inlineMergeBtn = showSidebarInlineMerge ? `
+          <button class="icon-btn instant-merge-btn sidebar-merge-selected-inline-btn" title="دمج الفواتير المحددة" aria-label="دمج الفواتير المحددة" onclick="mergeSelectedSidebarInvoicesInline(event)">
+            <i class="fa-solid fa-layer-group"></i>
+          </button>
+    ` : '';
+    row.className = `invoice-chip server-chip ${isSidebarSelected ? "is-selected" : ""}`.trim();
     row.innerHTML = `
       <div class="chip-meta">
         <strong>${escapeHtml(getServerPrimaryTitle(inv))}</strong>
         <small>${escapeHtml(formatInvoiceSecondaryLine(inv.date || "", inv.uploadedAt))} • ${(Array.isArray(inv.items) ? inv.items.length : 0)} مادة</small>
       </div>
       <div class="chip-actions">
+        ${inlineMergeBtn}
         <button class="btn-rename-custom" title="إعادة تسمية" aria-label="إعادة تسمية"
                 onclick="openRenameServerInvoiceModal('${String(inv.serverKey || "")}', event)">
           <i class="fa-regular fa-pen-to-square"></i>
@@ -10112,6 +10416,12 @@ function renameEscEnterHandler(e){
   if(isMainAdmin()){
     const shortageInvoices = assalSortInvoiceEntriesNewest(serverInvoicesCache.filter(inv => inv.senderRole === "secondary_admin"));
     const branchInvoices = assalSortInvoiceEntriesNewest(serverInvoicesCache.filter(inv => inv.senderRole === "user"));
+    const sidebarValidSelectionKeys = new Set([
+      ...localEntries.map(({inv,index}) => getLocalInvoiceSelectKey(inv, index)),
+      ...shortageInvoices.map(inv => `server:${inv.serverKey}`),
+      ...branchInvoices.map(inv => `server:${inv.serverKey}`)
+    ]);
+    repairSidebarSelectionState(sidebarValidSelectionKeys);
 
     appendSection("فواتير الأدمن المحلية", "section-shortage");
 
@@ -10256,13 +10566,8 @@ function loadLocalServerInvoiceArchive(i, ev){
   const msg   = document.getElementById('mergeDupMsg');
   msg.innerHTML = `تم العثور على <b>${dupCount}</b> ايتمات متشابهة. هل تريد الدمج بأخذ <b>أكبر كمية</b>؟`;
 
-  // إظهار المودال
-  modal.style.display = 'flex';
-  modal.setAttribute('aria-hidden','false');
-
-  // 🔒 قفل الصفحة بالكامل (نفس نافذة الحذف)
-  document.documentElement.classList.add('no-scroll');
-  document.body.classList.add('no-scroll');
+  // إظهار المودال مع الحفاظ على مكان الصفحة
+  const savedY = assalShowModalKeepScroll(modal);
 
   // 🛡️ منع لمس/سحب/نقر الخلفية — والسماح داخل الكارت فقط
   attachBackdropGuards(modal, '.auth-card');
@@ -10272,12 +10577,7 @@ function loadLocalServerInvoiceArchive(i, ev){
 
   // إغلاق موحّد
   function close(){
-    modal.style.display = 'none';
-    modal.setAttribute('aria-hidden','true');
-
-    // 🔓 فك القفل و الحارس
-    document.documentElement.classList.remove('no-scroll');
-    document.body.classList.remove('no-scroll');
+    assalHideModalKeepScroll(modal, savedY);
     detachBackdropGuards(modal);
 
     document.removeEventListener('keydown', esc);
@@ -10301,6 +10601,140 @@ function loadLocalServerInvoiceArchive(i, ev){
     
     
     
+
+        // ===== تحديد ملفات خانة الدمج + زر دمج المحدد على آخر ملف =====
+function getMergeBoxSelectKey(entry, index){
+  if(isMergedImportEntry(entry)){
+    const stableId = String(entry.mergeEntryId || entry.mergeServerKey || entry.localKey || entry.name || index).trim();
+    return `merge:${stableId || index}`;
+  }
+  const name = String(entry?.name || 'file').trim();
+  const size = String(entry?.size || 0).trim();
+  const mod  = String(entry?.lastModified || entry?.updatedAt || '').trim();
+  return `raw:${name}:${size}:${mod || index}`;
+}
+
+function getCurrentMergeBoxSelectKeys(){
+  return importedPdfFiles.map((entry, index) => getMergeBoxSelectKey(entry, index));
+}
+
+function repairMergeBoxSelectionState(){
+  const validKeys = new Set(getCurrentMergeBoxSelectKeys());
+  selectedMergeBoxKeyOrder = (Array.isArray(selectedMergeBoxKeyOrder) ? selectedMergeBoxKeyOrder : [])
+    .filter(key => validKeys.has(key) && selectedMergeBoxKeys.has(key));
+
+  for(const key of Array.from(selectedMergeBoxKeys)){
+    if(!validKeys.has(key)) selectedMergeBoxKeys.delete(key);
+  }
+
+  for(const key of Array.from(selectedMergeBoxKeys)){
+    if(!selectedMergeBoxKeyOrder.includes(key)) selectedMergeBoxKeyOrder.push(key);
+  }
+
+  lastSelectedMergeBoxKey = selectedMergeBoxKeyOrder.length
+    ? selectedMergeBoxKeyOrder[selectedMergeBoxKeyOrder.length - 1]
+    : "";
+}
+
+function clearMergeBoxSelections(options = {}){
+  if(!selectedMergeBoxKeys.size && !lastSelectedMergeBoxKey && !selectedMergeBoxKeyOrder.length) return;
+  selectedMergeBoxKeys.clear();
+  selectedMergeBoxKeyOrder = [];
+  lastSelectedMergeBoxKey = "";
+  if(options.render !== false) renderImportedPdfList();
+}
+
+function toggleMergeBoxSelection(index, ev){
+  ev?.preventDefault?.();
+  ev?.stopPropagation?.();
+  const entry = importedPdfFiles[index];
+  if(!entry) return;
+  const key = getMergeBoxSelectKey(entry, index);
+
+  if(selectedMergeBoxKeys.has(key)){
+    selectedMergeBoxKeys.delete(key);
+    selectedMergeBoxKeyOrder = selectedMergeBoxKeyOrder.filter(x => x !== key);
+  }else{
+    selectedMergeBoxKeys.add(key);
+    selectedMergeBoxKeyOrder = selectedMergeBoxKeyOrder.filter(x => x !== key);
+    selectedMergeBoxKeyOrder.push(key); // هذا هو آخر ملف اختاره المستخدم فعلاً
+  }
+
+  repairMergeBoxSelectionState();
+  renderImportedPdfList();
+}
+
+function getSelectedMergeBoxEntries(){
+  repairMergeBoxSelectionState();
+  return importedPdfFiles
+    .map((entry, index) => ({ entry, index, key:getMergeBoxSelectKey(entry, index) }))
+    .filter(x => selectedMergeBoxKeys.has(x.key));
+}
+
+async function mergeSelectedMergeBoxEntries(ev){
+  ev?.preventDefault?.();
+  ev?.stopPropagation?.();
+  const selected = getSelectedMergeBoxEntries();
+  if(selected.length < 2){
+    showToast('حدد ملفين أو أكثر من خانة الدمج أولاً ❌', true);
+    return;
+  }
+
+  try{
+    const entries = selected.map(x => x.entry);
+    const arrays = await Promise.all(entries.map(importedEntryToItems));
+    let items = arrays.flat().filter(it => String(it.item || it.name || '').trim().length);
+    if(!items.length){
+      showToast('الملفات المحددة لا تحتوي مواد صالحة للدمج ❌', true);
+      return;
+    }
+
+    const group = new Map();
+    for(const it of items){
+      const k = `${(it.category||'').toLowerCase()}||${(it.item||it.name||'').toLowerCase()}||${(it.note||'').toLowerCase()}`;
+      group.set(k, (group.get(k) || 0) + 1);
+    }
+    const dupCount = Array.from(group.values()).filter(c => c > 1).length;
+
+    const proceed = async ()=>{
+      const mergedRaw = mergeByMaxQuantity(items);
+      const normalizedMerged = mergedRaw.map(it => ({
+        category: String(it.category || '').trim(),
+        name: String(it.item || it.name || '').trim(),
+        qty: String(it.qty || '').trim(),
+        note: String(it.note || '').trim()
+      }));
+
+      if(findLocalMergedDuplicateByItems(normalizedMerged)){
+        showToast('هذا الملف مدمج مسبقاً');
+        clearMergeBoxSelections();
+        return;
+      }
+
+      await runFakeMergeProgress('جاري دمج الملفات المحددة...');
+      clearMergeBoxSelections({ render:false });
+      const pushed = pushMergedEntryToMergeBox(normalizedMerged, autoMainMergeBoxName());
+      if(pushed?.duplicate){
+        showToast('هذا الملف مدمج مسبقاً');
+        renderImportedPdfList();
+        return;
+      }
+      renderImportedPdfList();
+      showToast('تم دمج الملفات المحددة وظهرت النتيجة داخل خانة دمج ✅');
+    };
+
+    if(dupCount > 0){
+      openMergeConfirmModal(dupCount, proceed);
+      return;
+    }
+
+    await proceed();
+  }catch(err){
+    console.error('merge selected merge-box entries error:', err);
+    showToast('فشل دمج الملفات المحددة ❌', true);
+  }
+}
+
         // ===== قائمة ملفات PDF المستوردة في الـ Aside المستقل =====
    function renderImportedPdfList(){
   const wrap = document.getElementById("importedPdfList");
@@ -10323,6 +10757,9 @@ function loadLocalServerInvoiceArchive(i, ev){
   }
 
   if(!importedPdfFiles.length){
+    selectedMergeBoxKeys.clear();
+    selectedMergeBoxKeyOrder = [];
+    lastSelectedMergeBoxKey = "";
     const empty = document.createElement("div");
     empty.className = "chip-meta";
     empty.style.color = "var(--muted)";
@@ -10332,9 +10769,14 @@ function loadLocalServerInvoiceArchive(i, ev){
     return;
   }
 
+  repairMergeBoxSelectionState();
+
   importedPdfFiles.forEach((entry, i)=>{
     const row = document.createElement("div");
-    row.className = "invoice-chip";
+    const selectKey = getMergeBoxSelectKey(entry, i);
+    const isSelected = selectedMergeBoxKeys.has(selectKey);
+    const showInlineMerge = isSelected && selectedMergeBoxKeys.size >= 2 && lastSelectedMergeBoxKey === selectKey;
+    row.className = `invoice-chip ${isSelected ? "is-selected" : ""}`.trim();
 
     if(isMergedImportEntry(entry)){
       const uploadedState = isMainAdmin() && String(entry.mergeServerKey || '').trim().length
@@ -10345,13 +10787,19 @@ function loadLocalServerInvoiceArchive(i, ev){
             <i class="fa-solid fa-cloud-arrow-up"></i>
           </button>
       ` : '';
+      const inlineMergeBtn = showInlineMerge ? `
+          <button class="icon-btn instant-merge-btn merge-selected-inline-btn" title="دمج الملفات المحددة" onclick="mergeSelectedMergeBoxEntries(event)">
+            <i class="fa-solid fa-layer-group"></i>
+          </button>
+      ` : '';
 
       row.innerHTML = `
         <div class="chip-meta">
           <strong>${escapeHtml(entry.name || `ملف مدموج ${i+1}`)}</strong>
-          <small>${Array.isArray(entry.items) ? entry.items.length : 0} مادة</small>
+          <small>${Array.isArray(entry.items) ? entry.items.length : 0} مادة • ${escapeHtml(uploadedState)}</small>
         </div>
         <div class="chip-actions">
+          ${inlineMergeBtn}
           ${uploadBtn}
           <button class="btn-rename-custom" title="تعديل الاسم" onclick="openRenameImportedEntryModal(${i}, event)">
             <i class="fa-solid fa-pen"></i>
@@ -10361,20 +10809,45 @@ function loadLocalServerInvoiceArchive(i, ev){
           </button>
         </div>
       `;
-      row.onclick = ()=> openImportedMergedEntry(i);
+
+      bindLongPressRow(row, {
+        onLongPress: (e)=> toggleMergeBoxSelection(i, e),
+        onClick: (e)=>{
+          if(selectedMergeBoxKeys.size){
+            toggleMergeBoxSelection(i, e);
+          }else{
+            openImportedMergedEntry(i, e);
+          }
+        }
+      });
     }else{
       const ext = String((entry.name || "file").split(".").pop() || "FILE").toUpperCase();
+      const inlineMergeBtn = showInlineMerge ? `
+          <button class="icon-btn instant-merge-btn merge-selected-inline-btn" title="دمج الملفات المحددة" onclick="mergeSelectedMergeBoxEntries(event)">
+            <i class="fa-solid fa-layer-group"></i>
+          </button>
+      ` : '';
       row.innerHTML = `
         <div class="chip-meta">
           <strong>${escapeHtml(entry.name || `ملف ${i+1}`)}</strong>
           <small>${Math.max(1, Math.round((entry.size || 0)/1024))}KB • ${escapeHtml(ext)}</small>
         </div>
         <div class="chip-actions">
+          ${inlineMergeBtn}
           <button class="btn-danger-custom" title="إزالة" onclick="removeImportedPdf(${i})">
             <i class="fa-regular fa-trash-can"></i>
           </button>
         </div>
       `;
+
+      bindLongPressRow(row, {
+        onLongPress: (e)=> toggleMergeBoxSelection(i, e),
+        onClick: (e)=>{
+          if(selectedMergeBoxKeys.size){
+            toggleMergeBoxSelection(i, e);
+          }
+        }
+      });
     }
 
     wrap.appendChild(row);
@@ -10386,6 +10859,7 @@ function loadLocalServerInvoiceArchive(i, ev){
     async function removeImportedPdf(i, silent = false){
       const entry = importedPdfFiles[i];
       if(!entry) return;
+      clearMergeBoxSelections({ render:false });
       importedPdfFiles.splice(i,1);
       persistMergeBoxEntries();
 
@@ -11830,6 +12304,95 @@ function printInvoiceHTML() {
     box-sizing: border-box !important;
   }
 }
+
+
+/* =========================================================
+   ASSAL FINAL • Merge box calm mode + inline selected merge
+   - نفس شريط جاري الدمج الحالي لكن بدون وميض/فلاش مزعج
+   - زر دمج المحدد يظهر على آخر ملف محدد داخل خانة الدمج
+   ========================================================= */
+#importedSidebar.assal-merge-target-flash{
+  animation: none !important;
+  box-shadow: var(--shadow) !important;
+  border-color: var(--stroke) !important;
+}
+#importedPdfList .merge-progress-fill::after{
+  display: none !important;
+  animation: none !important;
+  opacity: 0 !important;
+}
+#importedPdfList .invoice-chip.is-selected{
+  background: rgba(251,191,36,.14) !important;
+  border-color: rgba(251,191,36,.55) !important;
+  box-shadow: 0 0 0 1px rgba(251,191,36,.18), 0 10px 24px rgba(0,0,0,.16) !important;
+}
+#importedPdfList .merge-selected-inline-btn{
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  width: auto !important;
+  min-width: 58px !important;
+  height: 30px !important;
+  padding: 0 9px !important;
+  border-radius: 9px !important;
+  background: linear-gradient(135deg,#f59e0b,#ea580c) !important;
+  color:#241508 !important;
+  box-shadow: 0 7px 16px rgba(245,158,11,.28) !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  white-space: nowrap !important;
+  flex: 0 0 auto !important;
+}
+#importedPdfList .merge-selected-inline-btn span{
+  display: inline-block !important;
+  line-height: 1 !important;
+}
+#importedPdfList .merge-selected-inline-btn:hover{
+  filter: brightness(1.05);
+}
+@media (max-width: 576px){
+  #importedPdfList .merge-selected-inline-btn{
+    min-width: 52px !important;
+    height: 32px !important;
+    padding: 0 8px !important;
+    font-size: 10.5px !important;
+  }
+}
+
+/* ASSAL FIX • زر دمج المحدد داخل خانة فواتير الأدمن والسيرفر */
+#sidebar .sidebar-merge-selected-inline-btn{
+  display: inline-grid !important;
+  place-items: center !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg,#fbbf24,#f97316) !important;
+  color:#241508 !important;
+  box-shadow: 0 8px 18px rgba(245,158,11,.30) !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  white-space: nowrap !important;
+  flex: 0 0 auto !important;
+}
+#sidebar .sidebar-merge-selected-inline-btn i{
+  line-height: 1 !important;
+  transform: translateY(.2px) !important;
+}
+#sidebar .sidebar-merge-selected-inline-btn:hover{
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+@media (max-width: 576px){
+  #sidebar .sidebar-merge-selected-inline-btn{
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    font-size: 14px !important;
+  }
+}
 </style>
     ${html}
   `, `فاتورة نقص/مرتجع - ${invId || invDate}`);
@@ -12171,7 +12734,7 @@ document.getElementById("btnCommand")?.addEventListener("click", palOpen);
     const exists = findLocalMergedDuplicateByItems(merged);
     if(exists){
       showToast('هذا الملف مدمج مسبقاً');
-      selectedSidebarInvoiceKeys.clear();
+      clearSidebarSelections({ render:false });
       renderInvoicesDropdown();
       return;
     }
@@ -12180,11 +12743,11 @@ document.getElementById("btnCommand")?.addEventListener("click", palOpen);
     const pushed = pushMergedEntryToMergeBox(merged, autoMainMergeBoxName());
     if(pushed?.duplicate){
       showToast('هذا الملف مدمج مسبقاً');
-      selectedSidebarInvoiceKeys.clear();
+      clearSidebarSelections({ render:false });
       renderInvoicesDropdown();
       return;
     }
-    selectedSidebarInvoiceKeys.clear();
+    clearSidebarSelections({ render:false });
     renderInvoicesDropdown();
     showToast('تم الدمج وظهر الملف داخل خانة دمج ✅');
   };
