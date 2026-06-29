@@ -3710,13 +3710,18 @@ body{
 }
 
 .main-local-import-btn{
-  background: linear-gradient(135deg,#34d399,#059669) !important;
-  color:#ecfdf5 !important;
-  box-shadow: 0 8px 18px rgba(16,185,129,.24) !important;
+  background: linear-gradient(135deg,#facc15 0%, #fb923c 48%, #ea580c 100%) !important;
+  color:#1f1300 !important;
+  border-color: rgba(255,214,120,.38) !important;
+  box-shadow: 0 8px 20px rgba(249,115,22,.30), inset 0 1px 0 rgba(255,255,255,.32) !important;
+}
+.main-local-import-btn i{
+  color:#1f1300 !important;
+  filter: drop-shadow(0 1px 0 rgba(255,255,255,.28));
 }
 .main-local-import-btn:hover{
-  filter: brightness(1.06);
-  box-shadow: 0 10px 22px rgba(16,185,129,.32) !important;
+  filter: brightness(1.07);
+  box-shadow: 0 11px 26px rgba(249,115,22,.42), inset 0 1px 0 rgba(255,255,255,.38) !important;
 }
 
 #sidebar .panel-title > div{
@@ -3933,7 +3938,7 @@ body{
 
   <!-- زر تصدير JSON فقط -->
  <button class="icon-btn" id="btnExportJSON" title="تصدير Excel">
-  <i class="fa-solid fa-file-excel"></i>
+  <i class="fa-solid fa-file-arrow-down"></i>
   </button>
   
   
@@ -4128,7 +4133,7 @@ body{
       <i class="fa-solid fa-cloud-arrow-down"></i>
     </button>
     <button class="icon-btn main-local-import-btn" id="btnMainAdminLocalImport" title="استيراد محلي (Excel/CSV)" style="display:none;">
-      <i class="fa-solid fa-file-excel"></i>
+      <i class="fa-solid fa-file-arrow-down"></i>
     </button>
     <input id="prevImportPicker" type="file"
            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.csv,text/csv"
@@ -4372,6 +4377,7 @@ body{
     let serverMergedFilesCache = [];                                       // ملفات الدمج المرفوعة للسيرفر
     let serverMergedFilesLoaded = false;                                   // هل تم تحميل ملفات الدمج من السيرفر؟
     let mergeProgressState = { active:false, percent:0, text:"", done:false };
+    let assalMergeAutoSyncTimers = new Map();                          // مزامنة تلقائية ذكية لملفات الدمج مع السيرفر
     let firebaseDb = null;                                                 // Firebase Realtime Database
     let firebaseReady = false;                                             // حالة الربط
 
@@ -5911,33 +5917,8 @@ function assalScrollAndFlash(elementId){
    من يضغط المستخدم على فاتورة من الأسفل/القائمة، يصعد بسكرول ناعم إلى خانة جدول العرض
    ويعطي ومضة أنيقة للهدف بدون تكرار أو سكرول مزعج. */
 function assalScrollToOpenedInvoiceTable(){
-  clearTimeout(window.__assalOpenInvoiceScrollTimer);
-  window.__assalOpenInvoiceScrollTimer = setTimeout(()=>{
-    const table = document.getElementById("itemsTable");
-    const target = table?.closest(".card.table-wrap") || table?.closest(".card") || document.querySelector(".content");
-    if(!target) return;
-
-    let headerH = 58;
-    try{
-      const cssH = getComputedStyle(document.documentElement).getPropertyValue("--fixed-header-h");
-      const parsed = parseFloat(cssH);
-      if(!isNaN(parsed)) headerH = parsed;
-    }catch{}
-
-    const y = Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - headerH - 14);
-    try{
-      window.scrollTo({ top: y, behavior: "smooth" });
-    }catch{
-      window.scrollTo(0, y);
-    }
-
-    setTimeout(()=>{
-      target.classList.remove("assal-target-flash");
-      void target.offsetWidth;
-      target.classList.add("assal-target-flash");
-      setTimeout(()=> target.classList.remove("assal-target-flash"), 3300);
-    }, 420);
-  }, 90);
+  // عند فتح/اختيار فاتورة من أي قائمة: نذهب لنفس هدف إنشاء فاتورة جديدة (أول حقل إدخال/الصنف)، وليس إلى جدول العرض.
+  assalScrollToInvoiceCategoryAfterNewInvoice();
 }
 
 /* ASSAL FINAL • زر (+) أسفل الواجهة
@@ -6272,16 +6253,25 @@ function assalSortInvoiceEntriesNewest(entries = []){
 
 function assalIsMainAdminLocalInvoice(inv){
   if(!isMainAdmin() || !inv || typeof inv !== 'object') return false;
-  if(isServerArchivedLocalInvoice(inv)) return false;
   if(inv.__mergedEntryId) return false;
 
-  const role = String(inv.ownerRole || inv.senderRole || currentUser?.role || '').trim();
-  return !!(
+  const role = String(inv.ownerRole || inv.senderRole || '').trim();
+  const explicitMainLocal = !!(
     inv.mainAdminLocal === true ||
     inv.__mainAdminLocal === true ||
     inv.serverLocalType === 'main_admin_local' ||
     role === 'main_admin'
   );
+
+  // مهم: بعض النسخ القديمة ممكن تكون مرفوعة للسيرفر لكن تحمل serverStatus=sent بالخطأ.
+  // إذا كانت تخص الأدمن الرئيسي صراحةً نبقيها ضمن خانة فواتير الأدمن المحلية، لا نعاملها كأرشيف سيرفر.
+  if(explicitMainLocal) return true;
+
+  // فواتير السيرفر/الفروع المفتوحة عند الأدمن لا تتحول إلى فواتير أدمن محلية.
+  if(isServerArchivedLocalInvoice(inv) || inv.__fromServer) return false;
+
+  // الفواتير المحلية القديمة جداً التي لا تحمل ownerRole تُعد فواتير أدمن محلية عند دخول الأدمن الرئيسي.
+  return true;
 }
 
 function assalIsMainAdminLocalServerInvoice(inv){
@@ -6337,9 +6327,11 @@ function assalEnsureMainAdminLocalSyncMeta(inv, options = {}){
   return !!String(inv.serverKey || inv.__serverKey || '').trim();
 }
 
-async function assalSyncMainAdminLocalInvoiceRecord(inv, action = 'invoice_updated', details = {}){
+async function assalSyncMainAdminLocalInvoiceRecord(inv, action = 'invoice_updated', details = {}, options = {}){
   if(!assalIsMainAdminLocalInvoice(inv)) return false;
-  if(!assalEnsureMainAdminLocalSyncMeta(inv, { touch:true })) return false;
+  const shouldTouch = options.touch !== false;
+  if(!assalEnsureMainAdminLocalSyncMeta(inv, { touch: shouldTouch })) return false;
+  if(!Number(inv.updatedAt || 0)) inv.updatedAt = Date.now();
 
   const ref = getServerInvoicesRef();
   const serverKey = String(inv.serverKey || inv.__serverKey || '').trim();
@@ -6473,6 +6465,162 @@ function syncMainAdminLocalServerInvoicesToLocal(list = []){
   return changed;
 }
 
+let assalMainAdminLocalStartupSyncRunning = false;
+
+function assalFindMainAdminServerInvoiceByLocalKey(list = [], localKey = ''){
+  const key = String(localKey || '').trim();
+  if(!key) return null;
+  return (Array.isArray(list) ? list : []).find(inv =>
+    assalIsMainAdminLocalServerInvoice(inv) &&
+    String(inv.localKey || '').trim() === key
+  ) || null;
+}
+
+function assalRepairMainAdminLocalInvoicesMeta(options = {}){
+  if(!isMainAdmin()) return 0;
+  let changed = 0;
+
+  (Array.isArray(invoices) ? invoices : []).forEach(inv => {
+    if(!inv || typeof inv !== 'object' || inv.__mergedEntryId) return;
+
+    const role = String(inv.ownerRole || inv.senderRole || '').trim();
+    const explicitMainLocal = !!(
+      inv.mainAdminLocal === true ||
+      inv.__mainAdminLocal === true ||
+      inv.serverLocalType === 'main_admin_local' ||
+      role === 'main_admin'
+    );
+
+    // لا نلمس فواتير الفروع/السيرفر المفتوحة محلياً، ونصلح فقط فواتير الأدمن المحلية أو الفواتير المحلية القديمة بلا مالك.
+    if(!explicitMainLocal && (inv.__fromServer || isServerArchivedLocalInvoice(inv))) return;
+
+    const before = JSON.stringify({
+      localKey: inv.localKey || '',
+      mainAdminLocal: inv.mainAdminLocal === true,
+      serverLocalType: inv.serverLocalType || '',
+      localServerArchive: inv.localServerArchive === true,
+      serverStatus: inv.serverStatus || '',
+      ownerRole: inv.ownerRole || '',
+      senderRole: inv.senderRole || '',
+      createdAt: inv.createdAt || 0,
+      updatedAt: inv.updatedAt || 0
+    });
+
+    ensureInvoiceLocalKey(inv);
+    inv.mainAdminLocal = true;
+    inv.__mainAdminLocal = true;
+    inv.serverLocalType = 'main_admin_local';
+    inv.localServerArchive = false;
+    inv.__localServerArchive = false;
+    inv.__fromServer = false;
+    inv.serverStatus = 'main_admin_local';
+    inv.visibility = inv.visibility || { mainAdmin:true, secondaryAdmins:false, users:false };
+    inv.createdAt = Number(inv.createdAt || inv.uploadedAt || Date.now());
+    inv.updatedAt = Number(inv.updatedAt || inv.createdAt || Date.now());
+
+    if(!String(inv.ownerCode || inv.senderCode || '').trim() && currentUser){
+      inv.ownerCode = currentUser.code || '';
+      inv.ownerName = currentUser.name || '';
+      inv.ownerRole = currentUser.role || 'main_admin';
+      inv.senderCode = currentUser.code || '';
+      inv.senderName = currentUser.name || '';
+      inv.senderRole = currentUser.role || 'main_admin';
+    }
+
+    const after = JSON.stringify({
+      localKey: inv.localKey || '',
+      mainAdminLocal: inv.mainAdminLocal === true,
+      serverLocalType: inv.serverLocalType || '',
+      localServerArchive: inv.localServerArchive === true,
+      serverStatus: inv.serverStatus || '',
+      ownerRole: inv.ownerRole || '',
+      senderRole: inv.senderRole || '',
+      createdAt: inv.createdAt || 0,
+      updatedAt: inv.updatedAt || 0
+    });
+    if(before !== after) changed += 1;
+  });
+
+  if(changed && options.persist !== false){
+    persistInvoices();
+    renderInvoicesDropdown();
+  }
+  return changed;
+}
+
+async function assalBootstrapMainAdminLocalInvoicesToServer(options = {}){
+  if(!isMainAdmin() || assalMainAdminLocalStartupSyncRunning) return 0;
+
+  assalMainAdminLocalStartupSyncRunning = true;
+  let synced = 0;
+
+  try{
+    assalRepairMainAdminLocalInvoicesMeta({ persist:true });
+
+    const ref = getServerInvoicesRef();
+    if(!ref){
+      renderInvoicesDropdown();
+      return 0;
+    }
+
+    // نقرأ السيرفر أولاً حتى نربط أي فاتورة قديمة بنفس localKey بدل إنشاء نسخة مكررة.
+    let serverList = [];
+    try{
+      const snap = await ref.once('value');
+      serverList = assalCollectServerInvoicesFromSnapshot(snap);
+      syncMainAdminLocalServerInvoicesToLocal(serverList);
+    }catch(err){
+      console.warn('ASSAL main admin startup server pre-read warning:', err);
+    }
+
+    assalRepairMainAdminLocalInvoicesMeta({ persist:true });
+
+    for(const inv of (Array.isArray(invoices) ? invoices : [])){
+      if(!assalIsMainAdminLocalInvoice(inv)) continue;
+
+      const localKey = String(inv.localKey || '').trim();
+      const serverKey = String(inv.serverKey || inv.__serverKey || '').trim();
+
+      if(!serverKey && localKey){
+        const match = assalFindMainAdminServerInvoiceByLocalKey(serverList, localKey);
+        if(match){
+          inv.serverKey = String(match.serverKey || match.__serverKey || '').trim();
+          inv.__serverKey = inv.serverKey;
+          inv.serverUploadedAt = Number(match.uploadedAt || match.serverUploadedAt || inv.serverUploadedAt || inv.createdAt || Date.now());
+          inv.uploadedAt = inv.uploadedAt || inv.serverUploadedAt;
+        }
+      }
+
+      assalEnsureMainAdminLocalSyncMeta(inv, { touch:false });
+      const ok = await assalSyncMainAdminLocalInvoiceRecord(
+        inv,
+        'main_admin_local_startup_sync',
+        { reason:'startup_auto_upload' },
+        { touch:false }
+      );
+      if(ok) synced += 1;
+    }
+
+    persistInvoices();
+
+    // بعد الرفع نعيد القراءة حتى تظهر نفس القائمة من السيرفر بأي جهاز.
+    try{
+      const snap2 = await ref.once('value');
+      const fresh = assalCollectServerInvoicesFromSnapshot(snap2);
+      assalApplyServerInvoicesList(fresh, { source:'main-admin-startup-sync', silent:true });
+    }catch(err){
+      renderInvoicesDropdown();
+    }
+
+    if(!options.silent && synced){
+      showToast(`تمت مزامنة ${synced} فاتورة أدمن محلية ✅`);
+    }
+    return synced;
+  }finally{
+    assalMainAdminLocalStartupSyncRunning = false;
+  }
+}
+
 function openMainAdminLocalImportPicker(){
   if(!isMainAdmin()){
     showToast('الاستيراد المحلي متاح للأدمن الرئيسي فقط ❌', true);
@@ -6493,6 +6641,21 @@ function openMainAdminLocalImportPicker(){
    ========================================================= */
 function isServerArchivedLocalInvoice(inv){
   if(!inv || typeof inv !== 'object') return false;
+
+  // فواتير الأدمن المحلية المتزامنة تبقى محلية بالواجهة حتى لو كانت مرفوعة للسيرفر.
+  // هذا يمنع اختفاءها من خانة فواتير الأدمن بسبب serverKey أو status قديم.
+  if(isMainAdmin()){
+    const role = String(inv.ownerRole || inv.senderRole || '').trim();
+    if(
+      inv.mainAdminLocal === true ||
+      inv.__mainAdminLocal === true ||
+      inv.serverLocalType === 'main_admin_local' ||
+      role === 'main_admin'
+    ){
+      return false;
+    }
+  }
+
   const hasServerKey = String(inv.serverKey || inv.__serverKey || '').trim().length > 0;
   return !!(
     hasServerKey &&
@@ -7732,6 +7895,157 @@ async function uploadMergedEntryToServer(index, ev){
   }
 }
 
+
+
+function assalScheduleMergedEntryAutoServerSyncById(mergeEntryId, options = {}){
+  if(!isMainAdmin()) return;
+  const id = String(mergeEntryId || '').trim();
+  if(!id) return;
+
+  const delay = Math.max(150, Number(options.delay ?? 650));
+  const oldTimer = assalMergeAutoSyncTimers.get(id);
+  if(oldTimer) clearTimeout(oldTimer);
+
+  const timer = setTimeout(()=>{
+    assalMergeAutoSyncTimers.delete(id);
+    const idx = importedPdfFiles.findIndex(entry =>
+      isMergedImportEntry(entry) && String(entry.mergeEntryId || '') === id
+    );
+    if(idx !== -1){
+      assalAutoSyncMergedEntryToServer(idx, options);
+    }
+  }, delay);
+
+  assalMergeAutoSyncTimers.set(id, timer);
+}
+
+function assalScheduleCurrentOpenedMergeAutoSync(options = {}){
+  if(!currentInvoice?.__fromMergeBox || !currentInvoice?.__mergedEntryId) return;
+  assalScheduleMergedEntryAutoServerSyncById(currentInvoice.__mergedEntryId, options);
+}
+
+async function assalAutoSyncMergedEntryToServer(index, options = {}){
+  if(!isMainAdmin()) return false;
+
+  const openedEntryId = String(currentInvoice?.__mergedEntryId || '');
+  const targetEntryId = String(importedPdfFiles[index]?.mergeEntryId || '');
+  if(openedEntryId && targetEntryId && openedEntryId === targetEntryId){
+    syncCurrentInvoiceToOpenedMergeEntry();
+  }
+
+  const entry = importedPdfFiles[index];
+  if(!isMergedImportEntry(entry)) return false;
+
+  const ref = getServerMergedFilesRef();
+  const silent = options.silent !== false;
+  if(!ref){
+    if(!silent) showToast('أضف إعدادات Firebase الحقيقية أولاً ❌', true);
+    return false;
+  }
+
+  const normalized = normalizeMergedEntry(entry);
+  const payload = buildMergedServerPayload(normalized);
+  const sig = String(payload.signature || buildMergedEntrySignatureFromItems(payload.items || []));
+  if(!sig) return false;
+
+  try{
+    await refreshServerMergedFiles({ silent:true });
+
+    const currentServerRecord = serverMergedFilesCache.find(file =>
+      String(file.serverKey || '').trim() && String(file.serverKey || '').trim() === String(normalized.mergeServerKey || '').trim()
+    );
+
+    if(currentServerRecord){
+      const keepCreatedAt = getMergedServerCreatedAt(currentServerRecord, normalized.createdAt || Date.now());
+      const keepUploadedAt = Number(currentServerRecord.uploadedAt || normalized.serverUploadedAt || payload.uploadedAt || Date.now());
+      const finalName = buildUniqueMergedName(normalized.name || currentServerRecord.name || payload.name, serverMergedFilesCache, {
+        excludeServerKey: currentServerRecord.serverKey,
+        excludeMergeEntryId: normalized.mergeEntryId
+      });
+      const finalPayload = {
+        ...currentServerRecord,
+        ...payload,
+        id: finalName,
+        name: finalName,
+        signature: sig,
+        createdAt: keepCreatedAt,
+        uploadedAt: keepUploadedAt,
+        updatedAt: Date.now(),
+        autoSynced: true
+      };
+
+      await ref.child(currentServerRecord.serverKey).update(finalPayload);
+      importedPdfFiles[index] = normalizeMergedEntry({
+        ...normalized,
+        name: finalName,
+        createdAt: keepCreatedAt,
+        mergeServerKey: currentServerRecord.serverKey,
+        serverUploadedAt: keepUploadedAt,
+        signature: sig
+      });
+      persistMergeBoxEntries();
+      await refreshServerMergedFiles({ silent:true });
+      renderImportedPdfList();
+      if(!silent) showToast('تم تحديث ملف الدمج على السيرفر تلقائياً ✅');
+      return true;
+    }
+
+    const sameExact = serverMergedFilesCache.find(file =>
+      String(file.signature || buildMergedEntrySignatureFromItems(file.items || [])) === sig
+    );
+
+    if(sameExact){
+      importedPdfFiles[index] = normalizeMergedEntry({
+        ...normalized,
+        name: String(sameExact.id || sameExact.name || normalized.name || autoMainMergeBoxName()).trim(),
+        createdAt: getMergedServerCreatedAt(sameExact, normalized.createdAt || Date.now()),
+        mergeServerKey: sameExact.serverKey,
+        serverUploadedAt: Number(sameExact.uploadedAt || normalized.serverUploadedAt || Date.now()),
+        signature: sig
+      });
+      persistMergeBoxEntries();
+      await refreshServerMergedFiles({ silent:true });
+      renderImportedPdfList();
+      if(!silent) showToast('ملف الدمج موجود بالسيرفر وتم ربطه تلقائياً ✅');
+      return true;
+    }
+
+    const finalName = buildUniqueMergedName(payload.name, serverMergedFilesCache, {
+      excludeServerKey: normalized.mergeServerKey,
+      excludeMergeEntryId: normalized.mergeEntryId
+    });
+    const finalPayload = {
+      ...payload,
+      id: finalName,
+      name: finalName,
+      signature: sig,
+      createdAt: getMergedServerCreatedAt(normalized, payload.createdAt || Date.now()),
+      updatedAt: Date.now(),
+      autoSynced: true
+    };
+
+    const newRef = ref.push();
+    await newRef.set(finalPayload);
+    importedPdfFiles[index] = normalizeMergedEntry({
+      ...normalized,
+      name: finalName,
+      createdAt: finalPayload.createdAt,
+      mergeServerKey: newRef.key,
+      serverUploadedAt: finalPayload.uploadedAt,
+      signature: sig
+    });
+    persistMergeBoxEntries();
+    await refreshServerMergedFiles({ silent:true });
+    renderImportedPdfList();
+    if(!silent) showToast('تم رفع ملف الدمج إلى السيرفر تلقائياً ✅');
+    return true;
+  }catch(err){
+    console.error('auto sync merged entry error:', err);
+    if(!silent) showToast('تعذر مزامنة ملف الدمج تلقائياً ❌', true);
+    return false;
+  }
+}
+
 async function importMergedEntriesFromServer(){
   if(!isMainAdmin()){
     showToast('استيراد ملفات السيرفر متاح للأدمن الرئيسي فقط ❌', true);
@@ -8307,6 +8621,7 @@ function pushMergedEntryToMergeBox(mergedItems, customName){
   importedPdfFiles.unshift(entry);
   persistMergeBoxEntries();
   renderImportedPdfList();
+  assalScheduleMergedEntryAutoServerSyncById(entry.mergeEntryId, { delay: 550, silent: false, reason: 'merge_created' });
   return entry;
 }
 
@@ -8408,8 +8723,8 @@ function applyRoleUI(){
 
   if(localImportBtn){
     localImportBtn.style.display = isMainAdmin() ? "grid" : "none";
-    localImportBtn.title = "استيراد محلي (Excel/CSV)";
-    localImportBtn.innerHTML = '<i class="fa-solid fa-file-excel"></i>';
+    localImportBtn.title = "استيراد ملف محلي Excel/CSV";
+    localImportBtn.innerHTML = '<i class="fa-solid fa-file-arrow-down"></i>';
   }
 
   if(importBtnWrap){
@@ -8582,7 +8897,12 @@ function applyLoggedUserUI(){
   if(typeof renderImportedPdfList === "function"){
     renderImportedPdfList();
   }
-  refreshServerInvoicesForRole({ silent:true });
+  if(isMainAdmin()){
+    assalBootstrapMainAdminLocalInvoicesToServer({ silent:true })
+      .catch(err => console.error('ASSAL main admin startup sync error:', err));
+  }else{
+    refreshServerInvoicesForRole({ silent:true });
+  }
   refreshServerMergedFiles({ silent:true });
   assalInitRealtimeModules();
 }
@@ -9169,6 +9489,13 @@ function validateItemFields(ctx="add"){
   if(existingIndex !== -1){
     currentInvoice = invoices[existingIndex];
     selectedInvoiceIndex = existingIndex;
+    if(isMainAdmin()){
+      assalEnsureMainAdminLocalSyncMeta(currentInvoice, { touch:false });
+      persistInvoices();
+      assalSyncMainAdminLocalInvoiceRecord(currentInvoice, 'invoice_opened_existing', { source:'new_invoice_existing' }, { touch:false })
+        .then(ok => { if(ok){ persistInvoices(); renderInvoicesDropdown(); } })
+        .catch(err => console.error('ASSAL existing main admin invoice sync error:', err));
+    }
     showToast("فاتورة اليوم موجودة، تم تحميلها ✅");
   } else {
     // ماكو فاتورة اليوم بالاسم الافتراضي ⇒ أنشئ واحدة جديدة
@@ -9179,6 +9506,12 @@ function validateItemFields(ctx="add"){
     }
     invoices.push(currentInvoice);
     selectedInvoiceIndex = invoices.length - 1;
+    persistInvoices();
+    if(isMainAdmin()){
+      assalSyncMainAdminLocalInvoiceRecord(currentInvoice, 'invoice_created', { source:'new_invoice' }, { touch:false })
+        .then(ok => { if(ok){ persistInvoices(); renderInvoicesDropdown(); } })
+        .catch(err => console.error('ASSAL new main admin invoice sync error:', err));
+    }
     showToast("تم إنشاء فاتورة جديدة ✅");
   }
 
@@ -9443,6 +9776,7 @@ async function confirmRenameInvoice(){
       }
       persistMergeBoxEntries();
       renderImportedPdfList();
+      assalScheduleMergedEntryAutoServerSyncById(entry.mergeEntryId, { delay: 500, silent: true, reason: 'merge_renamed' });
       closeRenameInvoiceModal();
       showToast("تم تحديث اسم الملف المدموج ✅");
       return;
@@ -9522,6 +9856,14 @@ function renameEscEnterHandler(e){
       if(!currentInvoice) return;
       stampInvoiceOwner(currentInvoice);
       assalNormalizeInvoiceOwner(currentInvoice);
+      if(currentInvoice.__fromMergeBox && currentInvoice.__mergedEntryId){
+        syncCurrentInvoiceToOpenedMergeEntry();
+        assalScheduleCurrentOpenedMergeAutoSync({ delay: 420, silent: true, reason: 'merge_saved' });
+        renderImportedPdfList();
+        assalRenderChatState();
+        showToast("تم حفظ ملف الدمج وتحديثه تلقائياً 💾");
+        return;
+      }
       if(assalIsMainAdminLocalInvoice(currentInvoice)){
         assalEnsureMainAdminLocalSyncMeta(currentInvoice, { touch:true });
       }
@@ -9542,6 +9884,7 @@ function renameEscEnterHandler(e){
       }
       persistInvoices();
       syncCurrentInvoiceToOpenedMergeEntry();
+      assalScheduleCurrentOpenedMergeAutoSync({ delay: 520, silent: true, reason: 'save_invoice' });
       renderInvoicesDropdown();
       assalRenderChatState();
       assalAfterInvoicePersisted("invoice_saved", {});
@@ -9554,6 +9897,13 @@ function renameEscEnterHandler(e){
   if(!currentInvoice) return;
   stampInvoiceOwner(currentInvoice);
   assalNormalizeInvoiceOwner(currentInvoice);
+  if(currentInvoice.__fromMergeBox && currentInvoice.__mergedEntryId){
+    syncCurrentInvoiceToOpenedMergeEntry();
+    assalScheduleCurrentOpenedMergeAutoSync({ delay: 420, silent: true, reason: action || 'merge_auto_saved' });
+    renderImportedPdfList();
+    assalRenderChatState();
+    return;
+  }
   if(assalIsMainAdminLocalInvoice(currentInvoice)){
     assalEnsureMainAdminLocalSyncMeta(currentInvoice, { touch:true });
   }
@@ -9573,6 +9923,7 @@ function renameEscEnterHandler(e){
   }
   persistInvoices();
   syncCurrentInvoiceToOpenedMergeEntry();
+  assalScheduleCurrentOpenedMergeAutoSync({ delay: 520, silent: true, reason: action || 'auto_save_invoice' });
   renderInvoicesDropdown();
   assalRenderChatState();
   assalAfterInvoicePersisted(action, details || {}, options || {});
@@ -9990,7 +10341,7 @@ function loadLocalServerInvoiceArchive(i, ev){
         ? 'مرفوع للسيرفر'
         : 'ملف مدموج محفوظ محليًا';
       const uploadBtn = isMainAdmin() ? `
-          <button class="btn-rename-custom server-upload-btn ${String(entry.mergeServerKey || '').trim() ? "is-sent" : ""}" title="رفع للسيرفر" onclick="uploadMergedEntryToServer(${i}, event)">
+          <button class="btn-rename-custom server-upload-btn ${String(entry.mergeServerKey || '').trim() ? "is-sent" : ""}" title="رفع/إعادة مزامنة للسيرفر" onclick="uploadMergedEntryToServer(${i}, event)">
             <i class="fa-solid fa-cloud-arrow-up"></i>
           </button>
       ` : '';
