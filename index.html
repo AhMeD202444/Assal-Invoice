@@ -8477,9 +8477,94 @@ function repairSidebarSelectionState(validKeys = null){
     : "";
 }
 
+
+
+/* =========================================================
+   ASSAL FINAL • Preserve sidebar selection scroll
+   يحفظ سكرول الصفحة + السكرول الداخلي لخانات الفواتير أثناء التحديد/إلغاء التحديد
+   حتى لا تصعد القائمة إلى البداية بعد إعادة الرسم.
+   ========================================================= */
+function assalCaptureSidebarSelectionScrollState(){
+  const state = {
+    winX: 0,
+    winY: 0,
+    wrapTop: 0,
+    wrapLeft: 0,
+    sections: []
+  };
+
+  try{
+    state.winX = window.scrollX || window.pageXOffset || 0;
+    state.winY = window.scrollY || window.pageYOffset || 0;
+
+    const wrap = document.getElementById('invoicesDropdown');
+    if(wrap){
+      state.wrapTop = wrap.scrollTop || 0;
+      state.wrapLeft = wrap.scrollLeft || 0;
+    }
+
+    document.querySelectorAll('#sidebar .invoice-section-scroll').forEach((el, idx)=>{
+      state.sections.push({
+        idx,
+        label: el.getAttribute('aria-label') || '',
+        cls: el.className || '',
+        top: el.scrollTop || 0,
+        left: el.scrollLeft || 0
+      });
+    });
+  }catch(err){
+    console.warn('ASSAL sidebar scroll capture warning:', err);
+  }
+
+  return state;
+}
+
+function assalRestoreSidebarSelectionScrollState(state){
+  if(!state) return;
+
+  const restoreOnce = ()=>{
+    try{
+      const wrap = document.getElementById('invoicesDropdown');
+      if(wrap){
+        wrap.scrollTop = Number(state.wrapTop || 0);
+        wrap.scrollLeft = Number(state.wrapLeft || 0);
+      }
+
+      const sections = Array.from(document.querySelectorAll('#sidebar .invoice-section-scroll'));
+      (state.sections || []).forEach(saved=>{
+        let target = sections.find((el)=>{
+          return (el.getAttribute('aria-label') || '') === (saved.label || '')
+            && String(el.className || '') === String(saved.cls || '');
+        });
+
+        if(!target && typeof saved.idx === 'number'){
+          target = sections[saved.idx] || null;
+        }
+
+        if(target){
+          target.scrollTop = Number(saved.top || 0);
+          target.scrollLeft = Number(saved.left || 0);
+        }
+      });
+
+      window.scrollTo(Number(state.winX || 0), Number(state.winY || 0));
+    }catch(err){
+      console.warn('ASSAL sidebar scroll restore warning:', err);
+    }
+  };
+
+  requestAnimationFrame(()=>{
+    restoreOnce();
+    requestAnimationFrame(restoreOnce);
+    setTimeout(restoreOnce, 70);
+  });
+}
+
 function toggleSidebarSelection(key){
   key = String(key || '').trim();
   if(!key) return;
+
+  const __assalSidebarSelectionScrollState = assalCaptureSidebarSelectionScrollState();
 
   if(selectedSidebarInvoiceKeys.has(key)){
     selectedSidebarInvoiceKeys.delete(key);
@@ -8492,14 +8577,19 @@ function toggleSidebarSelection(key){
 
   repairSidebarSelectionState();
   renderInvoicesDropdown();
+  assalRestoreSidebarSelectionScrollState(__assalSidebarSelectionScrollState);
 }
 
 function clearSidebarSelections(options = {}){
   if(!selectedSidebarInvoiceKeys.size && !selectedSidebarInvoiceKeyOrder.length && !lastSelectedSidebarInvoiceKey) return;
+  const __assalSidebarSelectionScrollState = assalCaptureSidebarSelectionScrollState();
   selectedSidebarInvoiceKeys.clear();
   selectedSidebarInvoiceKeyOrder = [];
   lastSelectedSidebarInvoiceKey = "";
-  if(options.render !== false) renderInvoicesDropdown();
+  if(options.render !== false){
+    renderInvoicesDropdown();
+    assalRestoreSidebarSelectionScrollState(__assalSidebarSelectionScrollState);
+  }
 }
 
 function mergeSelectedSidebarInvoicesInline(ev){
