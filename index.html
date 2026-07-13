@@ -4443,6 +4443,8 @@ body{
     let selectedMergeBoxKeys = new Set();                                  // ملفات خانة الدمج المحددة بضغط مطول
     let selectedMergeBoxKeyOrder = [];                                      // ترتيب التحديد حتى يظهر زر الدمج على آخر ملف محدد فعلاً
     let lastSelectedMergeBoxKey = "";                                      // آخر ملف تم تحديده في خانة الدمج
+    let selectedUnifiedMergeKeyOrder = [];                                  // ترتيب موحد لكل التحديدات: فواتير السايدبار + خانة الدمج
+    let lastSelectedUnifiedMergeKey = "";                                  // آخر عنصر محدد من أي خانة حتى يظهر زر الدمج عليه فقط
     let serverInvoicesCache = [];                                          // فواتير السيرفر
     let serverInvoicesLoaded = false;                                      // هل تم تحميل فواتير السيرفر؟
     let serverMergedFilesCache = [];                                       // ملفات الدمج المرفوعة للسيرفر
@@ -8478,6 +8480,96 @@ function repairSidebarSelectionState(validKeys = null){
 }
 
 
+/* =========================================================
+   ASSAL FINAL • Unified merge selection across all invoice boxes
+   تحديد موحد للدمج: فواتير الأدمن/السيرفر + ملفات خانة الدمج
+   لا يغيّر منطق الدمج؛ فقط يوحد التحديد وموضع زر الدمج الأيقوني.
+   ========================================================= */
+function assalUnifiedMergeKey(type, key){
+  return `${String(type || '').trim()}:${String(key || '').trim()}`;
+}
+
+function assalUnifiedKeyStillSelected(globalKey){
+  const raw = String(globalKey || '');
+  if(raw.startsWith('sidebar:')){
+    return selectedSidebarInvoiceKeys.has(raw.slice('sidebar:'.length));
+  }
+  if(raw.startsWith('mergebox:')){
+    return selectedMergeBoxKeys.has(raw.slice('mergebox:'.length));
+  }
+  return false;
+}
+
+function assalRepairUnifiedSelectionState(){
+  selectedUnifiedMergeKeyOrder = (Array.isArray(selectedUnifiedMergeKeyOrder) ? selectedUnifiedMergeKeyOrder : [])
+    .filter(key => assalUnifiedKeyStillSelected(key));
+
+  for(const key of Array.from(selectedSidebarInvoiceKeys || [])){
+    const g = assalUnifiedMergeKey('sidebar', key);
+    if(!selectedUnifiedMergeKeyOrder.includes(g)) selectedUnifiedMergeKeyOrder.push(g);
+  }
+
+  for(const key of Array.from(selectedMergeBoxKeys || [])){
+    const g = assalUnifiedMergeKey('mergebox', key);
+    if(!selectedUnifiedMergeKeyOrder.includes(g)) selectedUnifiedMergeKeyOrder.push(g);
+  }
+
+  lastSelectedUnifiedMergeKey = selectedUnifiedMergeKeyOrder.length
+    ? selectedUnifiedMergeKeyOrder[selectedUnifiedMergeKeyOrder.length - 1]
+    : '';
+}
+
+function assalUnifiedSelectionCount(){
+  return Number(selectedSidebarInvoiceKeys?.size || 0) + Number(selectedMergeBoxKeys?.size || 0);
+}
+
+function assalHasAnyUnifiedSelection(){
+  return assalUnifiedSelectionCount() > 0;
+}
+
+function assalSyncUnifiedSelection(type, key, isSelected){
+  const globalKey = assalUnifiedMergeKey(type, key);
+  selectedUnifiedMergeKeyOrder = (Array.isArray(selectedUnifiedMergeKeyOrder) ? selectedUnifiedMergeKeyOrder : [])
+    .filter(x => x !== globalKey);
+  if(isSelected) selectedUnifiedMergeKeyOrder.push(globalKey);
+  assalRepairUnifiedSelectionState();
+}
+
+function assalRemoveUnifiedSelectionsByType(type){
+  const prefix = `${String(type || '').trim()}:`;
+  selectedUnifiedMergeKeyOrder = (Array.isArray(selectedUnifiedMergeKeyOrder) ? selectedUnifiedMergeKeyOrder : [])
+    .filter(x => !String(x || '').startsWith(prefix));
+  assalRepairUnifiedSelectionState();
+}
+
+function assalIsLastUnifiedSelection(type, key){
+  assalRepairUnifiedSelectionState();
+  return lastSelectedUnifiedMergeKey === assalUnifiedMergeKey(type, key);
+}
+
+function assalClearAllMergeSelections(options = {}){
+  const needRender = options.render !== false;
+  const scrollState = options.keepScroll === false ? null : assalCaptureSidebarSelectionScrollState?.();
+
+  selectedSidebarInvoiceKeys.clear();
+  selectedSidebarInvoiceKeyOrder = [];
+  lastSelectedSidebarInvoiceKey = '';
+
+  selectedMergeBoxKeys.clear();
+  selectedMergeBoxKeyOrder = [];
+  lastSelectedMergeBoxKey = '';
+
+  selectedUnifiedMergeKeyOrder = [];
+  lastSelectedUnifiedMergeKey = '';
+
+  if(needRender){
+    renderInvoicesDropdown?.();
+    renderImportedPdfList?.();
+    if(scrollState) assalRestoreSidebarSelectionScrollState?.(scrollState);
+  }
+}
+
+
 
 /* =========================================================
    ASSAL FINAL • Preserve sidebar selection scroll
@@ -8503,7 +8595,7 @@ function assalCaptureSidebarSelectionScrollState(){
       state.wrapLeft = wrap.scrollLeft || 0;
     }
 
-    document.querySelectorAll('#sidebar .invoice-section-scroll').forEach((el, idx)=>{
+    document.querySelectorAll('#sidebar .invoice-section-scroll, #importedPdfList').forEach((el, idx)=>{
       state.sections.push({
         idx,
         label: el.getAttribute('aria-label') || '',
@@ -8530,7 +8622,7 @@ function assalRestoreSidebarSelectionScrollState(state){
         wrap.scrollLeft = Number(state.wrapLeft || 0);
       }
 
-      const sections = Array.from(document.querySelectorAll('#sidebar .invoice-section-scroll'));
+      const sections = Array.from(document.querySelectorAll('#sidebar .invoice-section-scroll, #importedPdfList'));
       (state.sections || []).forEach(saved=>{
         let target = sections.find((el)=>{
           return (el.getAttribute('aria-label') || '') === (saved.label || '')
@@ -8565,18 +8657,23 @@ function toggleSidebarSelection(key){
   if(!key) return;
 
   const __assalSidebarSelectionScrollState = assalCaptureSidebarSelectionScrollState();
+  let isSelectedNow = false;
 
   if(selectedSidebarInvoiceKeys.has(key)){
     selectedSidebarInvoiceKeys.delete(key);
     selectedSidebarInvoiceKeyOrder = selectedSidebarInvoiceKeyOrder.filter(x => x !== key);
+    isSelectedNow = false;
   }else{
     selectedSidebarInvoiceKeys.add(key);
     selectedSidebarInvoiceKeyOrder = selectedSidebarInvoiceKeyOrder.filter(x => x !== key);
     selectedSidebarInvoiceKeyOrder.push(key); // آخر فاتورة اختارها المستخدم فعلياً
+    isSelectedNow = true;
   }
 
   repairSidebarSelectionState();
+  assalSyncUnifiedSelection('sidebar', key, isSelectedNow);
   renderInvoicesDropdown();
+  renderImportedPdfList();
   assalRestoreSidebarSelectionScrollState(__assalSidebarSelectionScrollState);
 }
 
@@ -8586,8 +8683,10 @@ function clearSidebarSelections(options = {}){
   selectedSidebarInvoiceKeys.clear();
   selectedSidebarInvoiceKeyOrder = [];
   lastSelectedSidebarInvoiceKey = "";
+  assalRemoveUnifiedSelectionsByType('sidebar');
   if(options.render !== false){
     renderInvoicesDropdown();
+    renderImportedPdfList();
     assalRestoreSidebarSelectionScrollState(__assalSidebarSelectionScrollState);
   }
 }
@@ -8595,11 +8694,11 @@ function clearSidebarSelections(options = {}){
 function mergeSelectedSidebarInvoicesInline(ev){
   ev?.preventDefault?.();
   ev?.stopPropagation?.();
-  if(selectedSidebarInvoiceKeys.size < 2){
+  if(assalUnifiedSelectionCount() < 2){
     showToast('حدد فاتورتين أو أكثر بضغط مطول أولاً ❌', true);
     return;
   }
-  document.getElementById('btnMergeInstant')?.click();
+  mergeSelectedFromAllInvoiceBoxes(ev);
 }
 
 function bindLongPressRow(row, options = {}){
@@ -8941,14 +9040,401 @@ function runFakeMergeProgress(label){
   });
 }
 
+
+function getLocalServerInvoiceSelectKey(inv, fallbackIndex = null){
+  const serverKey = String(inv?.serverKey || inv?.__serverKey || '').trim();
+  const localKey = String(inv?.localKey || '').trim();
+  return `local-server:${serverKey || localKey || fallbackIndex || 0}`;
+}
+
+function collectSelectedSidebarInvoicesForMerge(){
+  const chosen = [];
+  const seen = new Set();
+  const pushInv = (inv, sourceKey)=>{
+    if(!inv) return;
+    const stable = String(sourceKey || inv.serverKey || inv.__serverKey || inv.localKey || inv.id || '').trim();
+    const itemKey = stable || JSON.stringify(inv.items || []);
+    if(seen.has(itemKey)) return;
+    seen.add(itemKey);
+    chosen.push(inv);
+  };
+
+  if(Array.isArray(invoices)){
+    invoices.forEach((inv, idx)=>{
+      const localKey = getLocalInvoiceSelectKey(inv, idx);
+      const localServerKey = getLocalServerInvoiceSelectKey(inv, idx);
+      if(selectedSidebarInvoiceKeys.has(localKey)) pushInv(inv, localKey);
+      if(selectedSidebarInvoiceKeys.has(localServerKey)) pushInv(inv, localServerKey);
+    });
+  }
+
+  if(Array.isArray(serverInvoicesCache)){
+    serverInvoicesCache.forEach(inv=>{
+      const key = `server:${String(inv?.serverKey || '').trim()}`;
+      if(selectedSidebarInvoiceKeys.has(key)) pushInv(inv, key);
+    });
+  }
+
+  return chosen;
+}
+
+
+/* =========================================================
+   ASSAL FINAL • Delete original selected sources after successful merge
+   حذف أصول الدمج فقط بعد نجاح إنشاء الناتج الجديد، كل عنصر من مصدره الصحيح.
+   ========================================================= */
+function collectSelectedUnifiedMergeSourcesForMerge(){
+  assalRepairUnifiedSelectionState();
+  repairSidebarSelectionState();
+  repairMergeBoxSelectionState();
+
+  const sidebarMap = new Map();
+  const addSidebarSource = (key, inv, sourceType, index = null)=>{
+    key = String(key || '').trim();
+    if(!key || !inv) return;
+    const serverKey = String(inv?.serverKey || inv?.__serverKey || '').trim();
+    const localKey = String(inv?.localKey || '').trim();
+    sidebarMap.set(key, {
+      kind: 'sidebar',
+      sourceType,
+      key,
+      inv,
+      index,
+      serverKey,
+      localKey
+    });
+  };
+
+  if(Array.isArray(invoices)){
+    invoices.forEach((inv, idx)=>{
+      addSidebarSource(getLocalInvoiceSelectKey(inv, idx), inv, 'local', idx);
+      addSidebarSource(getLocalServerInvoiceSelectKey(inv, idx), inv, 'local-server', idx);
+    });
+  }
+
+  if(Array.isArray(serverInvoicesCache)){
+    serverInvoicesCache.forEach(inv=>{
+      const serverKey = String(inv?.serverKey || inv?.__serverKey || '').trim();
+      if(serverKey) addSidebarSource(`server:${serverKey}`, inv, 'server', null);
+    });
+  }
+
+  const mergeBoxMap = new Map();
+  if(Array.isArray(importedPdfFiles)){
+    importedPdfFiles.forEach((entry, index)=>{
+      const key = getMergeBoxSelectKey(entry, index);
+      mergeBoxMap.set(key, {
+        kind: 'mergebox',
+        key,
+        entry,
+        entryRef: entry,
+        index,
+        mergeEntryId: String(entry?.mergeEntryId || '').trim(),
+        mergeServerKey: String(entry?.mergeServerKey || '').trim()
+      });
+    });
+  }
+
+  const sources = [];
+  const seen = new Set();
+  const sourceStableKey = (src)=>{
+    if(!src) return '';
+    if(src.kind === 'sidebar'){
+      if(src.serverKey) return `invoice-server:${src.serverKey}`;
+      if(src.localKey) return `invoice-local:${src.localKey}`;
+      return `invoice-key:${src.key}`;
+    }
+    if(src.kind === 'mergebox'){
+      if(src.mergeEntryId) return `merge-entry:${src.mergeEntryId}`;
+      if(src.mergeServerKey) return `merge-server:${src.mergeServerKey}`;
+      return `merge-key:${src.key}`;
+    }
+    return '';
+  };
+
+  const addGlobal = (globalKey)=>{
+    const raw = String(globalKey || '');
+    let src = null;
+    if(raw.startsWith('sidebar:')){
+      const key = raw.slice('sidebar:'.length);
+      if(selectedSidebarInvoiceKeys.has(key)) src = sidebarMap.get(key) || null;
+    }else if(raw.startsWith('mergebox:')){
+      const key = raw.slice('mergebox:'.length);
+      if(selectedMergeBoxKeys.has(key)) src = mergeBoxMap.get(key) || null;
+    }
+    if(!src) return;
+    const stable = sourceStableKey(src);
+    if(stable && seen.has(stable)) return;
+    if(stable) seen.add(stable);
+    sources.push(src);
+  };
+
+  (Array.isArray(selectedUnifiedMergeKeyOrder) ? selectedUnifiedMergeKeyOrder : []).forEach(addGlobal);
+
+  // احتياط: إذا كانت أكو مفاتيح محددة وما داخلة بالترتيب الموحد لأي سبب.
+  Array.from(selectedSidebarInvoiceKeys || []).forEach(key => addGlobal(assalUnifiedMergeKey('sidebar', key)));
+  Array.from(selectedMergeBoxKeys || []).forEach(key => addGlobal(assalUnifiedMergeKey('mergebox', key)));
+
+  return sources;
+}
+
+async function assalDeleteMergedOriginalSourcesAfterSuccess(sources, options = {}){
+  const selectedSources = Array.isArray(sources) ? sources.filter(Boolean) : [];
+  const result = { deletedLocal:0, deletedServer:0, deletedMerge:0, failed:0 };
+  if(!selectedSources.length) return result;
+
+  const scrollState = options.keepScroll === false ? null : assalCaptureSidebarSelectionScrollState?.();
+  const serverInvoiceKeys = new Set();
+  const localInvoiceKeys = new Set();
+  const localInvoiceServerKeys = new Set();
+  const mergeServerKeys = new Set();
+  const mergeEntryIds = new Set();
+  const mergeSelectedKeys = new Set();
+  const mergeEntryRefs = new Set();
+
+  selectedSources.forEach(src=>{
+    if(src.kind === 'sidebar'){
+      const inv = src.inv || {};
+      const serverKey = String(src.serverKey || inv.serverKey || inv.__serverKey || '').trim();
+      const localKey = String(src.localKey || inv.localKey || '').trim();
+
+      if(localKey) localInvoiceKeys.add(localKey);
+      if(serverKey) localInvoiceServerKeys.add(serverKey);
+
+      // إذا العنصر مختار من السيرفر أو أرشيف سيرفر أو فاتورة أدمن محلية متزامنة، نحذف نسخة السيرفر أيضاً.
+      if(serverKey && (src.sourceType === 'server' || src.sourceType === 'local-server' || assalIsMainAdminLocalInvoice(inv))){
+        serverInvoiceKeys.add(serverKey);
+      }
+    }else if(src.kind === 'mergebox'){
+      if(src.entryRef) mergeEntryRefs.add(src.entryRef);
+      if(src.mergeEntryId) mergeEntryIds.add(src.mergeEntryId);
+      if(src.mergeServerKey) mergeServerKeys.add(src.mergeServerKey);
+      if(src.key) mergeSelectedKeys.add(src.key);
+    }
+  });
+
+  // 1) حذف فواتير السيرفر أولاً حتى لا ترجع عند الاستيراد/المزامنة.
+  if(serverInvoiceKeys.size){
+    const ref = getServerInvoicesRef?.();
+    for(const serverKey of Array.from(serverInvoiceKeys)){
+      try{
+        const notifySource = selectedSources.find(src => src.kind === 'sidebar' && String(src.serverKey || src.inv?.serverKey || src.inv?.__serverKey || '') === serverKey);
+        const notifyInv = notifySource?.inv || serverInvoicesCache.find(inv => String(inv.serverKey || inv.__serverKey || '') === serverKey) || null;
+        if(notifyInv){
+          try{
+            notifyInv.serverKey = serverKey;
+            assalNotifyInvoiceChange?.('invoice_deleted', notifyInv, { invoiceName: notifyInv.id || '' }, { force:true });
+          }catch(_){ }
+        }
+        if(ref) await ref.child(serverKey).remove();
+        serverInvoicesCache = (Array.isArray(serverInvoicesCache) ? serverInvoicesCache : [])
+          .filter(inv => String(inv.serverKey || inv.__serverKey || '') !== serverKey);
+        result.deletedServer += 1;
+      }catch(err){
+        result.failed += 1;
+        console.warn('ASSAL merge source server invoice delete warning:', err);
+      }
+    }
+  }
+
+  // 2) حذف ملفات الدمج من السيرفر إذا كانت مرفوعة.
+  if(mergeServerKeys.size){
+    for(const mergeServerKey of Array.from(mergeServerKeys)){
+      try{
+        await deleteMergedServerFile(mergeServerKey);
+      }catch(err){
+        result.failed += 1;
+        console.warn('ASSAL merge source server merge-file delete warning:', err);
+      }
+    }
+  }
+
+  // 3) حذف الفواتير المحلية/أرشيف السيرفر المحلي.
+  let localChanged = false;
+  let currentInvoiceWasRemoved = false;
+  if(Array.isArray(invoices) && (localInvoiceKeys.size || localInvoiceServerKeys.size)){
+    for(let idx = invoices.length - 1; idx >= 0; idx--){
+      const inv = invoices[idx];
+      const localKey = String(inv?.localKey || '').trim();
+      const serverKey = String(inv?.serverKey || inv?.__serverKey || '').trim();
+      const shouldDelete = (localKey && localInvoiceKeys.has(localKey)) || (serverKey && localInvoiceServerKeys.has(serverKey));
+      if(!shouldDelete) continue;
+
+      if(currentInvoice === inv || (currentInvoice && serverKey && String(currentInvoice.serverKey || currentInvoice.__serverKey || '') === serverKey)){
+        currentInvoiceWasRemoved = true;
+      }
+      invoices.splice(idx, 1);
+      localChanged = true;
+      result.deletedLocal += 1;
+    }
+  }
+
+  if(localChanged){
+    persistInvoices();
+    if(currentInvoiceWasRemoved){
+      currentInvoice = null;
+      selectedInvoiceIndex = null;
+      const invoiceIdEl = document.getElementById('invoiceId');
+      if(invoiceIdEl) invoiceIdEl.textContent = '-';
+      renderItems?.();
+    }else if(currentInvoice){
+      const newIdx = invoices.indexOf(currentInvoice);
+      selectedInvoiceIndex = newIdx >= 0 ? newIdx : selectedInvoiceIndex;
+    }
+  }
+
+  // 4) حذف عناصر خانة الدمج المحددة من المحلي، بالاعتماد على مرجع العنصر حتى لا تتأثر المفاتيح بعد إضافة الناتج الجديد في الأعلى.
+  let mergeChanged = false;
+  let openedMergeWasRemoved = false;
+  if(Array.isArray(importedPdfFiles) && (mergeEntryRefs.size || mergeEntryIds.size || mergeSelectedKeys.size || mergeServerKeys.size)){
+    for(let idx = importedPdfFiles.length - 1; idx >= 0; idx--){
+      const entry = importedPdfFiles[idx];
+      const entryId = String(entry?.mergeEntryId || '').trim();
+      const serverKey = String(entry?.mergeServerKey || '').trim();
+      const keyNow = getMergeBoxSelectKey(entry, idx);
+      const shouldDelete = mergeEntryRefs.has(entry)
+        || (entryId && mergeEntryIds.has(entryId))
+        || (serverKey && mergeServerKeys.has(serverKey))
+        || mergeSelectedKeys.has(keyNow);
+      if(!shouldDelete) continue;
+
+      if(currentInvoice?.__mergedEntryId && entryId && String(currentInvoice.__mergedEntryId) === entryId){
+        openedMergeWasRemoved = true;
+      }
+      importedPdfFiles.splice(idx, 1);
+      mergeChanged = true;
+      result.deletedMerge += 1;
+    }
+  }
+
+  if(mergeChanged){
+    persistMergeBoxEntries();
+    if(openedMergeWasRemoved){
+      currentInvoice = null;
+      selectedInvoiceIndex = null;
+      const invoiceIdEl = document.getElementById('invoiceId');
+      if(invoiceIdEl) invoiceIdEl.textContent = '-';
+      renderItems?.();
+    }
+  }
+
+  // لا نترك مفاتيح تحديد قديمة بعد حذف الأصول.
+  selectedSidebarInvoiceKeys.clear();
+  selectedSidebarInvoiceKeyOrder = [];
+  lastSelectedSidebarInvoiceKey = '';
+  selectedMergeBoxKeys.clear();
+  selectedMergeBoxKeyOrder = [];
+  lastSelectedMergeBoxKey = '';
+  selectedUnifiedMergeKeyOrder = [];
+  lastSelectedUnifiedMergeKey = '';
+
+  renderInvoicesDropdown?.();
+  renderImportedPdfList?.();
+  assalRenderChatState?.();
+  if(scrollState) assalRestoreSidebarSelectionScrollState?.(scrollState);
+
+  return result;
+}
+
+async function getSelectedUnifiedMergeRawItems(){
+  const selectedSources = collectSelectedUnifiedMergeSourcesForMerge();
+  const selectedInvoices = selectedSources.filter(src => src.kind === 'sidebar').map(src => src.inv).filter(Boolean);
+  const selectedMergeEntries = selectedSources.filter(src => src.kind === 'mergebox').map(src => src.entry).filter(Boolean);
+  const selectedSourceCount = selectedSources.length;
+
+  if(selectedSourceCount < 2){
+    showToast('حدد فاتورتين أو أكثر من أي خانة بضغط مطول أولاً ❌', true);
+    return null;
+  }
+
+  const invoiceItems = selectedInvoices.flatMap(inv => Array.isArray(inv.items) ? inv.items : []).map(it => ({
+    category: String(it.category || '').trim(),
+    item: String(it.name || it.item || '').trim(),
+    qty: String(it.qty || '').trim(),
+    note: String(it.note || '').trim()
+  })).filter(it => it.item.length);
+
+  const mergeBoxArrays = await Promise.all(selectedMergeEntries.map(importedEntryToItems));
+  const mergeBoxItems = mergeBoxArrays.flat().map(it => ({
+    category: String(it.category || '').trim(),
+    item: String(it.item || it.name || '').trim(),
+    qty: String(it.qty || '').trim(),
+    note: String(it.note || '').trim()
+  })).filter(it => it.item.length);
+
+  return {
+    sourceCount: selectedSourceCount,
+    sources: selectedSources,
+    rawItems: [...invoiceItems, ...mergeBoxItems]
+  };
+}
+
+async function mergeSelectedFromAllInvoiceBoxes(ev){
+  ev?.preventDefault?.();
+  ev?.stopPropagation?.();
+
+  try{
+    const selected = await getSelectedUnifiedMergeRawItems();
+    if(!selected) return;
+
+    const rawItems = selected.rawItems || [];
+    if(!rawItems.length){
+      showToast('الفواتير المحددة لا تحتوي مواد صالحة للدمج ❌', true);
+      return;
+    }
+
+    const group = new Map();
+    for(const it of rawItems){
+      const k = `${(it.category||'').toLowerCase()}||${(it.item||it.name||'').toLowerCase()}||${(it.note||'').toLowerCase()}`;
+      group.set(k, (group.get(k) || 0) + 1);
+    }
+    const dupCount = Array.from(group.values()).filter(c => c > 1).length;
+
+    const proceed = async ()=>{
+      const merged = mergeByMaxQuantity(rawItems).map(it => ({
+        category: String(it.category || '').trim(),
+        name: String(it.item || it.name || '').trim(),
+        qty: String(it.qty || '').trim(),
+        note: String(it.note || '').trim()
+      }));
+
+      const exists = findLocalMergedDuplicateByItems(merged);
+      if(exists){
+        showToast('هذا الملف مدمج مسبقاً');
+        assalClearAllMergeSelections({ render:true });
+        return;
+      }
+
+      await runFakeMergeProgress('جاري دمج الفواتير المحددة...');
+      const pushed = pushMergedEntryToMergeBox(merged, autoMainMergeBoxName());
+      if(pushed?.duplicate){
+        showToast('هذا الملف مدمج مسبقاً');
+        assalClearAllMergeSelections({ render:true });
+        return;
+      }
+
+      const cleanupResult = await assalDeleteMergedOriginalSourcesAfterSuccess(selected.sources || [], { keepScroll:true });
+      if(cleanupResult?.failed){
+        showToast('تم الدمج، لكن تعذر حذف بعض الملفات الأصلية من السيرفر ❌', true);
+      }else{
+        showToast('تم الدمج وحذف الملفات الأصلية، وبقي الملف الجديد فقط ✅');
+      }
+    };
+
+    if(dupCount > 0){
+      openMergeConfirmModal(dupCount, proceed);
+      return;
+    }
+
+    await proceed();
+  }catch(err){
+    console.error('unified selected merge error:', err);
+    showToast('فشل دمج الفواتير المحددة ❌', true);
+  }
+}
+
 function getSelectedServerInvoicesForMerge(){
-  const chosenLocal = isMainAdmin()
-    ? invoices.filter(inv => selectedSidebarInvoiceKeys.has(getLocalInvoiceSelectKey(inv)))
-    : [];
-
-  const chosenServer = serverInvoicesCache.filter(inv => selectedSidebarInvoiceKeys.has(`server:${inv.serverKey}`));
-  const chosen = [...chosenLocal, ...chosenServer];
-
+  const chosen = collectSelectedSidebarInvoicesForMerge();
   if(chosen.length < 2){
     showToast('حدد فاتورتين أو أكثر بضغط مطول أولاً ❌', true);
     return null;
@@ -10337,7 +10823,7 @@ function renameEscEnterHandler(e){
     const row = document.createElement("div");
     const selectKey = getLocalInvoiceSelectKey(inv, i);
     const isSidebarSelected = isMainAdmin() && selectedSidebarInvoiceKeys.has(selectKey);
-    const showSidebarInlineMerge = isSidebarSelected && selectedSidebarInvoiceKeys.size >= 2 && lastSelectedSidebarInvoiceKey === selectKey;
+    const showSidebarInlineMerge = isSidebarSelected && assalUnifiedSelectionCount() >= 2 && assalIsLastUnifiedSelection('sidebar', selectKey);
     row.className = `invoice-chip ${isSidebarSelected ? "is-selected" : ""}`.trim();
 
     let actionsHtml = showSidebarInlineMerge ? `
@@ -10393,7 +10879,7 @@ function renameEscEnterHandler(e){
       bindLongPressRow(row, {
         onLongPress: ()=> toggleSidebarSelection(selectKey),
         onClick: ()=>{
-          if(selectedSidebarInvoiceKeys.size){
+          if(assalHasAnyUnifiedSelection()){
             toggleSidebarSelection(selectKey);
             return;
           }
@@ -10414,7 +10900,7 @@ function renameEscEnterHandler(e){
     const selectKey = `local-server:${serverKey || inv.localKey || i}`;
     const row = document.createElement("div");
     const isSidebarSelected = selectedSidebarInvoiceKeys.has(selectKey);
-    const showSidebarInlineMerge = isSidebarSelected && selectedSidebarInvoiceKeys.size >= 2 && lastSelectedSidebarInvoiceKey === selectKey;
+    const showSidebarInlineMerge = isSidebarSelected && assalUnifiedSelectionCount() >= 2 && assalIsLastUnifiedSelection('sidebar', selectKey);
     const inlineMergeBtn = showSidebarInlineMerge ? `
           <button class="icon-btn instant-merge-btn sidebar-merge-selected-inline-btn" title="دمج الفواتير المحددة" aria-label="دمج الفواتير المحددة" onclick="mergeSelectedSidebarInvoicesInline(event)">
             <i class="fa-solid fa-layer-group"></i>
@@ -10449,7 +10935,7 @@ function renameEscEnterHandler(e){
     bindLongPressRow(row, {
       onLongPress: ()=> toggleSidebarSelection(selectKey),
       onClick: ()=>{
-        if(selectedSidebarInvoiceKeys.size){
+        if(assalHasAnyUnifiedSelection()){
           toggleSidebarSelection(selectKey);
           return;
         }
@@ -10464,7 +10950,7 @@ function renameEscEnterHandler(e){
     const row = document.createElement("div");
     const selectKey = `server:${inv.serverKey}`;
     const isSidebarSelected = selectedSidebarInvoiceKeys.has(selectKey);
-    const showSidebarInlineMerge = isSidebarSelected && selectedSidebarInvoiceKeys.size >= 2 && lastSelectedSidebarInvoiceKey === selectKey;
+    const showSidebarInlineMerge = isSidebarSelected && assalUnifiedSelectionCount() >= 2 && assalIsLastUnifiedSelection('sidebar', selectKey);
     const inlineMergeBtn = showSidebarInlineMerge ? `
           <button class="icon-btn instant-merge-btn sidebar-merge-selected-inline-btn" title="دمج الفواتير المحددة" aria-label="دمج الفواتير المحددة" onclick="mergeSelectedSidebarInvoicesInline(event)">
             <i class="fa-solid fa-layer-group"></i>
@@ -10492,7 +10978,7 @@ function renameEscEnterHandler(e){
     bindLongPressRow(row, {
       onLongPress: ()=> toggleSidebarSelection(selectKey),
       onClick: ()=>{
-        if(selectedSidebarInvoiceKeys.size){
+        if(assalHasAnyUnifiedSelection()){
           toggleSidebarSelection(selectKey);
           return;
         }
@@ -10724,14 +11210,21 @@ function repairMergeBoxSelectionState(){
   lastSelectedMergeBoxKey = selectedMergeBoxKeyOrder.length
     ? selectedMergeBoxKeyOrder[selectedMergeBoxKeyOrder.length - 1]
     : "";
+  assalRepairUnifiedSelectionState();
 }
 
 function clearMergeBoxSelections(options = {}){
   if(!selectedMergeBoxKeys.size && !lastSelectedMergeBoxKey && !selectedMergeBoxKeyOrder.length) return;
+  const __assalSelectionScrollState = assalCaptureSidebarSelectionScrollState?.();
   selectedMergeBoxKeys.clear();
   selectedMergeBoxKeyOrder = [];
   lastSelectedMergeBoxKey = "";
-  if(options.render !== false) renderImportedPdfList();
+  assalRemoveUnifiedSelectionsByType('mergebox');
+  if(options.render !== false){
+    renderImportedPdfList();
+    renderInvoicesDropdown?.();
+    if(__assalSelectionScrollState) assalRestoreSidebarSelectionScrollState?.(__assalSelectionScrollState);
+  }
 }
 
 function toggleMergeBoxSelection(index, ev){
@@ -10740,18 +11233,25 @@ function toggleMergeBoxSelection(index, ev){
   const entry = importedPdfFiles[index];
   if(!entry) return;
   const key = getMergeBoxSelectKey(entry, index);
+  const __assalSelectionScrollState = assalCaptureSidebarSelectionScrollState?.();
+  let isSelectedNow = false;
 
   if(selectedMergeBoxKeys.has(key)){
     selectedMergeBoxKeys.delete(key);
     selectedMergeBoxKeyOrder = selectedMergeBoxKeyOrder.filter(x => x !== key);
+    isSelectedNow = false;
   }else{
     selectedMergeBoxKeys.add(key);
     selectedMergeBoxKeyOrder = selectedMergeBoxKeyOrder.filter(x => x !== key);
     selectedMergeBoxKeyOrder.push(key); // هذا هو آخر ملف اختاره المستخدم فعلاً
+    isSelectedNow = true;
   }
 
   repairMergeBoxSelectionState();
+  assalSyncUnifiedSelection('mergebox', key, isSelectedNow);
   renderImportedPdfList();
+  renderInvoicesDropdown?.();
+  if(__assalSelectionScrollState) assalRestoreSidebarSelectionScrollState?.(__assalSelectionScrollState);
 }
 
 function getSelectedMergeBoxEntries(){
@@ -10764,65 +11264,11 @@ function getSelectedMergeBoxEntries(){
 async function mergeSelectedMergeBoxEntries(ev){
   ev?.preventDefault?.();
   ev?.stopPropagation?.();
-  const selected = getSelectedMergeBoxEntries();
-  if(selected.length < 2){
-    showToast('حدد ملفين أو أكثر من خانة الدمج أولاً ❌', true);
+  if(assalUnifiedSelectionCount() < 2){
+    showToast('حدد فاتورتين أو أكثر من أي خانة أولاً ❌', true);
     return;
   }
-
-  try{
-    const entries = selected.map(x => x.entry);
-    const arrays = await Promise.all(entries.map(importedEntryToItems));
-    let items = arrays.flat().filter(it => String(it.item || it.name || '').trim().length);
-    if(!items.length){
-      showToast('الملفات المحددة لا تحتوي مواد صالحة للدمج ❌', true);
-      return;
-    }
-
-    const group = new Map();
-    for(const it of items){
-      const k = `${(it.category||'').toLowerCase()}||${(it.item||it.name||'').toLowerCase()}||${(it.note||'').toLowerCase()}`;
-      group.set(k, (group.get(k) || 0) + 1);
-    }
-    const dupCount = Array.from(group.values()).filter(c => c > 1).length;
-
-    const proceed = async ()=>{
-      const mergedRaw = mergeByMaxQuantity(items);
-      const normalizedMerged = mergedRaw.map(it => ({
-        category: String(it.category || '').trim(),
-        name: String(it.item || it.name || '').trim(),
-        qty: String(it.qty || '').trim(),
-        note: String(it.note || '').trim()
-      }));
-
-      if(findLocalMergedDuplicateByItems(normalizedMerged)){
-        showToast('هذا الملف مدمج مسبقاً');
-        clearMergeBoxSelections();
-        return;
-      }
-
-      await runFakeMergeProgress('جاري دمج الملفات المحددة...');
-      clearMergeBoxSelections({ render:false });
-      const pushed = pushMergedEntryToMergeBox(normalizedMerged, autoMainMergeBoxName());
-      if(pushed?.duplicate){
-        showToast('هذا الملف مدمج مسبقاً');
-        renderImportedPdfList();
-        return;
-      }
-      renderImportedPdfList();
-      showToast('تم دمج الملفات المحددة وظهرت النتيجة داخل خانة دمج ✅');
-    };
-
-    if(dupCount > 0){
-      openMergeConfirmModal(dupCount, proceed);
-      return;
-    }
-
-    await proceed();
-  }catch(err){
-    console.error('merge selected merge-box entries error:', err);
-    showToast('فشل دمج الملفات المحددة ❌', true);
-  }
+  await mergeSelectedFromAllInvoiceBoxes(ev);
 }
 
         // ===== قائمة ملفات PDF المستوردة في الـ Aside المستقل =====
@@ -10850,6 +11296,7 @@ async function mergeSelectedMergeBoxEntries(ev){
     selectedMergeBoxKeys.clear();
     selectedMergeBoxKeyOrder = [];
     lastSelectedMergeBoxKey = "";
+    assalRemoveUnifiedSelectionsByType('mergebox');
     const empty = document.createElement("div");
     empty.className = "chip-meta";
     empty.style.color = "var(--muted)";
@@ -10865,7 +11312,7 @@ async function mergeSelectedMergeBoxEntries(ev){
     const row = document.createElement("div");
     const selectKey = getMergeBoxSelectKey(entry, i);
     const isSelected = selectedMergeBoxKeys.has(selectKey);
-    const showInlineMerge = isSelected && selectedMergeBoxKeys.size >= 2 && lastSelectedMergeBoxKey === selectKey;
+    const showInlineMerge = isSelected && assalUnifiedSelectionCount() >= 2 && assalIsLastUnifiedSelection('mergebox', selectKey);
     row.className = `invoice-chip ${isSelected ? "is-selected" : ""}`.trim();
 
     if(isMergedImportEntry(entry)){
@@ -10903,7 +11350,7 @@ async function mergeSelectedMergeBoxEntries(ev){
       bindLongPressRow(row, {
         onLongPress: (e)=> toggleMergeBoxSelection(i, e),
         onClick: (e)=>{
-          if(selectedMergeBoxKeys.size){
+          if(assalHasAnyUnifiedSelection()){
             toggleMergeBoxSelection(i, e);
           }else{
             openImportedMergedEntry(i, e);
@@ -10933,7 +11380,7 @@ async function mergeSelectedMergeBoxEntries(ev){
       bindLongPressRow(row, {
         onLongPress: (e)=> toggleMergeBoxSelection(i, e),
         onClick: (e)=>{
-          if(selectedMergeBoxKeys.size){
+          if(assalHasAnyUnifiedSelection()){
             toggleMergeBoxSelection(i, e);
           }
         }
@@ -12790,64 +13237,8 @@ document.getElementById("btnCommand")?.addEventListener("click", palOpen);
     
     
     
-    document.getElementById("btnMergeInstant")?.addEventListener("click", async ()=>{
-  const selectedInvoices = getSelectedServerInvoicesForMerge();
-  if(!selectedInvoices) return;
-
-  const rawItems = selectedInvoices.flatMap(inv => Array.isArray(inv.items) ? inv.items : []).map(it => ({
-    category: String(it.category || '').trim(),
-    item: String(it.name || it.item || '').trim(),
-    qty: String(it.qty || '').trim(),
-    note: String(it.note || '').trim()
-  })).filter(it => it.item.length);
-
-  if(!rawItems.length){
-    showToast("الفواتير المحددة لا تحتوي مواد صالحة للدمج ❌", true);
-    return;
-  }
-
-  const group = new Map();
-  for(const it of rawItems){
-    const k = `${(it.category||'').toLowerCase()}||${(it.item||'').toLowerCase()}||${(it.note||'').toLowerCase()}`;
-    group.set(k, (group.get(k) || 0) + 1);
-  }
-  const dupCount = Array.from(group.values()).filter(c => c > 1).length;
-
-  const proceed = async ()=>{
-    const merged = mergeByMaxQuantity(rawItems).map(it => ({
-      category: String(it.category || '').trim(),
-      name: String(it.item || it.name || '').trim(),
-      qty: String(it.qty || '').trim(),
-      note: String(it.note || '').trim()
-    }));
-
-    const exists = findLocalMergedDuplicateByItems(merged);
-    if(exists){
-      showToast('هذا الملف مدمج مسبقاً');
-      clearSidebarSelections({ render:false });
-      renderInvoicesDropdown();
-      return;
-    }
-
-    await runFakeMergeProgress('جاري دمج فواتير السيرفر...');
-    const pushed = pushMergedEntryToMergeBox(merged, autoMainMergeBoxName());
-    if(pushed?.duplicate){
-      showToast('هذا الملف مدمج مسبقاً');
-      clearSidebarSelections({ render:false });
-      renderInvoicesDropdown();
-      return;
-    }
-    clearSidebarSelections({ render:false });
-    renderInvoicesDropdown();
-    showToast('تم الدمج وظهر الملف داخل خانة دمج ✅');
-  };
-
-  if(dupCount > 0){
-    openMergeConfirmModal(dupCount, proceed);
-    return;
-  }
-
-  await proceed();
+    document.getElementById("btnMergeInstant")?.addEventListener("click", async (ev)=>{
+  await mergeSelectedFromAllInvoiceBoxes(ev);
 });
 
     // ✅ ربط زر الاستيراد لفتح مُلتقط الملفات
