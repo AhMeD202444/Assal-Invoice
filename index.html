@@ -6483,6 +6483,25 @@ function assalNormalizeMainAdminServerInvoiceToLocal(inv = {}, serverKey = ''){
   return localInv;
 }
 
+function assalShouldKeepNewerMainAdminLocalInvoice(localInv = {}, incomingInv = {}, options = {}){
+  if(options.force === true) return false;
+
+  const localUpdated = assalInvoiceSortTime(localInv);
+  const incomingUpdated = assalInvoiceSortTime(incomingInv);
+  const localItems = Array.isArray(localInv?.items) ? localInv.items : [];
+  const incomingItems = Array.isArray(incomingInv?.items) ? incomingInv.items : [];
+
+  // المصدر المحلي هو الأساس إذا كان أحدث. هذا يمنع صدى Firebase القديم
+  // من إعادة فاتورة الأدمن الرئيسية إلى نسخة فارغة بعد إضافة آيتم وحفظه محلياً.
+  if(localUpdated > incomingUpdated) return true;
+
+  // حماية تعادل الوقت: بعض تحديثات Firebase قد تصل بنفس الطابع الزمني تقريباً،
+  // فلا نسمح لنسخة فارغة أن تمسح نسخة محلية تحتوي آيتمات إلا إذا كانت أحدث فعلياً.
+  if(localUpdated === incomingUpdated && localItems.length > 0 && incomingItems.length === 0) return true;
+
+  return false;
+}
+
 function upsertMainAdminLocalServerInvoice(inv = {}, options = {}){
   if(!isMainAdmin() || !assalIsMainAdminLocalServerInvoice(inv)) return -1;
   const key = String(inv.serverKey || inv.__serverKey || options.serverKey || '').trim();
@@ -6492,14 +6511,20 @@ function upsertMainAdminLocalServerInvoice(inv = {}, options = {}){
   const idx = findLocalInvoiceIndexByServerKey(key);
 
   if(idx !== -1){
-    const oldLocalKey = invoices[idx]?.localKey || normalized.localKey;
-    const oldUpdated = assalInvoiceSortTime(invoices[idx]);
-    const newUpdated = assalInvoiceSortTime(normalized);
-    if(!options.force && oldUpdated > newUpdated) return idx;
+    const existing = invoices[idx] || {};
+    const oldLocalKey = existing.localKey || normalized.localKey;
+
+    if(assalShouldKeepNewerMainAdminLocalInvoice(existing, normalized, options)){
+      // لا نعتبرها عملية تغيير، ونبقي المرجع المفتوح مرتبطاً بالنسخة المحلية الأحدث.
+      if(selectedInvoiceIndex === idx && currentInvoice !== existing){
+        currentInvoice = existing;
+      }
+      return idx;
+    }
 
     const wasSelected = selectedInvoiceIndex === idx;
     invoices[idx] = {
-      ...invoices[idx],
+      ...existing,
       ...normalized,
       localKey: oldLocalKey || normalized.localKey,
       localServerArchive: false,
@@ -6532,7 +6557,7 @@ function syncMainAdminLocalServerInvoicesToLocal(list = []){
       return;
     }
 
-    const idx = upsertMainAdminLocalServerInvoice(inv, { force:true });
+    const idx = upsertMainAdminLocalServerInvoice(inv, { force:false });
     if(idx !== -1) changed += 1;
   });
 
@@ -7167,6 +7192,23 @@ function assalTryApplyIncomingToOpenedInvoice(incoming = {}, options = {}){
     assalServerInvoicesPendingCurrent = incoming;
     clearTimeout(assalServerInvoicesPendingTimer);
     assalServerInvoicesPendingTimer = setTimeout(()=> assalApplyPendingOpenedServerInvoice(1), 900);
+    return false;
+  }
+
+  // حماية خاصة لفاتورة الأدمن الرئيسية المحلية المفتوحة:
+  // لا نسمح لنسخة سيرفر أقدم (أو فارغة بنفس الوقت) أن تستبدل النسخة المحلية الأحدث.
+  // هذا هو المسار الذي كان يعيد فاتورة اليوم إلى صفر آيتم بعد الخروج والرجوع.
+  const incomingIsMainLocal = isMainAdmin() && (
+    assalIsMainAdminLocalServerInvoice(incoming) ||
+    currentInvoice.mainAdminLocal === true ||
+    currentInvoice.__mainAdminLocal === true ||
+    currentInvoice.serverLocalType === 'main_admin_local'
+  );
+  if(incomingIsMainLocal && assalShouldKeepNewerMainAdminLocalInvoice(currentInvoice, incoming, options)){
+    // أعد رفع النسخة المحلية نفسها بدون تغيير وقتها، حتى يتعافى سجل السيرفر القديم.
+    Promise.resolve(
+      assalSyncMainAdminLocalInvoiceRecord(currentInvoice, 'invoice_updated', { source:'protect_local_newer' }, { touch:false })
+    ).catch(err => console.error('ASSAL protect newer local invoice sync error:', err));
     return false;
   }
 
