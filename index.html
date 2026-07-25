@@ -3876,6 +3876,82 @@ body{
   100%{ box-shadow: var(--shadow); border-color: var(--stroke); }
 }
 
+
+
+/* =========================================================
+   ASSAL FINAL • Desktop-only current invoice sticky header
+   - تثبيت بطاقة "فاتورة حالية" على الحاسوب فقط
+   - عند فتح الفاتورة يبقى حقل اسم الصنف ظاهراً كاملاً تحت البطاقة
+   - الهاتف والتابلت يحتفظان بالسلوك الطبيعي السابق بدون Sticky
+   ========================================================= */
+.current-invoice-sticky-card{
+  position: static !important;
+  top: auto !important;
+}
+
+@media (min-width: 993px){
+  .current-invoice-sticky-card{
+    position: sticky !important;
+    top: calc(var(--fixed-header-h, 58px) + 10px) !important;
+    z-index: 9200 !important;
+    isolation: isolate;
+    background:
+      radial-gradient(120% 140% at 100% -20%, rgba(33,212,253,.08), transparent 48%),
+      linear-gradient(180deg, rgba(24,27,33,.98), rgba(20,23,29,.98)) !important;
+    border-color: rgba(255,255,255,.16) !important;
+    box-shadow: 0 12px 28px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.04) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
+
+/* اقتراحات الملاحظات السريعة: كتابة حرة أو اختيار جاهز */
+.note-quick-wrap{
+  position: relative;
+}
+.note-quick-suggestions{
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + 6px);
+  z-index: 9250;
+  display: none;
+  max-height: 230px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+  background: rgba(16,18,24,.985);
+  box-shadow: 0 16px 38px rgba(0,0,0,.38);
+}
+.note-quick-suggestions.show{ display: block; }
+.note-quick-suggestions li{
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #eaf0ff;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border-bottom: 1px dashed rgba(255,255,255,.08);
+}
+.note-quick-suggestions li:last-child{ border-bottom: none; }
+.note-quick-suggestions li:hover,
+.note-quick-suggestions li.active{
+  background: rgba(33,212,253,.14);
+  outline: 1px solid rgba(33,212,253,.22);
+}
+
+@media print{
+  .current-invoice-sticky-card{
+    position: static !important;
+    top: auto !important;
+    box-shadow: var(--shadow) !important;
+  }
+  .note-quick-suggestions{ display:none !important; }
+}
+
 </style>
 </head>
 <body>
@@ -4259,7 +4335,7 @@ body{
 
 
       <!-- بطاقة معلومات الفاتورة الحالية -->
-      <div class="card" style="display:flex; align-items:center; gap:12px;">
+      <div class="card current-invoice-sticky-card" id="currentInvoiceStickyHeader" style="display:flex; align-items:center; gap:12px;">
         <i class="fa-regular fa-file-lines" style="font-size:28px; color:#21d4fd;"></i>
         <div>
           <div style="font-weight:800; letter-spacing:.2px;">فاتورة حالية</div>
@@ -4337,8 +4413,9 @@ body{
        min="0" step="1" placeholder="عدد القطع" />
 
   </div>
-  <div class="ginput">
-    <input id="itemNote" class="gfield" type="text" placeholder="ملاحظات" />
+  <div class="ginput note-quick-wrap" id="itemNoteQuickWrap">
+    <input id="itemNote" class="gfield" type="text" placeholder="ملاحظات" autocomplete="off" aria-autocomplete="list" aria-controls="itemNoteQuickSuggestions" aria-expanded="false" />
+    <ul id="itemNoteQuickSuggestions" class="note-quick-suggestions" role="listbox" aria-label="اقتراحات سريعة للملاحظات"></ul>
   </div>
 </div>
 
@@ -6015,7 +6092,21 @@ function assalScrollToInvoiceCategoryAfterNewInvoice(){
       if(!isNaN(parsed)) headerH = parsed;
     }catch{}
 
-    const y = Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - headerH - 14);
+    // على الحاسوب فقط: احجز مساحة هيدر "فاتورة حالية" الثابت حتى يظهر اسم الصنف تحته كاملاً.
+    let currentStickyH = 0;
+    let stickyGap = 14;
+    if(window.matchMedia?.("(min-width: 993px)")?.matches){
+      const stickyCard = document.getElementById("currentInvoiceStickyHeader");
+      if(stickyCard){
+        currentStickyH = Math.ceil(stickyCard.getBoundingClientRect().height || stickyCard.offsetHeight || 0);
+        stickyGap = 24;
+      }
+    }
+
+    const y = Math.max(
+      0,
+      target.getBoundingClientRect().top + window.pageYOffset - headerH - currentStickyH - stickyGap
+    );
     try{
       window.scrollTo({ top: y, behavior: "smooth" });
     }catch{
@@ -13744,24 +13835,150 @@ document.getElementById("itemQty").addEventListener("keydown", function(e) {
 
     
     
-  document.getElementById("itemNote").addEventListener("keydown", function(e) {
-  if (e.key === "Enter") {
-    e.preventDefault();
+  /* =========================================================
+     ASSAL FINAL • اقتراحات سريعة للملاحظات
+     - الكتابة تبقى حرة بالكامل
+     - يمكن اختيار اقتراح بالماوس أو الأسهم ثم Enter
+     - Esc يغلق الاقتراحات بدون تنفيذ أي تغيير آخر
+     ========================================================= */
+  const ASSAL_NOTE_QUICK_OPTIONS = [
+    "مشاكل عرض وإنارة ..!*",
+    "مشاكل لمس ..!*",
+    "مشاكل شحن ..!*",
+    "مشاكل صوت ..!*",
+    "الوجبة كلها لا تعمل ..!*",
+    "مكسورة عند الاستلام ..!*",
+    "ليس هو المطلوب ..!*",
+    "خلل مصنعي في فريم الشاشة ..!*"
+  ];
+  const itemNoteInput = document.getElementById("itemNote");
+  const itemNoteQuickList = document.getElementById("itemNoteQuickSuggestions");
+  let assalNoteQuickIndex = -1;
 
-    if (!currentInvoice) {
-      showToast("⚠️ أنشئ فاتورة جديدة أولاً", "danger");
+  function assalNormalizeNoteSearch(value){
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[أإآ]/g,"ا")
+      .replace(/ة/g,"ه")
+      .replace(/ى/g,"ي")
+      .replace(/\s+/g," ")
+      .trim();
+  }
+
+  function assalCloseNoteQuickSuggestions(){
+    if(!itemNoteQuickList || !itemNoteInput) return;
+    itemNoteQuickList.classList.remove("show");
+    itemNoteQuickList.innerHTML = "";
+    itemNoteInput.setAttribute("aria-expanded","false");
+    assalNoteQuickIndex = -1;
+  }
+
+  function assalRenderNoteQuickSuggestions(){
+    if(!itemNoteQuickList || !itemNoteInput) return;
+    const query = assalNormalizeNoteSearch(itemNoteInput.value);
+    const visibleOptions = ASSAL_NOTE_QUICK_OPTIONS.filter(option =>
+      !query || assalNormalizeNoteSearch(option).includes(query)
+    );
+
+    if(!visibleOptions.length){
+      assalCloseNoteQuickSuggestions();
       return;
     }
 
-    // ✅ تحقّق سريع قبل الإضافة:
-    if(!validateItemFields("enter")) return;
-
-    addItem(); 
-    autoSaveInvoice();
-    showToast("✅ تمت إضافة المادة وحفظ الفاتورة", "success");
-    document.getElementById("searchInput").focus();
+    itemNoteQuickList.innerHTML = visibleOptions.map((option, index)=>
+      `<li role="option" data-note-index="${index}" data-note-value="${assalSafeText(option)}">${assalSafeText(option)}</li>`
+    ).join("");
+    itemNoteQuickList.classList.add("show");
+    itemNoteInput.setAttribute("aria-expanded","true");
+    assalNoteQuickIndex = -1;
   }
-});
+
+  function assalChooseNoteQuickOption(li){
+    if(!li || !itemNoteInput) return;
+    itemNoteInput.value = String(li.getAttribute("data-note-value") || li.textContent || "").trim();
+    assalCloseNoteQuickSuggestions();
+    itemNoteInput.focus();
+    try{ itemNoteInput.setSelectionRange(itemNoteInput.value.length, itemNoteInput.value.length); }catch{}
+  }
+
+  itemNoteInput?.addEventListener("focus", assalRenderNoteQuickSuggestions);
+  itemNoteInput?.addEventListener("input", assalRenderNoteQuickSuggestions);
+
+  itemNoteQuickList?.addEventListener("mousedown", (e)=>{
+    const li = e.target.closest("li[data-note-value]");
+    if(!li) return;
+    e.preventDefault();
+    assalChooseNoteQuickOption(li);
+  });
+
+  document.addEventListener("click", (e)=>{
+    if(!document.getElementById("itemNoteQuickWrap")?.contains(e.target)){
+      assalCloseNoteQuickSuggestions();
+    }
+  });
+
+  itemNoteInput?.addEventListener("keydown", function(e) {
+    const noteSuggestionsVisible = !!itemNoteQuickList?.classList.contains("show");
+    const noteItems = noteSuggestionsVisible ? Array.from(itemNoteQuickList.querySelectorAll("li")) : [];
+
+    if(noteSuggestionsVisible && (e.key === "ArrowDown" || e.key === "ArrowUp")){
+      e.preventDefault();
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      if(assalNoteQuickIndex < 0){
+        assalNoteQuickIndex = e.key === "ArrowDown" ? 0 : noteItems.length - 1;
+      }else{
+        assalNoteQuickIndex = (assalNoteQuickIndex + step + noteItems.length) % noteItems.length;
+      }
+      noteItems.forEach((li, index)=> li.classList.toggle("active", index === assalNoteQuickIndex));
+      noteItems[assalNoteQuickIndex]?.scrollIntoView({ block:"nearest" });
+      return;
+    }
+
+    if(noteSuggestionsVisible && e.key === "Escape"){
+      e.preventDefault();
+      e.stopPropagation();
+      assalCloseNoteQuickSuggestions();
+      return;
+    }
+
+    if(noteSuggestionsVisible && e.key === "Enter" && assalNoteQuickIndex >= 0){
+      e.preventDefault();
+      assalChooseNoteQuickOption(noteItems[assalNoteQuickIndex]);
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      assalCloseNoteQuickSuggestions();
+
+      if (!currentInvoice) {
+        showToast("⚠️ أنشئ فاتورة جديدة أولاً", "danger");
+        return;
+      }
+
+      // ✅ تحقّق سريع قبل الإضافة:
+      if(!validateItemFields("enter")) return;
+
+      addItem();
+      autoSaveInvoice();
+      showToast("✅ تمت إضافة المادة وحفظ الفاتورة", "success");
+      document.getElementById("searchInput").focus();
+    }
+  });
+
+  /* Esc يلغي تحديد الفواتير/ملفات الدمج فقط عندما لا تكون نافذة أو قائمة أخرى مفتوحة. */
+  document.addEventListener("keydown", (e)=>{
+    if(e.key !== "Escape" || e.defaultPrevented || !assalHasAnyUnifiedSelection?.()) return;
+
+    const visibleBlockingUi = !!document.querySelector(
+      '.auth-overlay[style*="display: flex"], .auth-overlay[style*="display:flex"], .auth-overlay.show, .sys-overlay.show, .palette-overlay.show, .assal-notify-panel.show, #catList[style*="display: block"], #autocompleteSuggestions[style*="display: block"], #itemNoteQuickSuggestions.show'
+    );
+    if(visibleBlockingUi) return;
+
+    e.preventDefault();
+    assalClearAllMergeSelections({ render:true, keepScroll:true });
+    showToast("تم إلغاء تحديد الفواتير ✅");
+  });
 
 
 
