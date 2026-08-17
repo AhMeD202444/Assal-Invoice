@@ -1908,6 +1908,16 @@ body.no-copy-ui [contenteditable="true"]{
   -webkit-user-select: none !important;
   user-select: none !important;
 }
+/* على الحاسبة فقط: السماح بتحديد النص والنسخ واللصق داخل حقول الإدخال. */
+@media (min-width:769px){
+  body.no-copy-ui input,
+  body.no-copy-ui textarea,
+  body.no-copy-ui [contenteditable="true"]{
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    -webkit-touch-callout: default !important;
+  }
+}
 .brand,
 .brand .badge,
 .brand span{
@@ -10011,7 +10021,14 @@ initAuth();
 function bindCopyGuards(){
   document.body.classList.add('no-copy-ui');
 
+  const isDesktopEditableTarget = (target)=>{
+    if(!window.matchMedia?.('(min-width: 769px)').matches) return false;
+    return !!target?.closest?.('input, textarea, [contenteditable="true"]');
+  };
+
   const blocker = (e)=>{
+    // بالحاسبة تبقى الحماية العامة، لكن الحقول تعمل كتطبيق مكتبي طبيعي.
+    if(isDesktopEditableTarget(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
   };
@@ -10023,6 +10040,7 @@ function bindCopyGuards(){
   document.addEventListener('keydown', (e)=>{
     const key = String(e.key || '').toLowerCase();
     if((e.ctrlKey || e.metaKey) && ['c','x','a','u'].includes(key)){
+      if(isDesktopEditableTarget(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
     }
