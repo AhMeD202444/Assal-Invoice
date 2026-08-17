@@ -2266,6 +2266,7 @@ body.no-copy-ui [contenteditable="true"]{
   .palette-body{
     padding: 14px 16px 18px;
     background: linear-gradient(180deg, rgba(255,255,255,.015), rgba(255,255,255,0));
+    overflow-anchor: none;
   }
 
   .group-title{
@@ -2305,6 +2306,11 @@ body.no-copy-ui [contenteditable="true"]{
     background: linear-gradient(180deg, rgba(24,29,39,.96), rgba(16,20,29,.96));
     border-color: rgba(255,255,255,.14);
     transform: translateY(-1px);
+  }
+
+  .item-row.is-keyboard-active{
+    border-color: rgba(33,212,253,.48);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 0 0 2px rgba(33,212,253,.10);
   }
 
   .item-row .chk{
@@ -14737,6 +14743,64 @@ function assalQtyChangeAction(oldQty, newQty){
   return "item_qty_changed";
 }
 
+/* تنقّل مكتبي ثابت داخل نافذة تعديل الفاتورة فقط. */
+function palVisibleRows(){
+  return Array.from(document.querySelectorAll('#palList .item-row[data-orig]'));
+}
+
+function palMarkActiveRow(row){
+  document.querySelectorAll('#palList .item-row.is-keyboard-active').forEach(el=>{
+    if(el !== row) el.classList.remove('is-keyboard-active');
+  });
+  row?.classList.add('is-keyboard-active');
+}
+
+function palScrollRowInsideList(row, behavior='auto'){
+  const list = document.getElementById('palList');
+  if(!list || !row) return;
+
+  const listRect = list.getBoundingClientRect();
+  const rowRect = row.getBoundingClientRect();
+  const topGuard = 42; // يترك مساحة لعنوان الصنف اللاصق.
+  const bottomGuard = 10;
+  let delta = 0;
+
+  if(rowRect.top < listRect.top + topGuard){
+    delta = rowRect.top - (listRect.top + topGuard);
+  }else if(rowRect.bottom > listRect.bottom - bottomGuard){
+    delta = rowRect.bottom - (listRect.bottom - bottomGuard);
+  }
+
+  if(Math.abs(delta) > 1){
+    list.scrollTo({ top: Math.max(0, list.scrollTop + delta), behavior });
+  }
+}
+
+function palFocusRowField(orig, selector='.qty', options={}){
+  const row = document.querySelector(`#palList .item-row[data-orig="${orig}"]`);
+  if(!row) return false;
+
+  __palFocus = Number(orig);
+  palMarkActiveRow(row);
+  if(options.scroll !== false) palScrollRowInsideList(row, options.behavior || 'auto');
+
+  const field = row.querySelector(selector) || row.querySelector('.qty');
+  if(!field) return false;
+  try{ field.focus({ preventScroll:true }); }catch{ field.focus(); }
+  if(options.select !== false) field.select?.();
+  return true;
+}
+
+function palAdjacentRowOrig(orig, step){
+  const rows = palVisibleRows();
+  if(!rows.length) return null;
+  const currentIndex = rows.findIndex(row=> Number(row.dataset.orig) === Number(orig));
+  if(currentIndex < 0) return Number(rows[step > 0 ? 0 : rows.length - 1].dataset.orig);
+  const nextIndex = currentIndex + step;
+  if(nextIndex < 0 || nextIndex >= rows.length) return null;
+  return Number(rows[nextIndex].dataset.orig);
+}
+
 function palRender(){
   const host = document.getElementById('palList');
   host.innerHTML = "";
@@ -14815,6 +14879,12 @@ function palRender(){
       const minusEl = row.querySelector('.qty-minus');
       const noteEl = row.querySelector('.pal-note-input');
       const delEl = row.querySelector('.del');
+
+      row.addEventListener('focusin', ()=>{
+        if(!palDesktopCategoryMode()) return;
+        __palFocus = it.orig;
+        palMarkActiveRow(row);
+      });
 
       chkEl.addEventListener('change', (e)=>{
         if(e.currentTarget.checked) __palSel.add(it.orig);
@@ -14897,6 +14967,12 @@ function palRender(){
           if(e.key === 'Enter'){
             e.preventDefault();
             saveDualQty(true);
+            if(palDesktopCategoryMode()){
+              e.stopPropagation();
+              const nextOrig = palAdjacentRowOrig(it.orig, 1);
+              if(nextOrig !== null) palFocusRowField(nextOrig, '.pal-note-input');
+              return;
+            }
             setTimeout(()=>{
               const inputs = Array.from(document.querySelectorAll('#palList .item-row .qty'));
               const idx = inputs.indexOf(qtyEl);
@@ -14926,15 +15002,38 @@ function palRender(){
         };
 
         plusEl?.addEventListener('click', (e)=>{
+          e.preventDefault();
           e.stopPropagation();
+          __palFocus = it.orig;
+          const savedTop = host.scrollTop;
           qtyEl.value = String((parseInt(qtyEl.value, 10) || 0) + 1);
           saveQty(false);
+          requestAnimationFrame(()=>{
+            host.scrollTop = savedTop;
+            palFocusRowField(it.orig, '.qty', { scroll:false });
+          });
         });
 
         minusEl?.addEventListener('click', (e)=>{
+          e.preventDefault();
           e.stopPropagation();
+          __palFocus = it.orig;
+          const savedTop = host.scrollTop;
           qtyEl.value = String(Math.max(0, (parseInt(qtyEl.value, 10) || 0) - 1));
           saveQty(false);
+          requestAnimationFrame(()=>{
+            host.scrollTop = savedTop;
+            palFocusRowField(it.orig, '.qty', { scroll:false });
+          });
+        });
+
+        [plusEl, minusEl].forEach(btn=>{
+          btn?.addEventListener('mousedown', (e)=>{
+            if(!palDesktopCategoryMode()) return;
+            e.preventDefault();
+            __palFocus = it.orig;
+            palMarkActiveRow(row);
+          });
         });
 
         qtyEl.addEventListener('change', ()=> saveQty(true));
@@ -14946,6 +15045,12 @@ function palRender(){
           if(e.key === 'Enter'){
             e.preventDefault();
             saveQty(true);
+            if(palDesktopCategoryMode()){
+              e.stopPropagation();
+              const nextOrig = palAdjacentRowOrig(it.orig, 1);
+              if(nextOrig !== null) palFocusRowField(nextOrig, '.pal-note-input');
+              return;
+            }
             setTimeout(()=>{
               const inputs = Array.from(document.querySelectorAll('#palList .item-row .qty'));
               const idx = inputs.indexOf(qtyEl);
@@ -14977,6 +15082,11 @@ function palRender(){
           if(e.key === 'Enter'){
             e.preventDefault();
             saveNote(true);
+            if(palDesktopCategoryMode()){
+              e.stopPropagation();
+              palFocusRowField(it.orig, '.qty');
+              return;
+            }
             qtyEl?.focus();
             qtyEl?.select?.();
           }
@@ -15060,23 +15170,36 @@ function palKeyHandler(e){
   // ↑↓ للتنقل بين الصفوف (يركّز على الكمية)
   if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
     e.preventDefault();
+    if(palDesktopCategoryMode()){
+      // امنع معالج سكرول الصفحة العام من تنفيذ حركة ثانية فوق حركة نافذة التعديل.
+      e.stopImmediatePropagation();
+      const rows = palVisibleRows();
+      if(!rows.length) return;
+
+      const focusedRow = e.target?.closest?.('#palList .item-row[data-orig]');
+      const currentOrig = focusedRow ? Number(focusedRow.dataset.orig) : __palFocus;
+      let targetOrig = palAdjacentRowOrig(currentOrig, e.key === 'ArrowDown' ? 1 : -1);
+      if(targetOrig === null && (currentOrig === -1 || !focusedRow)){
+        targetOrig = Number(rows[e.key === 'ArrowDown' ? 0 : rows.length - 1].dataset.orig);
+      }
+      if(targetOrig === null) return;
+
+      const sameField = e.target?.classList?.contains('pal-note-input') ? '.pal-note-input' : '.qty';
+      palFocusRowField(targetOrig, sameField);
+      return;
+    }
+
     const data = palFiltered().map(it=> it.orig);
     if(!data.length) return;
     if(__palFocus === -1) { __palFocus = data[0]; }
     else{
       const pos = data.indexOf(__palFocus);
       if(pos === -1) __palFocus = data[0];
-      else{
-        if(e.key === 'ArrowDown') __palFocus = data[Math.min(pos+1, data.length-1)];
-        else                      __palFocus = data[Math.max(pos-1, 0)];
-      }
+      else if(e.key === 'ArrowDown') __palFocus = data[Math.min(pos+1, data.length-1)];
+      else __palFocus = data[Math.max(pos-1, 0)];
     }
-    // سكول + فوكس
-    const row = document.querySelector(`.item-row[data-orig="${__palFocus}"]`);
-    if(row){
-      row.scrollIntoView({block:'nearest'});
-      row.querySelector('.qty')?.focus();
-    }
+    const row = document.querySelector(`#palList .item-row[data-orig="${__palFocus}"]`);
+    row?.querySelector('.qty')?.focus();
     return;
   }
 
@@ -15089,8 +15212,9 @@ function palKeyHandler(e){
  
   // + / - لتعديل الكمية سريعاً (على الصف المتركز)
   if(e.key === '+' || e.key === '-' ){
+    if(e.target?.closest?.('.pal-note-input, .palette-search')) return;
     if(__palFocus === -1) return;
-    const row = document.querySelector(`.item-row[data-orig="${__palFocus}"]`);
+    const row = document.querySelector(`#palList .item-row[data-orig="${__palFocus}"]`);
     const el = row?.querySelector('.qty');
     if(!el) return;
 
@@ -15224,6 +15348,8 @@ function doScroll(el, amount){
 document.addEventListener('keydown', (e)=>{
   // ديسكتوب فقط
   if(window.innerWidth < 992) return;
+  // نافذة تعديل الفاتورة تملك تنقلاً داخلياً خاصاً بها.
+  if(e.defaultPrevented || document.getElementById('paletteOverlay')?.classList.contains('show')) return;
   // لا نتدخل إذا المستخدم يكتب
   if(isTypingContext(e)) return;
 
