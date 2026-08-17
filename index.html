@@ -4099,6 +4099,42 @@ body{
   outline: 1px solid rgba(33,212,253,.22);
 }
 
+/* نوع الفاتورة — نفس تصميم قائمة الصنف، فوقها مباشرة، وديسكتوب حقيقي فقط */
+.desktop-invoice-type-control{
+  display:block;
+  width:100%;
+  margin-top:0;
+  margin-bottom:0;
+}
+/* توحيد المسافة: نوع الفاتورة ← الصنف = الصنف ← اسم المادة */
+.desktop-invoice-type-control + .category{
+  margin-top:0;
+}
+html.assal-real-mobile-device .desktop-invoice-type-control{
+  display:none !important;
+}
+.invoice-type-list{
+  z-index:9400;
+}
+.invoice-type-option{
+  padding:12px 14px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  cursor:pointer;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  color:var(--text);
+  font-weight:800;
+  transition:.15s ease;
+}
+.invoice-type-option:last-child{ border-bottom:none; }
+.invoice-type-option:hover,
+.invoice-type-option.active{
+  background:rgba(255,255,255,.10);
+  outline:1px solid var(--stroke);
+}
+.invoice-type-option i{ color:var(--brand-2); }
+
 @media print{
   .current-invoice-sticky-card{
     position: static !important;
@@ -4106,6 +4142,7 @@ body{
     box-shadow: var(--shadow) !important;
   }
   .note-quick-suggestions{ display:none !important; }
+  .desktop-invoice-type-control{ display:none !important; }
 }
 
 </style>
@@ -4517,6 +4554,24 @@ body{
 
        <div class="editor">
 
+  <!-- نوع الفاتورة: فوق الصنف مباشرة وبنفس تصميمه، ويظهر على الحاسوب فقط -->
+  <div class="category desktop-invoice-type-control" id="desktopInvoiceTypeControl" aria-label="نوع الفاتورة">
+    <div class="cat-select" id="invoiceTypeSelect">
+      <div class="cat-btn" id="invoiceTypeBtn" tabindex="-1" role="button" aria-haspopup="listbox" aria-expanded="false">
+        <span id="invoiceTypeText"><i class="fa-solid fa-file-invoice"></i> فاتورة مشتريات</span>
+        <i class="fa-solid fa-chevron-down"></i>
+      </div>
+      <div class="cat-list invoice-type-list" id="invoiceTypeList" role="listbox">
+        <div class="invoice-type-option active" data-invoice-type="purchase_invoice" role="option">
+          <i class="fa-solid fa-cart-shopping"></i> فاتورة مشتريات
+        </div>
+        <div class="invoice-type-option" data-invoice-type="purchase_return" role="option">
+          <i class="fa-solid fa-arrow-rotate-left"></i> مرتجع مشتريات
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- الصنف -->
   <div class="category">
     <!-- زر فتح القائمة -->
@@ -4726,6 +4781,8 @@ const LOCAL_MERGEBOX_PREFIX = "assal_merge_box_";
 const LEGACY_INVOICES_KEY   = "invoices";
 const SERVER_INVOICES_PATH  = "assal_server_invoices";
 const SERVER_MERGED_FILES_PATH = "assal_server_merged_files";
+const MAIN_ADMIN_DELETED_INVOICES_PATH = "assal_main_admin_deleted_invoices";
+const MAIN_ADMIN_DELETED_LOCAL_PREFIX = "assal_main_admin_deleted_local_";
 
 function hasValidFirebaseConfig(){
   return !!(
@@ -4765,6 +4822,11 @@ function getServerInvoicesRef(){
 function getServerMergedFilesRef(){
   if(!initFirebaseServices()) return null;
   return firebaseDb.ref(SERVER_MERGED_FILES_PATH);
+}
+
+function getMainAdminDeletedInvoicesRef(){
+  if(!initFirebaseServices()) return null;
+  return firebaseDb.ref(MAIN_ADMIN_DELETED_INVOICES_PATH);
 }
 
 
@@ -4911,10 +4973,11 @@ function assalInvoiceHasServerKey(inv = currentInvoice){
 
 function assalGetInvoiceSignature(inv){
   const items = Array.isArray(inv?.items) ? inv.items : [];
+  const invoiceType = String(inv?.invoiceType || 'purchase_invoice').trim();
   try{
-    if(typeof buildInvoiceItemsSignature === "function") return buildInvoiceItemsSignature(items);
+    if(typeof buildInvoiceItemsSignature === "function") return `${invoiceType}::${buildInvoiceItemsSignature(items)}`;
   }catch{}
-  return items.map(it => [it?.category,it?.name,it?.qty,it?.note].map(x=>String(x ?? "").trim()).join("|")).join("~~");
+  return `${invoiceType}::${items.map(it => [it?.category,it?.name,it?.qty,it?.note].map(x=>String(x ?? "").trim()).join("|")).join("~~")}`;
 }
 
 function assalSetInvoiceBaseline(inv = currentInvoice){
@@ -5341,6 +5404,7 @@ function assalCleanInvoiceForServer(inv){
   const payload = {
     id: String(inv?.id || formatInvoiceName()).trim(),
     date: inv?.date || new Date().toLocaleDateString("ar-EG"),
+    invoiceType: String(inv?.invoiceType || "purchase_invoice").trim(),
     items: Array.isArray(inv?.items) ? inv.items.map(it => ({
       category: String(it.category || "").trim(),
       name: String(it.name || it.item || "").trim(),
@@ -6560,6 +6624,258 @@ function persistInvoices(){
 }
 
 /* =========================================================
+   ASSAL • نوع الفاتورة (ديسكتوب فقط)
+   - الاختيار محفوظ داخل الفاتورة ومزامن مع السيرفر.
+   - لا يدخل ضمن دورة Enter الخاصة بإضافة المواد.
+   ========================================================= */
+function assalIsDesktopInvoiceTypeMode(){
+  return !assalIsRealMobileInvoiceDevice();
+}
+
+function assalIsRealMobileInvoiceDevice(){
+  const ua = String(navigator.userAgent || navigator.vendor || '').toLowerCase();
+  return !!(
+    window.AssalAndroid ||
+    /android|iphone|ipad|ipod|mobile|windows phone|opera mini|iemobile/.test(ua)
+  );
+}
+
+function assalApplyInvoiceTypeDeviceClass(){
+  document.documentElement.classList.toggle('assal-real-mobile-device', assalIsRealMobileInvoiceDevice());
+}
+
+assalApplyInvoiceTypeDeviceClass();
+
+function assalNormalizeInvoiceType(value){
+  return String(value || '').trim() === 'purchase_return' ? 'purchase_return' : 'purchase_invoice';
+}
+
+function assalInvoiceTypeMeta(inv = currentInvoice){
+  const type = assalNormalizeInvoiceType(inv?.invoiceType);
+  if(type === 'purchase_return'){
+    return {
+      type,
+      label:'مرتجع مشتريات',
+      title:'مرتجع مشتريات',
+      eyebrow:'إشعار إرجاع مشتريات',
+      description:'هذا المستند يُستخدم لتوثيق المواد المعادة إلى المورد ومتابعة كمياتها ضمن سجل المشتريات.',
+      footer:'تم توليد هذا المرتجع آلياً من نظام مكتب عسل، ويُستخدم لتوثيق ومتابعة المواد المعادة إلى المورد.',
+      pdfTitle:'PURCHASE RETURN',
+      filePrefix:'Purchase_Return'
+    };
+  }
+  return {
+    type,
+    label:'فاتورة مشتريات',
+    title:'فاتورة مشتريات',
+    eyebrow:'مستند مشتريات',
+    description:'هذا المستند يُستخدم لتوثيق المواد المشتراة من المورد ومتابعة كمياتها ضمن سجل المشتريات.',
+    footer:'تم توليد هذه الفاتورة آلياً من نظام مكتب عسل، وتُستخدم لتوثيق ومتابعة المشتريات من المورد.',
+    pdfTitle:'PURCHASE INVOICE',
+    filePrefix:'Purchase_Invoice'
+  };
+}
+
+function assalRenderDesktopInvoiceType(){
+  const control = document.getElementById('desktopInvoiceTypeControl');
+  const text = document.getElementById('invoiceTypeText');
+  if(!control || !text) return;
+  const type = assalNormalizeInvoiceType(currentInvoice?.invoiceType);
+  const meta = assalInvoiceTypeMeta({ invoiceType:type });
+  const icon = type === 'purchase_return' ? 'fa-arrow-rotate-left' : 'fa-cart-shopping';
+  text.innerHTML = `<i class="fa-solid ${icon}"></i> ${meta.label}`;
+  control.querySelectorAll('[data-invoice-type]').forEach(option => {
+    option.classList.toggle('active', option.dataset.invoiceType === type);
+    option.setAttribute('aria-selected', option.dataset.invoiceType === type ? 'true' : 'false');
+  });
+}
+
+function assalSetDesktopInvoiceType(type){
+  if(!assalIsDesktopInvoiceTypeMode()) return;
+  if(!currentInvoice){
+    showToast('افتح أو أنشئ فاتورة أولاً ❌', true);
+    return;
+  }
+  const normalized = assalNormalizeInvoiceType(type);
+  if(currentInvoice.invoiceType === normalized){
+    assalRenderDesktopInvoiceType();
+    document.getElementById('searchInput')?.focus();
+    return;
+  }
+  currentInvoice.invoiceType = normalized;
+  currentInvoice.updatedAt = Date.now();
+  autoSaveInvoice('invoice_type_changed', { invoiceType:normalized }, { force:true });
+  assalRenderDesktopInvoiceType();
+  showToast(`تم اعتماد ${assalInvoiceTypeMeta(currentInvoice).label} ✅`);
+  document.getElementById('searchInput')?.focus();
+}
+
+const assalInvoiceTypeBtn = document.getElementById('invoiceTypeBtn');
+const assalInvoiceTypeList = document.getElementById('invoiceTypeList');
+
+function assalCloseInvoiceTypeList(){
+  if(!assalInvoiceTypeList || !assalInvoiceTypeBtn) return;
+  assalInvoiceTypeList.style.display = 'none';
+  assalInvoiceTypeBtn.setAttribute('aria-expanded','false');
+}
+
+assalInvoiceTypeBtn?.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if(!assalIsDesktopInvoiceTypeMode()) return;
+  document.querySelectorAll('.cat-list').forEach(list => {
+    if(list !== assalInvoiceTypeList) list.style.display = 'none';
+  });
+  const willOpen = assalInvoiceTypeList?.style.display !== 'block';
+  if(assalInvoiceTypeList) assalInvoiceTypeList.style.display = willOpen ? 'block' : 'none';
+  assalInvoiceTypeBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+});
+
+assalInvoiceTypeList?.addEventListener('click', (e) => {
+  const option = e.target.closest('[data-invoice-type]');
+  if(!option) return;
+  e.preventDefault();
+  e.stopPropagation();
+  assalCloseInvoiceTypeList();
+  assalSetDesktopInvoiceType(option.dataset.invoiceType);
+});
+
+document.addEventListener('click', (e) => {
+  if(!document.getElementById('invoiceTypeSelect')?.contains(e.target)) assalCloseInvoiceTypeList();
+});
+
+/* سجل حذف دائم يمنع Firebase أو جهاز آخر من إعادة فاتورة الأدمن بعد حذفها. */
+function assalMainAdminDeletedStorageKey(){
+  const owner = String(currentUser?.code || 'main_admin').trim().toLowerCase();
+  return `${MAIN_ADMIN_DELETED_LOCAL_PREFIX}${owner}`;
+}
+
+function assalLoadMainAdminDeleteTombstones(){
+  try{
+    const data = JSON.parse(localStorage.getItem(assalMainAdminDeletedStorageKey()) || '{}');
+    return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+  }catch{ return {}; }
+}
+
+function assalSaveMainAdminDeleteTombstones(data = {}){
+  localStorage.setItem(assalMainAdminDeletedStorageKey(), JSON.stringify(data));
+}
+
+function assalMainAdminDeleteTokens(inv = {}){
+  const serverKey = String(inv.serverKey || inv.__serverKey || '').trim();
+  const localKey = String(inv.localKey || '').trim();
+  return [serverKey && `server:${serverKey}`, localKey && `local:${localKey}`].filter(Boolean);
+}
+
+function assalIsMainAdminInvoiceTombstoned(inv = {}){
+  const tombstones = assalLoadMainAdminDeleteTombstones();
+  return assalMainAdminDeleteTokens(inv).some(token => !!tombstones[token]);
+}
+
+function assalRememberMainAdminDeletedInvoice(inv = {}){
+  ensureInvoiceLocalKey(inv);
+  const record = {
+    serverKey: String(inv.serverKey || inv.__serverKey || '').trim(),
+    localKey: String(inv.localKey || '').trim(),
+    id: String(inv.id || '').trim(),
+    ownerCode: String(inv.ownerCode || inv.senderCode || currentUser?.code || '').trim(),
+    deletedAt: Date.now()
+  };
+  const tombstones = assalLoadMainAdminDeleteTombstones();
+  assalMainAdminDeleteTokens(record).forEach(token => { tombstones[token] = record; });
+  assalSaveMainAdminDeleteTombstones(tombstones);
+  return record;
+}
+
+function assalMergeMainAdminDeleteTombstone(record = {}){
+  if(!record || typeof record !== 'object') return;
+  const tombstones = assalLoadMainAdminDeleteTombstones();
+  assalMainAdminDeleteTokens(record).forEach(token => { tombstones[token] = record; });
+  assalSaveMainAdminDeleteTombstones(tombstones);
+}
+
+function assalDeleteMarkerKey(record = {}){
+  const raw = String(record.serverKey || record.localKey || `${record.id || 'invoice'}_${record.deletedAt || Date.now()}`);
+  return encodeURIComponent(raw).replace(/[.#$\[\]\/]/g, '_');
+}
+
+async function assalPublishMainAdminDeleteTombstone(record = {}){
+  const ref = getMainAdminDeletedInvoicesRef();
+  if(!ref) return false;
+  try{
+    await ref.child(assalDeleteMarkerKey(record)).set(record);
+    return true;
+  }catch(err){
+    console.warn('ASSAL publish delete tombstone warning:', err);
+    return false;
+  }
+}
+
+async function assalLoadSharedMainAdminDeleteTombstones(){
+  const ref = getMainAdminDeletedInvoicesRef();
+  if(!ref) return 0;
+  let count = 0;
+  try{
+    const snap = await ref.once('value');
+    snap?.forEach?.(child => {
+      const record = child.val() || {};
+      assalMergeMainAdminDeleteTombstone(record);
+      count += 1;
+    });
+  }catch(err){ console.warn('ASSAL load delete tombstones warning:', err); }
+  return count;
+}
+
+async function assalDeleteMainAdminInvoiceEverywhere(record = {}){
+  assalMergeMainAdminDeleteTombstone(record);
+  await assalPublishMainAdminDeleteTombstone(record);
+  const ref = getServerInvoicesRef();
+  if(!ref) return false;
+  const keys = new Set();
+  const directKey = String(record.serverKey || record.__serverKey || '').trim();
+  const localKey = String(record.localKey || '').trim();
+  if(directKey) keys.add(directKey);
+  try{
+    if(localKey){
+      const snap = await ref.once('value');
+      assalCollectServerInvoicesFromSnapshot(snap).forEach(inv => {
+        if(assalIsMainAdminLocalServerInvoice(inv) && String(inv.localKey || '').trim() === localKey){
+          const key = String(inv.serverKey || inv.__serverKey || '').trim();
+          if(key) keys.add(key);
+        }
+      });
+    }
+    await Promise.all([...keys].map(key => ref.child(key).remove()));
+    serverInvoicesCache = serverInvoicesCache.filter(inv => {
+      const key = String(inv.serverKey || inv.__serverKey || '').trim();
+      return !keys.has(key) && (!localKey || String(inv.localKey || '').trim() !== localKey);
+    });
+    return true;
+  }catch(err){
+    console.warn('ASSAL permanent main admin delete warning:', err);
+    return false;
+  }
+}
+
+async function assalRetryPendingMainAdminDeletes(){
+  if(!isMainAdmin()) return 0;
+  const unique = new Map();
+  Object.values(assalLoadMainAdminDeleteTombstones()).forEach(record => {
+    if(record && typeof record === 'object') unique.set(assalDeleteMarkerKey(record), record);
+  });
+  let done = 0;
+  for(const record of unique.values()) if(await assalDeleteMainAdminInvoiceEverywhere(record)) done += 1;
+  return done;
+}
+
+window.addEventListener('online', () => {
+  if(!isMainAdmin()) return;
+  assalRetryPendingMainAdminDeletes()
+    .then(() => refreshServerInvoicesForRole({ silent:true }))
+    .catch(err => console.warn('ASSAL online delete retry warning:', err));
+});
+
+/* =========================================================
    ASSAL • فواتير الأدمن المحلية المتزامنة تلقائياً
    - تخص الأدمن الرئيسي فقط.
    - تبقى ظاهرة ضمن "فواتير الأدمن المحلية" ولا تدخل في أرشيف فواتير السيرفر.
@@ -6665,6 +6981,7 @@ function assalEnsureMainAdminLocalSyncMeta(inv, options = {}){
 
 async function assalSyncMainAdminLocalInvoiceRecord(inv, action = 'invoice_updated', details = {}, options = {}){
   if(!assalIsMainAdminLocalInvoice(inv)) return false;
+  if(assalIsMainAdminInvoiceTombstoned(inv)) return false;
   const shouldTouch = options.touch !== false;
   if(!assalEnsureMainAdminLocalSyncMeta(inv, { touch: shouldTouch })) return false;
   if(!Number(inv.updatedAt || 0)) inv.updatedAt = Date.now();
@@ -6704,6 +7021,7 @@ function assalNormalizeMainAdminServerInvoiceToLocal(inv = {}, serverKey = ''){
   const localInv = {
     id: String(inv.id || inv.name || formatInvoiceName()).trim(),
     date: inv.date || new Date(uploadedAt || now).toLocaleDateString('ar-EG'),
+    invoiceType: String(inv.invoiceType || 'purchase_invoice').trim(),
     items: Array.isArray(inv.items) ? inv.items.map(it => ({
       category: String(it.category || '').trim(),
       name: String(it.name || it.item || '').trim(),
@@ -6763,6 +7081,7 @@ function assalShouldKeepNewerMainAdminLocalInvoice(localInv = {}, incomingInv = 
 
 function upsertMainAdminLocalServerInvoice(inv = {}, options = {}){
   if(!isMainAdmin() || !assalIsMainAdminLocalServerInvoice(inv)) return -1;
+  if(assalIsMainAdminInvoiceTombstoned(inv)) return -1;
   const key = String(inv.serverKey || inv.__serverKey || options.serverKey || '').trim();
   if(!key) return -1;
 
@@ -6805,8 +7124,13 @@ function syncMainAdminLocalServerInvoicesToLocal(list = []){
   let changed = 0;
   const openedKey = assalGetInvoiceServerKey(currentInvoice);
 
+  const beforeLength = invoices.length;
+  invoices = invoices.filter(inv => !assalIsMainAdminLocalInvoice(inv) || !assalIsMainAdminInvoiceTombstoned(inv));
+  if(invoices.length !== beforeLength) changed += 1;
+
   (Array.isArray(list) ? list : []).forEach(inv => {
     if(!assalIsMainAdminLocalServerInvoice(inv)) return;
+    if(assalIsMainAdminInvoiceTombstoned(inv)) return;
 
     const incomingKey = String(inv.serverKey || inv.__serverKey || '').trim();
     if(openedKey && incomingKey && incomingKey === openedKey && typeof assalIsBusyEditingInvoiceUI === 'function' && assalIsBusyEditingInvoiceUI()){
@@ -6916,6 +7240,13 @@ async function assalBootstrapMainAdminLocalInvoicesToServer(options = {}){
   let synced = 0;
 
   try{
+    // حمّل سجل الحذف المشترك أولاً، ثم امنع أي سجل محذوف من العودة أو الرفع من جديد.
+    await assalLoadSharedMainAdminDeleteTombstones();
+    const beforeDeletedCleanup = invoices.length;
+    invoices = invoices.filter(inv => !assalIsMainAdminLocalInvoice(inv) || !assalIsMainAdminInvoiceTombstoned(inv));
+    if(invoices.length !== beforeDeletedCleanup) persistInvoices();
+    await assalRetryPendingMainAdminDeletes();
+
     assalRepairMainAdminLocalInvoicesMeta({ persist:true });
 
     const ref = getServerInvoicesRef();
@@ -6939,6 +7270,7 @@ async function assalBootstrapMainAdminLocalInvoicesToServer(options = {}){
     for(const inv of (Array.isArray(invoices) ? invoices : [])){
       try{
         if(!assalIsMainAdminLocalInvoice(inv)) continue;
+        if(assalIsMainAdminInvoiceTombstoned(inv)) continue;
 
         const localKey = String(inv.localKey || '').trim();
         const serverKey = String(inv.serverKey || inv.__serverKey || '').trim();
@@ -7083,6 +7415,7 @@ function normalizeServerInvoiceToLocalArchive(inv = {}, serverKey = ''){
   const localInv = {
     id: String(inv.id || inv.name || formatInvoiceName()).trim(),
     date: inv.date || new Date(uploadedAt || Date.now()).toLocaleDateString('ar-EG'),
+    invoiceType: String(inv.invoiceType || 'purchase_invoice').trim(),
     items: Array.isArray(inv.items) ? inv.items.map(it => ({
       category: String(it.category || '').trim(),
       name: String(it.name || it.item || '').trim(),
@@ -7341,6 +7674,10 @@ function assalCollectServerInvoicesFromSnapshot(snap){
 
 function assalVisibleServerInvoicesForCurrentRole(rawList = []){
   let list = Array.isArray(rawList) ? [...rawList] : [];
+
+  if(isMainAdmin()){
+    list = list.filter(inv => !assalIsMainAdminInvoiceTombstoned(inv));
+  }
 
   // الأدمن الرئيسي: فواتيره المحلية تنجلب تلقائياً من السيرفر وتبقى ضمن قسم فواتير الأدمن المحلية.
   if(isMainAdmin()){
@@ -10610,7 +10947,9 @@ function validateItemFields(ctx="add"){
     function renderItems(){
       const tbody = document.querySelector("#itemsTable tbody");
       tbody.innerHTML = "";
+      assalRenderDesktopInvoiceType();
       if(!currentInvoice) return;
+      currentInvoice.invoiceType = assalNormalizeInvoiceType(currentInvoice.invoiceType);
 
       currentInvoice.items.forEach((it, i)=>{
         const tr = document.createElement("tr");
@@ -10674,7 +11013,7 @@ function validateItemFields(ctx="add"){
   } else {
     // ماكو فاتورة اليوم بالاسم الافتراضي ⇒ أنشئ واحدة جديدة
     const now = Date.now();
-    currentInvoice = stampInvoiceOwner({ id: defaultName, date: today, items: [], createdAt: now, updatedAt: now });
+    currentInvoice = stampInvoiceOwner({ id: defaultName, date: today, invoiceType:'purchase_invoice', items: [], createdAt: now, updatedAt: now });
     if(isMainAdmin()){
       assalEnsureMainAdminLocalSyncMeta(currentInvoice, { touch:true });
     }
@@ -10889,29 +11228,44 @@ async function confirmDeleteInvoice(ev){
 
     if(__pendingDeleteInvoiceIndex===null) return;
     const deletedLocalInvoice = invoices[__pendingDeleteInvoiceIndex];
-    const deletedMainAdminServerKey = assalIsMainAdminLocalInvoice(deletedLocalInvoice)
-      ? String(deletedLocalInvoice?.serverKey || deletedLocalInvoice?.__serverKey || '').trim()
-      : '';
+    const isDeletedMainAdminLocal = assalIsMainAdminLocalInvoice(deletedLocalInvoice);
+    const permanentDeleteRecord = isDeletedMainAdminLocal
+      ? assalRememberMainAdminDeletedInvoice(deletedLocalInvoice)
+      : null;
 
-    if(deletedMainAdminServerKey){
-      try{
-        const ref = getServerInvoicesRef();
-        await ref?.child(deletedMainAdminServerKey).remove();
-        serverInvoicesCache = serverInvoicesCache.filter(inv => String(inv.serverKey || inv.__serverKey || '') !== deletedMainAdminServerKey);
-      }catch(err){
-        console.warn('ASSAL main admin local server delete warning:', err);
-      }
-    }
-
+    // الحذف المحلي يتم أولاً حتى لا تعيده أي قراءة Firebase متأخرة أثناء العملية.
     invoices.splice(__pendingDeleteInvoiceIndex, 1);
     persistInvoices();
+
+    let deletedFromServer = false;
+    if(permanentDeleteRecord){
+      const deletedServerKey = String(permanentDeleteRecord.serverKey || '').trim();
+      const deletedLocalKey = String(permanentDeleteRecord.localKey || '').trim();
+      serverInvoicesCache = serverInvoicesCache.filter(inv => {
+        const serverKey = String(inv.serverKey || inv.__serverKey || '').trim();
+        const localKey = String(inv.localKey || '').trim();
+        return (!deletedServerKey || serverKey !== deletedServerKey) && (!deletedLocalKey || localKey !== deletedLocalKey);
+      });
+      if(assalServerInvoicesPendingCurrent && assalIsMainAdminInvoiceTombstoned(assalServerInvoicesPendingCurrent)){
+        assalServerInvoicesPendingCurrent = null;
+        clearTimeout(assalServerInvoicesPendingTimer);
+      }
+      deletedFromServer = await assalDeleteMainAdminInvoiceEverywhere(permanentDeleteRecord);
+    }
+
     currentInvoice = null;
     selectedInvoiceIndex = null;
     document.getElementById("invoiceId").textContent = "-";
     renderItems();
     renderInvoicesDropdown();
     closeDeleteInvoiceModal();
-    showToast(deletedMainAdminServerKey ? "تم حذف الفاتورة من الجهاز والسيرفر 🗑️" : "تم حذف الفاتورة 🗑️");
+    if(permanentDeleteRecord){
+      showToast(deletedFromServer
+        ? "تم حذف الفاتورة نهائياً من الجهاز والسيرفر 🗑️"
+        : "تم حذف الفاتورة، وسيكتمل حذفها من السيرفر عند عودة الاتصال 🗑️");
+    }else{
+      showToast("تم حذف الفاتورة 🗑️");
+    }
   }catch(err){
     console.error(err);
     showToast("تعذر حذف الفاتورة ❌", true);
@@ -12531,12 +12885,20 @@ function printInvoiceHTML(itemsOverride = null) {
     : (currentInvoice?.items || []);
 
   if (!currentInvoice || !printItems.length) {
-    showToast("ماكو مواد حتى نطبع فاتورة النقص / المرتجع ❌", "danger");
+    showToast("ماكو مواد حتى نطبع الفاتورة ❌", "danger");
     return;
   }
 
   const invId   = currentInvoice.id   || "";
   const invDate = currentInvoice.date || new Date().toLocaleDateString("ar-EG");
+  const typedDesktopPrint = assalIsDesktopInvoiceTypeMode();
+  const typeMeta = typedDesktopPrint ? assalInvoiceTypeMeta(currentInvoice) : {
+    label:'نقص / مرتجع مواد',
+    title:'فاتورة نقص مواد / مرتجع مواد',
+    eyebrow:'إشعار مخزني',
+    description:'هذا المستند يُستخدم لتوثيق حركات النقص أو المرتجعات من مخزون مكتب عسل تجاه المورد الرئيسي.',
+    footer:'تم توليد هذه الفاتورة آلياً من نظام مكتب عسل، وتُستخدم لأغراض فواتير النقص أو الجرد والمتابعة المحاسبية للمرتجعات.'
+  };
 
   const sortedItems = [...printItems].sort((a, b) => {
     const catA  = String(a.category || "");
@@ -12589,17 +12951,17 @@ function printInvoiceHTML(itemsOverride = null) {
                   </div>
                   <div class="inv-hero-line">
                     <span class="label">النوع:</span>
-                    <span class="value">نقص / مرتجع مواد</span>
+                    <span class="value">${escapeHtml(typeMeta.label)}</span>
                   </div>
                 </div>
               </div>
 
               <!-- عنوان الفاتورة تحت الهيدر -->
               <div class="inv-title-block">
-                <div class="inv-title-eyebrow">إشعار مخزني</div>
-                <div class="inv-title-main">فاتورة نقص مواد / مرتجع مواد</div>
+                <div class="inv-title-eyebrow">${escapeHtml(typeMeta.eyebrow)}</div>
+                <div class="inv-title-main">${escapeHtml(typeMeta.title)}</div>
                 <div class="inv-title-sub">
-                  هذا المستند يُستخدم لتوثيق حركات النقص أو المرتجعات من مخزون مكتب عسل تجاه المورد الرئيسي.
+                  ${escapeHtml(typeMeta.description)}
                 </div>
               </div>
 
@@ -12647,7 +13009,7 @@ function printInvoiceHTML(itemsOverride = null) {
                   </div>
                 </div>
                 <div class="inv-note">
-                  تم توليد هذه الفاتورة آلياً من نظام مكتب عسل، وتُستخدم لأغراض فواتير النقص او الجرد والمتابعة المحاسبية للمرتجعات.
+                  ${escapeHtml(typeMeta.footer)}
                 </div>
               </div>
 
@@ -13349,7 +13711,7 @@ function printInvoiceHTML(itemsOverride = null) {
 }
 </style>
     ${html}
-  `, `فاتورة نقص/مرتجع - ${invId || invDate}`);
+  `, `${typeMeta.title} - ${invId || invDate}`);
 }
 
 
@@ -13366,6 +13728,9 @@ function printInvoiceHTML(itemsOverride = null) {
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+  const typeMeta = assalIsDesktopInvoiceTypeMode()
+    ? assalInvoiceTypeMeta(currentInvoice)
+    : { pdfTitle:'SHORTAGE / RETURN INVOICE', filePrefix:'Invoice' };
 
   // ترتيب العناصر (Category ثم Item)
   const sortedItems = [...(currentInvoice.items || [])].sort((a, b) => {
@@ -13388,6 +13753,10 @@ function printInvoiceHTML(itemsOverride = null) {
   doc.setFontSize(12);
   doc.setTextColor(100);
   doc.text("YOUR BEST CHOICE", pageWidth / 2, 85, { align: "center" });
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.setTextColor(40, 90, 160);
+  doc.text(typeMeta.pdfTitle, pageWidth / 2, 108, { align: "center" });
 
   // Meta
   const today = new Date();
@@ -13397,8 +13766,8 @@ function printInvoiceHTML(itemsOverride = null) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(12);
   doc.setTextColor(0);
-  doc.text(`Invoice ID: ${invoiceId}`, pageWidth - 60, 120, { align: "right" });
-  doc.text(`Date: ${invoiceDate}`, 60, 120, { align: "left" });
+  doc.text(`Invoice ID: ${invoiceId}`, pageWidth - 60, 136, { align: "right" });
+  doc.text(`Date: ${invoiceDate}`, 60, 136, { align: "left" });
 
   // Table
   doc.autoTable({
@@ -13410,7 +13779,7 @@ function printInvoiceHTML(itemsOverride = null) {
       String(it.qty || ""),
       String(it.note || "")
     ]),
-    startY: 160,
+    startY: 176,
     theme: "grid",
     styles: { halign: "center", font: "helvetica", fontSize: 11 },
     headStyles: { fillColor: [40, 90, 160], textColor: [255, 255, 255], fontStyle: "bold" },
@@ -13429,7 +13798,7 @@ function printInvoiceHTML(itemsOverride = null) {
   });
 
   // ⬅️ حفظ PDF فقط (الطريقة القديمة)
-  doc.save(`Invoice_${invoiceId}.pdf`);
+  doc.save(`${typeMeta.filePrefix}_${invoiceId}.pdf`);
   showToast("تم تصدير PDF فقط ✅");
 }
 
@@ -13592,6 +13961,7 @@ const importNow = Date.now();
 const inv   = stampInvoiceOwner({
   id: formatInvoiceName(),   // نفس شكل "فاتورة الأحد - ٢٠٢٥/٠١/٠٣"
   date: today,
+  invoiceType: 'purchase_invoice',
   items: mapped,
   createdAt: importNow,
   updatedAt: importNow
