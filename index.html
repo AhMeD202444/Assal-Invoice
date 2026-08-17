@@ -104,6 +104,146 @@
   overflow: hidden;                 /* مهم: يمنع الخروج خارج الإطار */
 }
 
+/* ===== تعديل مواد الفاتورة: عنوان واضح + فلترة أفقية للأصناف ===== */
+.palette-editor-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:13px 16px 9px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  background:linear-gradient(90deg, rgba(33,212,253,.08), rgba(255,255,255,.015));
+}
+.palette-editor-icon{
+  width:38px;
+  height:38px;
+  flex:0 0 38px;
+  display:grid;
+  place-items:center;
+  border-radius:12px;
+  color:#07131a;
+  background:linear-gradient(135deg,#22d3ee,#3b82f6);
+  box-shadow:0 8px 20px rgba(34,211,238,.20);
+}
+.palette-editor-copy{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.palette-editor-copy strong{
+  color:#f8fbff;
+  font-size:15px;
+  font-weight:900;
+}
+.palette-editor-copy small{
+  color:#91a0b8;
+  font-size:11px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.palette-category-tabs{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-height:54px;
+  padding:7px 14px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  direction:rtl;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(33,212,253,.55) transparent;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  background:rgba(7,10,15,.64);
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+}
+.palette-category-item{
+  position:relative;
+  z-index:1;
+  flex:0 0 auto;
+  padding-top:10px;
+}
+.palette-category-item:hover,
+.palette-category-item.is-active{
+  z-index:4;
+}
+.palette-category-tab{
+  position:relative;
+  min-width:58px;
+  height:31px;
+  padding:0 12px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:999px;
+  background:rgba(255,255,255,.045);
+  color:#dbe6f8;
+  font-family:'Cairo',sans-serif;
+  font-size:11px;
+  font-weight:900;
+  cursor:pointer;
+  white-space:nowrap;
+  overflow:visible;
+  transition:background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+}
+.palette-category-tab:hover{
+  transform:translateY(-1px);
+  border-color:rgba(33,212,253,.42);
+  background:rgba(33,212,253,.09);
+}
+.palette-category-tab.is-active{
+  color:#06151c;
+  border-color:rgba(103,232,249,.95);
+  background:linear-gradient(135deg,#67e8f9,#22d3ee);
+  box-shadow:0 7px 17px rgba(34,211,238,.18);
+}
+.palette-category-count{
+  position:absolute;
+  top:0;
+  left:3px;
+  z-index:5;
+  min-width:20px;
+  height:20px;
+  padding:0 4px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  color:#fff;
+  background:linear-gradient(135deg,#ef4444,#b91c1c);
+  border:1px solid rgba(255,255,255,.26);
+  box-shadow:0 4px 10px rgba(220,38,38,.30);
+  font-family:'Cairo',sans-serif;
+  font-size:10px;
+  font-weight:900;
+  line-height:1;
+  box-sizing:border-box;
+  pointer-events:none;
+}
+.palette-category-item.is-active .palette-category-count{
+  color:#fff;
+  background:linear-gradient(135deg,#ef4444,#991b1b);
+  border-color:rgba(255,255,255,.48);
+}
+
+@media (max-width:520px){
+  .palette-editor-head{ padding:10px 12px 7px; }
+  .palette-editor-icon{ width:34px; height:34px; flex-basis:34px; border-radius:10px; }
+  .palette-editor-copy strong{ font-size:13px; }
+  .palette-editor-copy small{ font-size:9.5px; }
+  .palette-category-tabs{ min-height:44px; padding:6px 10px; gap:6px; }
+  .palette-category-tab{ height:30px; min-width:54px; padding:0 10px; font-size:10.5px; }
+}
+
+/* صف الأصناف والفلترة خاصان بالحاسوب فقط؛ الموبايل يبقى على عرض ALL القديم. */
+@media (max-width:768px){
+  .palette-category-tabs{
+    display:none !important;
+  }
+}
+
 .palette-top{
   display: grid;
   grid-template-columns: minmax(0,1fr) auto;  /* يسمح للبحث يتقلّص */
@@ -4088,8 +4228,8 @@ body{
   <i class="fa-solid fa-file-csv"></i>
 </button>
 
-<button class="icon-btn" id="btnCommand" title="لوحة الأوامر">
-  <i class="fa-solid fa-magnifying-glass"></i>
+<button class="icon-btn" id="btnCommand" title="تعديل مواد الفاتورة" aria-label="تعديل مواد الفاتورة">
+  <i class="fa-solid fa-pen-to-square"></i>
 </button>
 
 
@@ -4129,7 +4269,14 @@ body{
   
   
   <div id="paletteOverlay" class="palette-overlay" aria-hidden="true">
-  <div class="palette" role="dialog" aria-modal="true">
+  <div class="palette" role="dialog" aria-modal="true" aria-label="تعديل مواد الفاتورة">
+    <div class="palette-editor-head">
+      <span class="palette-editor-icon"><i class="fa-solid fa-pen-to-square"></i></span>
+      <div class="palette-editor-copy">
+        <strong>تعديل مواد الفاتورة</strong>
+        <small id="palInvoiceLabel">تعديل العدد والملاحظات والحذف حسب الصنف</small>
+      </div>
+    </div>
     <div class="palette-top">
       
       
@@ -4151,12 +4298,17 @@ body{
   <button class="btn amber icon" id="palBulkDel" title="حذف المحدد" aria-label="حذف المحدد">
     <i class="fa-regular fa-trash-can"></i>
   </button>
+  <button class="btn green icon" id="palPrintCategory" title="طباعة الصنف المختار" aria-label="طباعة الصنف المختار">
+    <i class="fa-solid fa-print"></i>
+  </button>
   <button class="btn blue icon" id="palClose" title="إغلاق" aria-label="إغلاق">
     <i class="fa-solid fa-xmark"></i>
   </button>
 </div>
 
     </div>
+
+    <div class="palette-category-tabs" id="palCategoryTabs" aria-label="فلترة مواد الفاتورة حسب الصنف"></div>
 
     <div class="palette-body" id="palList">
       <!-- يُولد ديناميكياً -->
@@ -12349,8 +12501,12 @@ function printCustom(htmlContent, title = 'فاتورة') {
 }
 
 
-function printInvoiceHTML() {
-  if (!currentInvoice || !(currentInvoice.items || []).length) {
+function printInvoiceHTML(itemsOverride = null) {
+  const printItems = Array.isArray(itemsOverride)
+    ? itemsOverride
+    : (currentInvoice?.items || []);
+
+  if (!currentInvoice || !printItems.length) {
     showToast("ماكو مواد حتى نطبع فاتورة النقص / المرتجع ❌", "danger");
     return;
   }
@@ -12358,7 +12514,7 @@ function printInvoiceHTML() {
   const invId   = currentInvoice.id   || "";
   const invDate = currentInvoice.date || new Date().toLocaleDateString("ar-EG");
 
-  const sortedItems = [...(currentInvoice.items || [])].sort((a, b) => {
+  const sortedItems = [...printItems].sort((a, b) => {
     const catA  = String(a.category || "");
     const catB  = String(b.category || "");
     const nameA = String(a.name || "");
@@ -14273,48 +14429,32 @@ let __palMap = [];          // {orig, category, name, qty, note, lockedQty, edit
 let __palSel = new Set();   // selected original indexes
 let __palFocus = -1;        // focused row for arrows
 let __palDirty = false;     // ← صار تعديل داخل لوحة الأوامر؟
+let __palCategory = "ALL";  // ALL = الوضع الحالي، أو اسم صنف محدد للفلترة والطباعة
 
 function palOpen(){
   const ov   = document.getElementById('paletteOverlay');
   const list = document.getElementById('palList');
 
   __palFilter = "";
+  __palCategory = "ALL";
   __palSel.clear();
   __palFocus = -1;
   document.getElementById('palSearch').value = "";
+  const palCategoryTabs = document.getElementById('palCategoryTabs');
+  if(palCategoryTabs) palCategoryTabs.innerHTML = '';
+  const palInvoiceLabel = document.getElementById('palInvoiceLabel');
+  if(palInvoiceLabel){
+    palInvoiceLabel.textContent = currentInvoice?.id
+      ? `الفاتورة: ${currentInvoice.id}`
+      : 'تعديل العدد والملاحظات والحذف حسب الصنف';
+  }
   
   document.getElementById('palSearch').closest('.palette-search')?.classList.remove('has-text');
 
   __palDirty = false; // ← صفّر العلم عند كل فتح
 
   if(!currentInvoice){
-    // حالة: ماكو فاتورة
-    list.innerHTML = `
-      <div class="group-title">ماكو فاتورة حالياً</div>
-      <div class="item-row" style="grid-template-columns:1fr; text-align:center;">
-        <div>إضغط <b>فاتورة جديدة</b> من الزر العائم أو من الهيدر حتى تبدي.</div>
-      </div>`;
-    ov.classList.add('show'); 
-    ov.setAttribute('aria-hidden','false');
-
-    // ⬅️ امنع سكرول وتفاعل الخلفية
-    document.body.classList.add('body-no-scroll');
-
-    // ⬅️ كتم أي لمس/تمرير خارج نافذة الأوامر
-    const swallow = (e)=>{
-      if(!e.target.closest('.palette')){
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-    ov.__swallow = swallow;
-    ov.addEventListener('wheel', swallow, { passive:false });
-    ov.addEventListener('touchmove', swallow, { passive:false });
-    ov.addEventListener('touchstart', swallow, { passive:false });
-    ov.addEventListener('pointerdown', swallow, { passive:false });
-
-    setTimeout(()=> document.getElementById('palSearch').focus(), 10);
-    document.addEventListener('keydown', palKeyHandler);
+    showToast('افتح فاتورة أولاً لتعديل موادها ✏️', true);
     return;
   }
 
@@ -14458,15 +14598,105 @@ function __norm2(s){
     .replace(/[-_.]/g,'');
 }
 
+function palCategories(){
+  const seen = new Set();
+  return (__palMap || []).reduce((out, it)=>{
+    const cat = String(it.category || 'بدون صنف').trim() || 'بدون صنف';
+    if(!seen.has(cat)){
+      seen.add(cat);
+      out.push(cat);
+    }
+    return out;
+  }, []);
+}
+
+function palDesktopCategoryMode(){
+  return !!window.matchMedia?.('(min-width: 769px)').matches;
+}
+
+function palCategoryCount(category){
+  if(category === 'ALL') return (__palMap || []).length;
+  return (__palMap || []).filter(it => String(it.category || 'بدون صنف') === category).length;
+}
+
+function palEnsureCategory(){
+  if(!palDesktopCategoryMode()){
+    __palCategory = 'ALL';
+    return;
+  }
+  if(__palCategory === 'ALL') return;
+  if(!palCategories().includes(__palCategory)) __palCategory = 'ALL';
+}
+
+function palRenderCategoryTabs(){
+  const host = document.getElementById('palCategoryTabs');
+  if(!host) return;
+
+  palEnsureCategory();
+  const categories = palCategories();
+  host.innerHTML = '';
+
+  ['ALL', ...categories].forEach(cat=>{
+    const isActive = __palCategory === cat;
+    const item = document.createElement('div');
+    item.className = `palette-category-item ${isActive ? 'is-active' : ''}`.trim();
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `palette-category-tab ${isActive ? 'is-active' : ''}`.trim();
+    const label = document.createElement('span');
+    label.className = 'palette-category-label';
+    label.textContent = cat;
+    const count = document.createElement('span');
+    count.className = 'palette-category-count';
+    count.textContent = String(palCategoryCount(cat));
+    count.setAttribute('aria-label', `${palCategoryCount(cat)} مادة`);
+    btn.append(label);
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    btn.title = cat === 'ALL' ? 'عرض وطباعة جميع الأصناف' : `عرض وطباعة صنف ${cat} فقط`;
+    btn.addEventListener('click', ()=>{
+      if(__palCategory === cat) return;
+      __palCategory = cat;
+      __palSel.clear();
+      __palFocus = -1;
+      palRender();
+    });
+    item.append(btn, count);
+    host.appendChild(item);
+  });
+}
+
 
 function palFiltered(){
   const q = __norm2(__palFilter);
-  if(!q) return __palMap;
-  return __palMap.filter(it=>
-    __norm2(it.category).includes(q) ||
-    __norm2(it.name).includes(q)     ||
-    __norm2(it.qty).includes(q)      ||
-    __norm2(it.note).includes(q));
+  return __palMap.filter(it=>{
+    const activeCategory = palDesktopCategoryMode() ? __palCategory : 'ALL';
+    const categoryMatches = activeCategory === 'ALL' || String(it.category || 'بدون صنف') === activeCategory;
+    if(!categoryMatches) return false;
+    if(!q) return true;
+    return __norm2(it.category).includes(q) ||
+      __norm2(it.name).includes(q)     ||
+      __norm2(it.qty).includes(q)      ||
+      __norm2(it.note).includes(q);
+  });
+}
+
+function palPrintSelectedCategory(){
+  if(!currentInvoice || !Array.isArray(currentInvoice.items)){
+    showToast('ماكو فاتورة حالياً حتى تنطبع ❌', true);
+    return;
+  }
+
+  const activeCategory = palDesktopCategoryMode() ? __palCategory : 'ALL';
+  const items = activeCategory === 'ALL'
+    ? [...currentInvoice.items]
+    : currentInvoice.items.filter(it => String(it.category || 'بدون صنف') === activeCategory);
+
+  if(!items.length){
+    showToast('ماكو مواد ضمن الصنف المختار حتى تنطبع ❌', true);
+    return;
+  }
+
+  printInvoiceHTML(items);
 }
 
 function palUsesAdminDualQty(){
@@ -14492,8 +14722,18 @@ function assalQtyChangeAction(oldQty, newQty){
 function palRender(){
   const host = document.getElementById('palList');
   host.innerHTML = "";
+  palRenderCategoryTabs();
   const data = palFiltered();
   const useDualQty = palUsesAdminDualQty();
+
+  if(!data.length){
+    host.innerHTML = `
+      <div class="group-title">${escapeHtml(__palCategory === 'ALL' ? 'ALL' : __palCategory)}</div>
+      <div class="item-row" style="grid-template-columns:1fr; text-align:center;">
+        <div>لا توجد مواد مطابقة ضمن الصنف المختار.</div>
+      </div>`;
+    return;
+  }
 
   const groups = new Map();
   data.forEach(it=>{
@@ -14874,6 +15114,7 @@ document.addEventListener('keydown', (e)=>{
 /* واجهة اللوحة (أزرار وأحداث) */
 document.getElementById('palClose').addEventListener('click', palClose);
 document.getElementById('palBulkDel').addEventListener('click', palBulkDelete);
+document.getElementById('palPrintCategory').addEventListener('click', palPrintSelectedCategory);
 const palSearchEl = document.getElementById('palSearch');
 const palSearchWrap = palSearchEl.closest('.palette-search');
 
