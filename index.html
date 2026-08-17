@@ -4133,6 +4133,11 @@ html.assal-real-mobile-device .desktop-invoice-type-control{
   background:rgba(255,255,255,.10);
   outline:1px solid var(--stroke);
 }
+.invoice-type-option.keyboard-active{
+  background:rgba(33,212,253,.18);
+  outline:1px solid var(--brand-2);
+  box-shadow:inset 0 0 0 1px rgba(33,212,253,.12);
+}
 .invoice-type-option i{ color:var(--brand-2); }
 
 @media print{
@@ -6690,16 +6695,17 @@ function assalRenderDesktopInvoiceType(){
   });
 }
 
-function assalSetDesktopInvoiceType(type){
+function assalSetDesktopInvoiceType(type, options = {}){
   if(!assalIsDesktopInvoiceTypeMode()) return;
   if(!currentInvoice){
     showToast('افتح أو أنشئ فاتورة أولاً ❌', true);
     return;
   }
+  const shouldFocusSearch = options.focusSearch !== false;
   const normalized = assalNormalizeInvoiceType(type);
   if(currentInvoice.invoiceType === normalized){
     assalRenderDesktopInvoiceType();
-    document.getElementById('searchInput')?.focus();
+    if(shouldFocusSearch) document.getElementById('searchInput')?.focus();
     return;
   }
   currentInvoice.invoiceType = normalized;
@@ -6707,16 +6713,46 @@ function assalSetDesktopInvoiceType(type){
   autoSaveInvoice('invoice_type_changed', { invoiceType:normalized }, { force:true });
   assalRenderDesktopInvoiceType();
   showToast(`تم اعتماد ${assalInvoiceTypeMeta(currentInvoice).label} ✅`);
-  document.getElementById('searchInput')?.focus();
+  if(shouldFocusSearch) document.getElementById('searchInput')?.focus();
 }
 
 const assalInvoiceTypeBtn = document.getElementById('invoiceTypeBtn');
 const assalInvoiceTypeList = document.getElementById('invoiceTypeList');
+let assalInvoiceTypeKeyboardIndex = -1;
+
+function assalInvoiceTypeKeyboardOptions(){
+  return assalInvoiceTypeList
+    ? Array.from(assalInvoiceTypeList.querySelectorAll('[data-invoice-type]'))
+    : [];
+}
+
+function assalHighlightInvoiceTypeKeyboardOption(index, scroll = true){
+  const options = assalInvoiceTypeKeyboardOptions();
+  if(!options.length){
+    assalInvoiceTypeKeyboardIndex = -1;
+    return;
+  }
+  const safeIndex = ((Number(index) || 0) % options.length + options.length) % options.length;
+  assalInvoiceTypeKeyboardIndex = safeIndex;
+  options.forEach((option, optionIndex) => {
+    option.classList.toggle('keyboard-active', optionIndex === safeIndex);
+  });
+  if(scroll) options[safeIndex].scrollIntoView({ block:'nearest' });
+}
+
+function assalPrepareInvoiceTypeKeyboardNavigation(){
+  const options = assalInvoiceTypeKeyboardOptions();
+  const selectedType = assalNormalizeInvoiceType(currentInvoice?.invoiceType);
+  const selectedIndex = options.findIndex(option => option.dataset.invoiceType === selectedType);
+  assalHighlightInvoiceTypeKeyboardOption(selectedIndex >= 0 ? selectedIndex : 0, false);
+}
 
 function assalCloseInvoiceTypeList(){
   if(!assalInvoiceTypeList || !assalInvoiceTypeBtn) return;
   assalInvoiceTypeList.style.display = 'none';
   assalInvoiceTypeBtn.setAttribute('aria-expanded','false');
+  assalInvoiceTypeKeyboardOptions().forEach(option => option.classList.remove('keyboard-active'));
+  assalInvoiceTypeKeyboardIndex = -1;
 }
 
 assalInvoiceTypeBtn?.addEventListener('click', (e) => {
@@ -6729,6 +6765,8 @@ assalInvoiceTypeBtn?.addEventListener('click', (e) => {
   const willOpen = assalInvoiceTypeList?.style.display !== 'block';
   if(assalInvoiceTypeList) assalInvoiceTypeList.style.display = willOpen ? 'block' : 'none';
   assalInvoiceTypeBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  if(willOpen) assalPrepareInvoiceTypeKeyboardNavigation();
+  else assalCloseInvoiceTypeList();
 });
 
 assalInvoiceTypeList?.addEventListener('click', (e) => {
@@ -6739,6 +6777,37 @@ assalInvoiceTypeList?.addEventListener('click', (e) => {
   assalCloseInvoiceTypeList();
   assalSetDesktopInvoiceType(option.dataset.invoiceType);
 });
+
+/* الأسهم وEnter تعمل فقط بعد فتح قائمة نوع الفاتورة يدوياً. */
+document.addEventListener('keydown', (e) => {
+  if(!assalInvoiceTypeList || assalInvoiceTypeList.style.display !== 'block') return;
+  if(!['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(e.key)) return;
+
+  e.preventDefault();
+  e.stopImmediatePropagation();
+
+  if(e.key === 'Escape'){
+    assalCloseInvoiceTypeList();
+    return;
+  }
+
+  const options = assalInvoiceTypeKeyboardOptions();
+  if(!options.length) return;
+
+  if(e.key === 'ArrowDown'){
+    assalHighlightInvoiceTypeKeyboardOption(assalInvoiceTypeKeyboardIndex + 1);
+    return;
+  }
+
+  if(e.key === 'ArrowUp'){
+    assalHighlightInvoiceTypeKeyboardOption(assalInvoiceTypeKeyboardIndex - 1);
+    return;
+  }
+
+  const option = options[assalInvoiceTypeKeyboardIndex] || options[0];
+  assalCloseInvoiceTypeList();
+  assalSetDesktopInvoiceType(option.dataset.invoiceType, { focusSearch:false });
+}, true);
 
 document.addEventListener('click', (e) => {
   if(!document.getElementById('invoiceTypeSelect')?.contains(e.target)) assalCloseInvoiceTypeList();
