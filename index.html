@@ -10791,6 +10791,153 @@ function validateItemFields(ctx="add"){
     function normalizeString(str){ return (str||"").replace(/\s+/g,'').toLowerCase(); }
 
     /* =========================================================
+       ASSAL INVOICE • BATTERY compatibility suggestions
+       يجمع الأسماء المتوافقة اعتماداً حصراً على Item Name و Model
+       من ورقة BATTERY، من دون تعديل بيانات Excel الأصلية.
+       ========================================================= */
+    function assalBatteryItemName(row){
+      return String(row?.["Item Name"] ?? row?.["Item"] ?? "").trim();
+    }
+
+    function assalBatteryModelParts(value){
+      const seen = new Set();
+      return String(value ?? "")
+        .split(/[\/|+,;\n\r]+/)
+        .map(part => part.trim().replace(/^\(+|\)+$/g, "").trim())
+        .filter(Boolean)
+        .filter(part => {
+          const key = part.toUpperCase().replace(/[^A-Z0-9]+/g, "");
+          if(!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    }
+
+    function assalBatteryModelKey(value){
+      return String(value ?? "").toUpperCase().replace(/[^A-Z0-9]+/g, "");
+    }
+
+    function assalBatteryCleanName(value){
+      return String(value ?? "").trim().replace(/^BATTERY\s+/i, "").trim();
+    }
+
+    function assalBatteryFormatNames(names){
+      const companies = [];
+      const byCompany = new Map();
+
+      names.forEach(rawName => {
+        const name = assalBatteryCleanName(rawName);
+        if(!name) return;
+        const parts = name.split(/\s+/);
+        const company = parts.shift() || "";
+        const companyKey = company.toUpperCase();
+        const device = parts.join(" ").trim();
+        if(!byCompany.has(companyKey)){
+          byCompany.set(companyKey, { company, devices: [], seen: new Set() });
+          companies.push(companyKey);
+        }
+        const bucket = byCompany.get(companyKey);
+        const deviceKey = normalizeString(device || company);
+        if(!bucket.seen.has(deviceKey)){
+          bucket.seen.add(deviceKey);
+          bucket.devices.push(device);
+        }
+      });
+
+      return companies.map(key => {
+        const bucket = byCompany.get(key);
+        const devices = bucket.devices.filter(Boolean);
+        return devices.length ? `${bucket.company} ${devices.join(" / ")}` : bucket.company;
+      }).join(" / ");
+    }
+
+    function assalBuildBatteryGroups(rows){
+      const source = (Array.isArray(rows) ? rows : [])
+        .map((row, index) => ({
+          row,
+          index,
+          name: assalBatteryItemName(row),
+          models: assalBatteryModelParts(row?.["Model"])
+        }))
+        .filter(entry => entry.name);
+
+      const parent = source.map((_, index) => index);
+      const find = index => {
+        while(parent[index] !== index){
+          parent[index] = parent[parent[index]];
+          index = parent[index];
+        }
+        return index;
+      };
+      const unite = (a, b) => {
+        const rootA = find(a);
+        const rootB = find(b);
+        if(rootA !== rootB) parent[rootB] = rootA;
+      };
+
+      const firstByModel = new Map();
+      source.forEach((entry, index) => {
+        entry.models.forEach(model => {
+          const key = assalBatteryModelKey(model);
+          if(firstByModel.has(key)) unite(index, firstByModel.get(key));
+          else firstByModel.set(key, index);
+        });
+      });
+
+      const components = new Map();
+      source.forEach((entry, index) => {
+        const root = find(index);
+        if(!components.has(root)) components.set(root, []);
+        components.get(root).push(entry);
+      });
+
+      return [...components.values()]
+        .sort((a, b) => a[0].index - b[0].index)
+        .map(entries => {
+          const names = [];
+          const nameKeys = new Set();
+          const models = [];
+          const modelKeys = new Set();
+
+          entries.forEach(entry => {
+            const nameKey = normalizeString(assalBatteryCleanName(entry.name));
+            if(nameKey && !nameKeys.has(nameKey)){
+              nameKeys.add(nameKey);
+              names.push(entry.name);
+            }
+            entry.models.forEach(model => {
+              const modelKey = assalBatteryModelKey(model);
+              if(modelKey && !modelKeys.has(modelKey)){
+                modelKeys.add(modelKey);
+                models.push(model);
+              }
+            });
+          });
+
+          const groupedNames = assalBatteryFormatNames(names);
+          const displayName = `BATTERY ${groupedNames}${models.length ? ` (${models.join(" | ")})` : ""}`.trim();
+          return {
+            displayName,
+            names,
+            models,
+            searchText: [displayName, ...names, ...models].join(" ")
+          };
+        });
+    }
+
+    function assalBatteryInvoiceName(value){
+      const typed = String(value ?? "").trim();
+      if(!typed) return typed;
+      const typedKey = normalizeString(typed);
+      const groups = assalBuildBatteryGroups(database?.BATTERY || []);
+      const match = groups.find(group =>
+        normalizeString(group.displayName) === typedKey ||
+        group.names.some(name => normalizeString(name) === typedKey)
+      );
+      return match ? match.displayName : typed;
+    }
+
+    /* =========================================================
        ASSAL INVOICE • LCD display-name conversion
        يحوّل حالة الشاشة القديمة في نهاية الاسم إلى الصيغة المعتمدة
        داخل الاقتراح وعند الحفظ في الفاتورة، من دون تعديل ملف Excel.
@@ -10887,9 +11034,10 @@ function validateItemFields(ctx="add"){
     }
 
     function assalInvoiceItemName(category, value){
-      return String(category || '').trim().toUpperCase() === 'LCD'
-        ? assalTransformLCDName(value)
-        : String(value ?? '').trim();
+      const normalizedCategory = String(category || '').trim().toUpperCase();
+      if(normalizedCategory === 'LCD') return assalTransformLCDName(value);
+      if(normalizedCategory === 'BATTERY') return assalBatteryInvoiceName(value);
+      return String(value ?? '').trim();
     }
     
     
@@ -10926,6 +11074,32 @@ function validateItemFields(ctx="add"){
   if(currentCategory === "NO-CATEGORY") return;
 
   const list = database[currentCategory] || [];
+
+  if(currentCategory === "BATTERY"){
+    const batteryQueryKey = assalBatteryModelKey(q);
+    const batteryGroups = assalBuildBatteryGroups(list)
+      .filter(group =>
+        normalizeString(group.searchText).includes(q) ||
+        (batteryQueryKey && assalBatteryModelKey(group.searchText).includes(batteryQueryKey))
+      );
+
+    if(batteryGroups.length > 0){
+      suggestions.style.display = "block";
+      batteryGroups.slice(0,20).forEach(group => {
+        const li = document.createElement("li");
+        li.className = "list-group-item list-group-item-action";
+        li.textContent = group.displayName;
+        li.addEventListener("click", ()=>{
+          document.getElementById("searchInput").value = group.displayName;
+          suggestions.style.display = "none";
+          document.getElementById("itemQty").focus();
+        });
+        suggestions.appendChild(li);
+      });
+    }
+    return;
+  }
+
   const filtered = list.filter(it=>{
     const originalName = it["Item Name"] || it["Item"] || "";
     const displayName = currentCategory === "LCD" ? assalTransformLCDName(originalName) : originalName;
